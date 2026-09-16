@@ -29,7 +29,7 @@ Output strictly valid JSON with this exact schema:
  * @param {string} fallbackTitle - Title extracted from HTML metadata
  * @returns {Promise<{ title: string, steps: Array<{ step_number: number, title: string, time_estimate: string, summary: string }> }>}
  */
-export async function summarizeWithLLM(rawText, fallbackTitle = 'Documentation Learning Path') {
+export async function summarizeWithLLM(rawText, fallbackTitle = 'Documentation Learning Path', customModel = null) {
   const provider = (process.env.LLM_PROVIDER || 'gemini').toLowerCase();
   const apiKey = process.env.LLM_API_KEY || process.env.GEMINI_API_KEY;
 
@@ -38,23 +38,25 @@ export async function summarizeWithLLM(rawText, fallbackTitle = 'Documentation L
   }
 
   if (provider === 'gemini') {
-    return await callGemini(rawText, fallbackTitle, apiKey);
+    return await callGemini(rawText, fallbackTitle, apiKey, customModel);
   } else if (provider === 'openai') {
-    return await callOpenAI(rawText, fallbackTitle, apiKey);
+    return await callOpenAI(rawText, fallbackTitle, apiKey, customModel);
   } else {
     // Default to Gemini
-    return await callGemini(rawText, fallbackTitle, apiKey);
+    return await callGemini(rawText, fallbackTitle, apiKey, customModel);
   }
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function callGemini(rawText, fallbackTitle, apiKey) {
+async function callGemini(rawText, fallbackTitle, apiKey, customModel = null) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
-  // Tested models in order of speed and stability
+  // Tested models in order of speed and stability; prioritizes customModel / GEMINI_MODEL if specified
   const modelsToTry = [
+    customModel,
     process.env.GEMINI_MODEL,
+    process.env.LLM_MODEL,
     'gemini-flash-lite-latest',
     'gemini-3.5-flash-lite',
     'gemini-3.6-flash',

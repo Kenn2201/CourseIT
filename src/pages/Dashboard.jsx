@@ -30,7 +30,7 @@ export default function Dashboard() {
     loadCourses();
   }, []);
 
-  const handleGenerate = async (url) => {
+  const handleGenerate = async (url, model) => {
     setIsGenerating(true);
     setGenerateError('');
 
@@ -38,7 +38,7 @@ export default function Dashboard() {
       const response = await fetch('/api/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url, model })
       });
 
       const data = await response.json();

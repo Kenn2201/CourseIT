@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => {
             req.on('end', async () => {
               try {
                 const data = JSON.parse(body || '{}');
-                const { url } = data;
+                const { url, model } = data;
 
                 if (!url) {
                   res.statusCode = 400;
@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => {
                   return;
                 }
 
-                const result = await processDocumentationUrl(url);
+                const result = await processDocumentationUrl(url, model);
 
                 res.statusCode = 200;
                 res.setHeader('Content-Type', 'application/json');

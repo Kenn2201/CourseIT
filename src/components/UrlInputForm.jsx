@@ -24,8 +24,16 @@ const GODOT_PRESETS = [
   }
 ];
 
+const MODEL_OPTIONS = [
+  { id: 'gemini-flash-lite-latest', label: 'Flash Lite (Fastest)', badge: '~0.8s' },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Lite', badge: '~0.9s' },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', badge: 'Balanced' },
+  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', badge: 'High Power' }
+];
+
 export default function UrlInputForm({ onSubmit, isLoading }) {
   const [url, setUrl] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gemini-flash-lite-latest');
   const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
@@ -45,7 +53,7 @@ export default function UrlInputForm({ onSubmit, isLoading }) {
       return;
     }
 
-    onSubmit(trimmed);
+    onSubmit(trimmed, selectedModel);
   };
 
   const handleSelectPreset = (presetUrl) => {
@@ -60,9 +68,28 @@ export default function UrlInputForm({ onSubmit, isLoading }) {
 
       <div className="relative z-10">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label htmlFor="doc-url" className="block text-sm font-medium text-slate-300">
-            Paste any documentation URL to convert into actionable steps:
-          </label>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <label htmlFor="doc-url" className="block text-sm font-medium text-slate-300">
+              Paste any documentation URL to convert into actionable steps:
+            </label>
+            
+            {/* Model Selector */}
+            <div className="flex items-center gap-1.5 self-start sm:self-auto">
+              <span className="text-xs text-slate-400 font-mono">Model:</span>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={isLoading}
+                className="bg-slate-900 border border-slate-700/80 rounded-lg text-xs font-mono text-indigo-300 px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                {MODEL_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id} className="bg-slate-900 text-slate-200">
+                    {opt.label} ({opt.badge})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">

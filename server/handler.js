@@ -8,7 +8,7 @@ import { summarizeWithLLM } from './llm.js';
  * @param {string} url - Documentation URL
  * @returns {Promise<{ course: object, savedToAppwrite: boolean }>}
  */
-export async function processDocumentationUrl(url) {
+export async function processDocumentationUrl(url, customModel = null) {
   if (!url) {
     throw new Error('URL is required');
   }
@@ -17,7 +17,7 @@ export async function processDocumentationUrl(url) {
   const extracted = await extractDocumentation(url);
 
   // 2. Summarize with LLM (Gemini)
-  const summarized = await summarizeWithLLM(extracted.content, extracted.title);
+  const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel);
 
   // 3. Save to Appwrite if server credentials exist
   const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1';

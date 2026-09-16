@@ -1,9 +1,9 @@
 {
-  "projectId": "",
+  "projectId": "6aaa6efb002017f29b1a",
   "projectName": "courseit",
   "databases": [
     {
-      "$id": "courseit",
+      "$id": "6aaa6f9c0016a0c52d4a",
       "name": "courseit",
       "enabled": true
     }
@@ -14,7 +14,7 @@
       "$permissions": [
         "read(\"any\")"
       ],
-      "databaseId": "courseit",
+      "databaseId": "6aaa6f9c0016a0c52d4a",
       "name": "courses",
       "enabled": true,
       "documentSecurity": false,
@@ -44,6 +44,105 @@
         }
       ],
       "indexes": []
+    },
+    {
+      "$id": "users_quota",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"any\")",
+        "update(\"any\")"
+      ],
+      "databaseId": "6aaa6f9c0016a0c52d4a",
+      "name": "users_quota",
+      "enabled": true,
+      "documentSecurity": false,
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "required": true,
+          "array": false,
+          "size": 255
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "status": "available",
+          "required": true,
+          "array": false,
+          "size": 255
+        },
+        {
+          "key": "email",
+          "type": "string",
+          "status": "available",
+          "required": true,
+          "array": false,
+          "size": 255
+        },
+        {
+          "key": "quota_remaining",
+          "type": "integer",
+          "status": "available",
+          "required": false,
+          "array": false,
+          "min": 0,
+          "max": 10000,
+          "default": 50
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "status": "available",
+          "required": false,
+          "array": false,
+          "size": 50,
+          "default": "pending"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_user_id",
+          "type": "key",
+          "status": "available",
+          "attributes": ["user_id"],
+          "orders": ["ASC"]
+        },
+        {
+          "key": "idx_email",
+          "type": "key",
+          "status": "available",
+          "attributes": ["email"],
+          "orders": ["ASC"]
+        }
+      ]
+    }
+  ],
+  "buckets": [
+    {
+      "$id": "course_docs",
+      "name": "course_docs",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"any\")",
+        "update(\"any\")"
+      ],
+      "fileSecurity": false,
+      "enabled": true,
+      "maximumFileSize": 10485760,
+      "allowedFileExtensions": [
+        "png",
+        "jpg",
+        "jpeg",
+        "webp",
+        "pdf",
+        "txt",
+        "md"
+      ],
+      "compression": "none",
+      "encryption": true,
+      "antivirus": false
     }
   ],
   "functions": [

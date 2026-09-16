@@ -89,7 +89,19 @@ async function callGemini(rawText, fallbackTitle, apiKey, customModel = null) {
         });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
-        return parseAndValidateSteps(responseText, fallbackTitle);
+        const usage = result.response.usageMetadata ? {
+          promptTokens: result.response.usageMetadata.promptTokenCount || 0,
+          candidateTokens: result.response.usageMetadata.candidatesTokenCount || 0,
+          totalTokens: result.response.usageMetadata.totalTokenCount || 0,
+          model: modelName
+        } : {
+          promptTokens: Math.round(prompt.length / 4),
+          candidateTokens: Math.round(responseText.length / 4),
+          totalTokens: Math.round((prompt.length + responseText.length) / 4),
+          model: modelName
+        };
+        const parsed = parseAndValidateSteps(responseText, fallbackTitle);
+        return { ...parsed, usage };
       } catch (err) {
         lastError = err;
         const msg = err.message || '';
@@ -137,7 +149,14 @@ async function callOpenAI(rawText, fallbackTitle, apiKey) {
 
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content;
-  return parseAndValidateSteps(content, fallbackTitle);
+  const usage = data.usage ? {
+    promptTokens: data.usage.prompt_tokens || 0,
+    candidateTokens: data.usage.completion_tokens || 0,
+    totalTokens: data.usage.total_tokens || 0,
+    model
+  } : null;
+  const parsed = parseAndValidateSteps(content, fallbackTitle);
+  return { ...parsed, usage };
 }
 
 function parseAndValidateSteps(rawJsonString, fallbackTitle) {

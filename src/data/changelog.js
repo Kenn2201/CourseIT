@@ -1,0 +1,95 @@
+export const CHANGELOG_DATA = [
+  {
+    version: 'v1.5.0 BETA',
+    date: 'September 17, 2026',
+    title: 'ADHD Anti-Fluff Engine, Public Companion, Shared Trials & Token Monitor',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Google OAuth Double-Invocation Fix',
+        desc: 'Implemented execution guard preventing React StrictMode from consuming one-time OAuth secrets twice.'
+      },
+      {
+        title: 'Real-Time Appwrite Credit Writeback',
+        desc: 'Credits decrement accurately on generation and sync to the Appwrite users_quota collection.'
+      },
+      {
+        title: 'Animated Pop Feedback & Spinners',
+        desc: 'Added celebratory signup popups, authentication spinners, and animated toast notifications for all CRUD actions.'
+      },
+      {
+        title: 'Shared 3/3 Public Guest Trial',
+        desc: 'URL generation and Document OCR share a single pool of 3 free runs with crossed-out higher tiers.'
+      },
+      {
+        title: 'Public Landing Page Companion Bot',
+        desc: 'CourseTutor interactive technical companion is now embedded on the public landing page.'
+      },
+      {
+        title: 'Course Content Export (PDF & DOCX)',
+        desc: 'Export structured courses to high-fidelity PDF print sheets, DOCX word documents, or Markdown.'
+      },
+      {
+        title: 'Token & API Usage Monitor',
+        desc: 'Real-time Gemini token metrics tracking prompt, candidate, and total tokens per user.'
+      }
+    ],
+    notes: [
+      'Fixed Google OAuth double invocation token error in AuthCallback.jsx',
+      'Fixed credit deduction writeback to Appwrite users_quota collection',
+      'Added celebratory signup popup and loading states across auth and admin',
+      'Added public Landing page CourseTutor companion demo',
+      'Shared 3/3 guest trial across URL and OCR with locked tier indicators',
+      'Added PDF, DOCX, and Markdown course export in CourseDetail',
+      'Added Markdown feedback export and direct tester emailer in Admin panel',
+      'Added Gemini token & API consumption monitor with rate limit margins'
+    ]
+  },
+  {
+    version: 'v1.4.1 BETA',
+    date: 'September 17, 2026',
+    title: 'ADHD Anti-Fluff Slogan, User Beta Feedback & PixelSwap Light Mode',
+    notes: [
+      'Added official ADHD and low attention span anti-fluff positioning',
+      'Introduced AntiFluffDiff interactive before/after widget with word count metrics',
+      'Created logged-in Beta Feedback system with 1-5 star ratings and admin review tab',
+      'Ported PixelSwap animated Sun/Moon toggle from reactbits.txt',
+      'Integrated Kenn Nacario portfolio, GitHub, and LinkedIn developer footer',
+      'Added UserDetailsModal and Archived Accounts tab in Admin panel',
+      'Delivered verified Resend test suite to kenn.nacario12@gmail.com'
+    ]
+  },
+  {
+    version: 'v1.4.0 BETA',
+    date: 'September 16, 2026',
+    title: 'Landing Page Separation, Step Readability & Scripted Companion',
+    notes: [
+      'Added dedicated public Landing Page with ReactBits ShapeGrid background',
+      'Revamped step instruction rendering into vertical numbered cards with GDScript chips',
+      'Introduced dockable CourseTutor Companion bot with scripted actions and quizzes',
+      'Added Account Archiving workflow with Resend notification dispatch',
+      'Added DeleteConfirmModal to CourseCard, Profile, and Dashboard'
+    ]
+  },
+  {
+    version: 'v1.3.0',
+    date: 'September 16, 2026',
+    title: '250 Credits, Document OCR & Model Tiers',
+    notes: [
+      'Expanded credit quota from 50 to 250 free credits upon admin approval',
+      'Added local document/diagram upload with client-side Tesseract.js OCR',
+      'Introduced model pricing tiers: Flash Lite (0.5), 3.5 (1.0), 3.6 (2.0), 3.7 (5.0)',
+      'Integrated Resend email approvals and password reset flow'
+    ]
+  },
+  {
+    version: 'v1.2.0',
+    date: 'September 16, 2026',
+    title: 'Appwrite Sydney Cloud Integration',
+    notes: [
+      'Migrated database and auth sessions to Appwrite Sydney instance',
+      'Configured users_quota collection with status approval lifecycle',
+      'Added OAuth2 Google and GitHub token handlers'
+    ]
+  }
+];

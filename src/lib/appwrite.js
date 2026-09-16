@@ -1,9 +1,10 @@
-import { Client, Databases, Query } from 'appwrite';
+import { Client, Databases, Storage, ID, Query } from 'appwrite';
 
 const ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1';
 const PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || '';
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '';
 const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_ID || '6aaa6fef000b2b0129c4';
+export const BUCKET_DOCS_ID = 'course_docs';
 
 const LOCAL_STORAGE_KEY = 'courseit_saved_courses';
 
@@ -44,6 +45,7 @@ const SAMPLE_GODOT_COURSE = {
 // Initialize Appwrite Client if project ID exists
 export let client = null;
 export let databases = null;
+export let storage = null;
 
 export function isAppwriteConfigured() {
   return Boolean(PROJECT_ID && DATABASE_ID && COLLECTION_ID);
@@ -53,8 +55,29 @@ if (isAppwriteConfigured()) {
   try {
     client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID);
     databases = new Databases(client);
+    storage = new Storage(client);
   } catch (err) {
     console.warn('Appwrite client initialization error:', err);
+  }
+}
+
+/**
+ * Uploads a document or image file to Appwrite Storage bucket 'course_docs'
+ */
+export async function uploadFileToAppwrite(file) {
+  if (!storage) {
+    console.warn('Appwrite storage is not initialized');
+    return null;
+  }
+
+  try {
+    const fileId = ID.unique();
+    const result = await storage.createFile(BUCKET_DOCS_ID, fileId, file);
+    console.log('[CourseIT Storage] File uploaded to Appwrite course_docs:', result.$id);
+    return result;
+  } catch (err) {
+    console.warn('Failed to upload file to Appwrite Storage bucket course_docs:', err.message);
+    return null;
   }
 }
 
@@ -96,7 +119,6 @@ export function getLocalCourses() {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!raw) {
-      // Seed with sample course on first visit
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([SAMPLE_GODOT_COURSE]));
       return [SAMPLE_GODOT_COURSE];
     }
@@ -126,36 +148,65 @@ export function saveLocalCourse(course) {
   }
 }
 
+import { STARTER_COURSES } from '../data/starterCourses';
+
 /**
- * Fetch list of courses: tries Appwrite first, falls back to local storage
+ * Fetch list of courses: combines curated starter templates visible to all users
+ * with user-specific or admin-managed custom courses.
  */
-export async function listCourses() {
+export async function listCourses(userId = null, isAdmin = false) {
+  let customCourses = [];
+
   if (databases && isAppwriteConfigured()) {
     try {
+      const queries = [Query.orderDesc('$createdAt')];
+      // If regular user, only show their courses plus starters
+      if (userId && !isAdmin && userId !== 'public_guest') {
+        queries.push(Query.equal('creator_id', userId));
+      }
+
       const response = await databases.listDocuments(
         DATABASE_ID,
         COLLECTION_ID,
-        [Query.orderDesc('$createdAt')]
+        queries
       );
 
-      const liveCourses = response.documents.map(normalizeCourse);
-      
-      // Also cache to local storage
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(liveCourses));
-      return liveCourses;
+      customCourses = response.documents.map(normalizeCourse);
     } catch (err) {
-      console.warn('Appwrite live fetch failed, falling back to local cache:', err.message);
-      return getLocalCourses();
+      // Fallback: read from local custom storage
+      customCourses = getLocalCourses().filter(c => !c.is_curated);
     }
+  } else {
+    customCourses = getLocalCourses().filter(c => !c.is_curated);
   }
 
-  return getLocalCourses();
+  // Filter custom courses if guest
+  if (!userId || userId === 'public_guest') {
+    // Guests only see starter templates and courses generated in their current session
+    const local = getLocalCourses().filter(c => c.is_guest);
+    customCourses = local;
+  }
+
+  // Merge STARTER_COURSES first so catalog templates are always present
+  const allMap = new Map();
+  STARTER_COURSES.forEach(c => allMap.set(c.$id, c));
+  customCourses.forEach(c => allMap.set(c.$id, c));
+
+  const merged = Array.from(allMap.values());
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+  } catch {}
+
+  return merged;
 }
 
 /**
- * Get a specific course by ID
+ * Get a specific course by ID: checks STARTER_COURSES first, then Appwrite, then local storage
  */
 export async function getCourse(id) {
+  const starter = STARTER_COURSES.find(c => c.$id === id);
+  if (starter) return starter;
+
   if (databases && isAppwriteConfigured()) {
     try {
       const doc = await databases.getDocument(DATABASE_ID, COLLECTION_ID, id);

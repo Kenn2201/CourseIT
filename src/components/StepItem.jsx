@@ -1,5 +1,56 @@
 import React, { useState } from 'react';
-import { Clock, Check, Copy, CheckCheck, Terminal, Wrench, Lightbulb, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Check, Copy, CheckCheck, Terminal, Wrench, Lightbulb, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
+
+/**
+ * Parses implementation text (often formatted like "1. Do this. 2. Do that.")
+ * into distinct readable vertical instruction steps.
+ */
+function parseImplementationSteps(text) {
+  if (!text) return [];
+  
+  // If it has numbered steps like "1. ... 2. ..."
+  const splitRegex = /(?:^|\s)(?=\d+[\.\)]\s+)/;
+  const parts = text.split(splitRegex).map(s => s.trim()).filter(Boolean);
+  
+  if (parts.length > 1) {
+    return parts.map((part, idx) => {
+      const clean = part.replace(/^\d+[\.\)]\s*/, '').trim();
+      return { num: idx + 1, text: clean };
+    });
+  }
+
+  // If separated by newlines
+  const lines = text.split(/\r?\n/).map(l => l.trim().replace(/^[-*•]\s*/, '')).filter(Boolean);
+  if (lines.length > 1) {
+    return lines.map((line, idx) => ({ num: idx + 1, text: line }));
+  }
+
+  return [{ num: 1, text }];
+}
+
+/**
+ * Highlights Godot / technical node identifiers with distinct badge styling
+ */
+function formatInstructionText(content) {
+  if (!content) return '';
+  // Identify common Godot nodes and keywords
+  const keywords = /\b(Node2D|Sprite2D|Button|CollisionShape2D|Area2D|CharacterBody2D|Timer|AnimationPlayer|Label|Control|VBoxContainer|HBoxContainer|GDScript|extends|func|_ready|_process|emit_signal|connect)\b/g;
+  
+  const tokens = content.split(keywords);
+  return tokens.map((tok, i) => {
+    if (keywords.test(tok)) {
+      return (
+        <span
+          key={i}
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-mono text-xs font-semibold"
+        >
+          {tok}
+        </span>
+      );
+    }
+    return tok;
+  });
+}
 
 export default function StepItem({ step, isCompleted, onToggle }) {
   const [copiedCode, setCopiedCode] = useState(false);
@@ -28,13 +79,14 @@ export default function StepItem({ step, isCompleted, onToggle }) {
 
   const stepNumber = String(step.step_number || 1).padStart(2, '0');
   const hasRichContent = Boolean(step.implementation || step.code_snippet || step.pro_tip);
+  const parsedSteps = parseImplementationSteps(step.implementation);
 
   return (
     <div
       className={`glass-panel rounded-2xl p-6 transition-all border relative overflow-hidden group ${
         isCompleted
-          ? 'bg-slate-900/40 border-emerald-500/20 opacity-85'
-          : 'hover:border-indigo-500/40 hover:bg-slate-900/70 border-slate-800'
+          ? 'bg-slate-900/40 border-emerald-500/25 opacity-90 shadow-sm shadow-emerald-950/20'
+          : 'hover:border-indigo-500/50 hover:bg-slate-900/80 border-slate-800/90 shadow-lg shadow-black/20'
       }`}
     >
       <div className="flex items-start gap-4">
@@ -43,10 +95,10 @@ export default function StepItem({ step, isCompleted, onToggle }) {
           type="button"
           aria-label={isCompleted ? 'Mark step as incomplete' : 'Mark step as complete'}
           onClick={onToggle}
-          className={`w-7 h-7 mt-0.5 rounded-lg flex items-center justify-center transition-all cursor-pointer border shrink-0 ${
+          className={`w-7 h-7 mt-0.5 rounded-xl flex items-center justify-center transition-all cursor-pointer border shrink-0 ${
             isCompleted
-              ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-md shadow-emerald-500/25'
-              : 'border-slate-700 bg-slate-900/80 text-transparent group-hover:border-indigo-500/60'
+              ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-md shadow-emerald-500/30'
+              : 'border-slate-700 bg-slate-900/80 text-transparent hover:border-indigo-500 group-hover:scale-105'
           }`}
         >
           <Check className={`w-4 h-4 stroke-[3] ${isCompleted ? 'text-slate-950' : 'text-slate-600'}`} />
@@ -56,10 +108,10 @@ export default function StepItem({ step, isCompleted, onToggle }) {
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2.5">
-              <span className="font-mono text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
+              <span className="font-mono text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-lg border border-indigo-500/20 shadow-sm">
                 STEP {stepNumber}
               </span>
-              <span className="inline-flex items-center gap-1 text-xs font-mono text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+              <span className="inline-flex items-center gap-1 text-xs font-mono text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-lg">
                 <Clock className="w-3 h-3" />
                 {step.time_estimate}
               </span>
@@ -107,27 +159,40 @@ export default function StepItem({ step, isCompleted, onToggle }) {
 
           {/* Rich Implementation & Code Section */}
           {hasRichContent && isExpanded && (
-            <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-3 animate-in fade-in duration-200">
-              {/* Practical Implementation Steps */}
-              {step.implementation && (
-                <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300 mb-1.5">
-                    <Wrench className="w-3.5 h-3.5" />
-                    <span>How to Implement / Setup:</span>
+            <div className="mt-5 pt-4 border-t border-slate-800/80 space-y-4 animate-in fade-in duration-200">
+              {/* Practical Implementation Steps: Vertically Formatted Cards */}
+              {parsedSteps.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300 px-1">
+                    <Wrench className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Step-by-Step Implementation:</span>
                   </div>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-mono whitespace-pre-line">
-                    {step.implementation}
-                  </p>
+
+                  <div className="space-y-2">
+                    {parsedSteps.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-start gap-3 p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-indigo-500/30 transition-all text-xs sm:text-sm text-slate-200 leading-relaxed font-sans"
+                      >
+                        <span className="shrink-0 w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-mono text-xs font-bold flex items-center justify-center mt-0.5">
+                          {String(item.num).padStart(2, '0')}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          {formatInstructionText(item.text)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
               {/* Code Snippet Box */}
               {step.code_snippet && (
-                <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
+                <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner">
                   <div className="flex items-center justify-between px-3.5 py-2 bg-slate-900/90 border-b border-slate-800">
                     <div className="flex items-center gap-2">
                       <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-[11px] font-mono text-slate-400">Code / Example Syntax</span>
+                      <span className="text-[11px] font-mono text-slate-300 font-semibold">GDScript / Syntax Example</span>
                     </div>
 
                     <button
@@ -138,7 +203,7 @@ export default function StepItem({ step, isCompleted, onToggle }) {
                       {copiedCode ? (
                         <>
                           <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400">Copied!</span>
+                          <span className="text-emerald-400 font-semibold">Copied!</span>
                         </>
                       ) : (
                         <>
@@ -149,7 +214,7 @@ export default function StepItem({ step, isCompleted, onToggle }) {
                     </button>
                   </div>
 
-                  <div className="p-3.5 overflow-x-auto">
+                  <div className="p-3.5 overflow-x-auto bg-slate-950/80">
                     <pre className="text-xs font-mono text-emerald-300 leading-relaxed">
                       <code>{step.code_snippet}</code>
                     </pre>
@@ -157,13 +222,19 @@ export default function StepItem({ step, isCompleted, onToggle }) {
                 </div>
               )}
 
-              {/* Pro-Tip Callout */}
+              {/* Pro-Tip / Gotcha Callout */}
               {step.pro_tip && (
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5">
-                  <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-xs font-semibold text-amber-300">Pro-Tip / Gotcha: </span>
-                    <span className="text-xs text-amber-200/90 leading-relaxed">{step.pro_tip}</span>
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-3 shadow-sm">
+                  <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
+                    <Lightbulb className="w-4 h-4" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-amber-300 tracking-wide uppercase font-mono">
+                      Pro-Tip / Common Gotcha
+                    </div>
+                    <p className="text-xs sm:text-sm text-amber-100/90 leading-relaxed font-sans">
+                      {step.pro_tip}
+                    </p>
                   </div>
                 </div>
               )}

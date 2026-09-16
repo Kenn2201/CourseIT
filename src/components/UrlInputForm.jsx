@@ -1,49 +1,100 @@
-import React, { useState } from 'react';
-import { Sparkles, ArrowRight, Link2, Gamepad2, Layers, Radio, Code2, ShieldCheck, Zap } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, ArrowRight, Link2, Gamepad2, Layers, Radio, Code2, UploadCloud, FileText, CheckCircle, AlertCircle, RefreshCw, Lock, Boxes, Flame, Container } from 'lucide-react';
+import { extractTextFromFile } from '../lib/ocr';
+import { uploadFileToAppwrite } from '../lib/appwrite';
 
-const GODOT_PRESETS = [
+const CROSS_DOC_PRESETS = [
   {
-    name: 'Your First 2D Game',
-    url: 'https://docs.godotengine.org/en/stable/getting_started/first_2d_game/index.html',
-    icon: Gamepad2
+    name: 'React 19 Server Actions',
+    framework: 'React / Next.js',
+    url: 'https://react.dev/reference/rsc/server-components',
+    icon: Boxes
   },
   {
-    name: 'Nodes and Scenes',
-    url: 'https://docs.godotengine.org/en/stable/getting_started/step_by_step/nodes_and_scenes.html',
-    icon: Layers
-  },
-  {
-    name: 'Signals',
+    name: 'Godot 4 Signals & Nodes',
+    framework: 'Godot Engine',
     url: 'https://docs.godotengine.org/en/stable/getting_started/step_by_step/signals.html',
     icon: Radio
   },
   {
-    name: 'Scripting Languages',
-    url: 'https://docs.godotengine.org/en/stable/getting_started/step_by_step/scripting_languages.html',
-    icon: Code2
+    name: 'Rust Borrowing & Lifetimes',
+    framework: 'Rust Lang',
+    url: 'https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html',
+    icon: Flame
+  },
+  {
+    name: 'Docker Multi-Stage Builds',
+    framework: 'Docker / DevOps',
+    url: 'https://docs.docker.com/build/building/multi-stage/',
+    icon: Container
   }
 ];
 
 const MODEL_OPTIONS = [
-  { id: 'gemini-flash-lite-latest', label: 'Flash Lite (Fastest)', badge: '~0.8s' },
-  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Lite', badge: '~0.9s' },
-  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', badge: 'Balanced' },
-  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', badge: 'High Power' }
+  { id: 'gemini-flash-lite-latest', label: 'Flash Lite (Fastest)', badge: '0.5 credits', publicAllowed: true },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Lite', badge: '1.0 credit', publicAllowed: false },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', badge: '2.0 credits', publicAllowed: false },
+  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', badge: '5.0 credits', publicAllowed: false }
 ];
 
-export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, onOpenAdmin }) {
+export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAuthenticated, onOpenAdmin }) {
+  const [inputMode, setInputMode] = useState('url'); // 'url' | 'document'
   const [url, setUrl] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
   const [selectedModel, setSelectedModel] = useState('gemini-flash-lite-latest');
   const [error, setError] = useState('');
+  const [ocrProgress, setOcrProgress] = useState(null);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [showTrialModal, setShowTrialModal] = useState(false);
+  const fileInputRef = useRef(null);
+  const modelDropdownRef = useRef(null);
 
-  const isOutOfQuota = !isAdmin && quota && quota.remaining <= 0;
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target)) {
+        setIsModelDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const handleSubmit = (e) => {
+  // If user is not authenticated, lock models to Flash Lite
+  useEffect(() => {
+    if (!isAuthenticated && selectedModel !== 'gemini-flash-lite-latest') {
+      setSelectedModel('gemini-flash-lite-latest');
+    }
+  }, [isAuthenticated, selectedModel]);
+
+  const remainingCredits = quota?.quota_remaining ?? (quota?.remaining ?? 250);
+  const guestRemaining = typeof quota?.remaining === 'number'
+    ? quota.remaining
+    : (quota?.quota_remaining ?? 3);
+  const isGuestExhausted = !isAuthenticated && guestRemaining <= 0;
+  const isOutOfQuota = isAuthenticated ? (!isAdmin && remainingCredits <= 0) : isGuestExhausted;
+
+  const handleSelectModel = (model) => {
+    if (!isAuthenticated && !model.publicAllowed) {
+      setShowTrialModal(true);
+      setIsModelDropdownOpen(false);
+      return;
+    }
+    setSelectedModel(model.id);
+    setIsModelDropdownOpen(false);
+  };
+
+  const handleUrlSubmit = (e) => {
     e.preventDefault();
     setError('');
 
+    if (isGuestExhausted) {
+      setShowTrialModal(true);
+      return;
+    }
+
     if (isOutOfQuota) {
-      setError('Public generation limit reached (20/20). Please sign in as Admin to generate more courses.');
+      setError('Generation limit reached. Please request a top-up or create an account for 250 credits.');
       return;
     }
 
@@ -60,133 +111,462 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, onOp
       return;
     }
 
-    onSubmit(trimmed, selectedModel);
+    // Double check model permission
+    const modelToUse = isAuthenticated ? selectedModel : 'gemini-flash-lite-latest';
+    onSubmit({ type: 'url', url: trimmed, model: modelToUse });
   };
 
-  const handleSelectPreset = (presetUrl) => {
+  const handleFileDrop = (e) => {
+    e.preventDefault();
+    setError('');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      setSelectedFile(file);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    setError('');
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleDocumentSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (isGuestExhausted) {
+      setShowTrialModal(true);
+      return;
+    }
+
+    if (isOutOfQuota) {
+      setError('Generation limit reached. Please request a top-up or create an account for 250 credits.');
+      return;
+    }
+
+    if (!selectedFile) {
+      setError('Please select or drop a file to upload.');
+      return;
+    }
+
+    try {
+      // 1. Run client-side extraction / OCR via Tesseract.js
+      const extracted = await extractTextFromFile(selectedFile, (prog) => {
+        setOcrProgress(prog);
+      });
+
+      // 2. Upload original file to Appwrite storage bucket course_docs if authenticated
+      if (isAuthenticated) {
+        uploadFileToAppwrite(selectedFile).catch(() => {});
+      }
+
+      // 3. Pass extracted text to parent pipeline with model
+      const modelToUse = isAuthenticated ? selectedModel : 'gemini-flash-lite-latest';
+      onSubmit({
+        type: 'document',
+        title: extracted.title,
+        text: extracted.text,
+        model: modelToUse
+      });
+    } catch (err) {
+      setError(err.message || 'Failed to extract text from document.');
+    } finally {
+      setOcrProgress(null);
+    }
+  };
+
+  const handlePresetClick = (presetUrl) => {
+    if (isGuestExhausted) {
+      setShowTrialModal(true);
+      return;
+    }
+    setInputMode('url');
     setUrl(presetUrl);
     setError('');
+    if (!isOutOfQuota) {
+      const modelToUse = isAuthenticated ? selectedModel : 'gemini-flash-lite-latest';
+      onSubmit({ type: 'url', url: presetUrl, model: modelToUse });
+    }
   };
 
   return (
-    <div className="w-full glass-panel rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden border border-slate-800">
-      <div className="absolute -right-20 -top-20 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -left-20 -bottom-20 w-60 h-60 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="w-full max-w-4xl mx-auto space-y-6">
+      {/* Mode Switcher Tabs */}
+      <div className="flex items-center justify-center">
+        <div className="inline-flex p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => {
+              setInputMode('url');
+              setError('');
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              inputMode === 'url'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Link2 className="w-4 h-4" />
+            <span>Web Documentation URL</span>
+          </button>
 
-      <div className="relative z-10">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <label htmlFor="doc-url" className="block text-sm font-medium text-slate-300">
-              Paste any documentation URL to convert into actionable steps:
-            </label>
-            
-            <div className="flex items-center gap-3 self-start sm:self-auto">
-              {/* Quota / Admin Pill */}
-              {isAdmin ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Admin: Unlimited</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-xs font-mono text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-lg">
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Public: {quota?.remaining ?? 20}/20 Free</span>
-                </span>
-              )}
+          <button
+            type="button"
+            onClick={() => {
+              setInputMode('document');
+              setError('');
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              inputMode === 'document'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <UploadCloud className="w-4 h-4" />
+            <span>Upload Document / Scan (OCR)</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-indigo-400/20 text-indigo-300 font-bold">
+              NEW
+            </span>
+          </button>
+        </div>
+      </div>
 
-              {/* Model Selector */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400 font-mono">Model:</span>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
+      {/* Main Interactive Form Card */}
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800/90 relative overflow-hidden shadow-2xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        {inputMode === 'url' ? (
+          <form onSubmit={handleUrlSubmit} className="space-y-4 relative z-10">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="https://docs.godotengine.org/en/stable/... or any dev docs"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
                   disabled={isLoading}
-                  className="bg-slate-900 border border-slate-700/80 rounded-lg text-xs font-mono text-indigo-300 px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                >
-                  {MODEL_OPTIONS.map((opt) => (
-                    <option key={opt.id} value={opt.id} className="bg-slate-900 text-slate-200">
-                      {opt.label} ({opt.badge})
-                    </option>
-                  ))}
-                </select>
+                  className="w-full py-3.5 pl-4 pr-4 bg-slate-900/90 border border-slate-700/80 rounded-2xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono"
+                />
               </div>
-            </div>
-          </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <Link2 className="w-5 h-5" />
+              {/* Model Tier Selector with Cross-out on Locked Models */}
+              <div className="relative min-w-[210px]" ref={modelDropdownRef}>
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                  className="w-full h-full py-3.5 pl-3.5 pr-8 bg-slate-900/90 border border-slate-700/80 rounded-2xl text-slate-200 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 flex items-center justify-between cursor-pointer disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="font-semibold text-white truncate">
+                      {MODEL_OPTIONS.find(m => m.id === selectedModel)?.label || 'Flash Lite (Fastest)'}
+                    </span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                      {MODEL_OPTIONS.find(m => m.id === selectedModel)?.badge || '0.5 cr'}
+                    </span>
+                  </div>
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                    ▼
+                  </div>
+                </button>
+
+                {isModelDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-2 p-1.5 bg-slate-900/95 border border-slate-700 rounded-2xl shadow-2xl z-50 backdrop-blur-xl animate-in fade-in zoom-in-95">
+                    <div className="px-2 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-500 border-b border-slate-800 mb-1">
+                      Available Models
+                    </div>
+                    {MODEL_OPTIONS.map((opt) => {
+                      const isLocked = !isAuthenticated && !opt.publicAllowed;
+                      const isSelected = selectedModel === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => handleSelectModel(opt)}
+                          className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors cursor-pointer text-xs mb-1 ${
+                            isSelected ? 'bg-indigo-600/20 border border-indigo-500/40 text-white' : 'hover:bg-slate-800/80'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isLocked && <Lock className="w-3.5 h-3.5 text-rose-400 shrink-0" />}
+                            <span
+                              className={
+                                isLocked
+                                  ? 'line-through decoration-rose-400 text-slate-400 font-medium'
+                                  : isSelected
+                                  ? 'font-bold text-white'
+                                  : 'text-slate-200'
+                              }
+                            >
+                              {opt.label}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                isLocked
+                                  ? 'bg-rose-500/10 text-rose-300 line-through decoration-rose-400'
+                                  : 'bg-slate-800 text-indigo-300'
+                              }`}
+                            >
+                              {opt.badge}
+                            </span>
+                            {isLocked && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 uppercase">
+                                Beta
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <input
-                id="doc-url"
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://docs.godotengine.org/en/stable/..."
-                disabled={isLoading}
-                className="w-full pl-11 pr-4 py-3.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono text-sm"
-              />
+
+              <button
+                type="submit"
+                disabled={isLoading || isOutOfQuota}
+                className="btn-primary py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 text-sm sm:text-base font-semibold shadow-lg shadow-indigo-600/25 shrink-0 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Generate Course</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
             </div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-indigo-600/40 active:scale-[0.98] cursor-pointer"
+          </form>
+        ) : (
+          <form onSubmit={handleDocumentSubmit} className="space-y-4 relative z-10">
+            {/* Dropzone */}
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleFileDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                selectedFile
+                  ? 'border-indigo-500 bg-indigo-950/20'
+                  : 'border-slate-700/80 hover:border-indigo-500/60 bg-slate-900/40 hover:bg-slate-900/70'
+              }`}
             >
-              {isLoading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Generate Course</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.markdown,.json"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
 
-          {error && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center justify-between gap-2">
-              <span>{error}</span>
-              {isOutOfQuota && (
-                <button
-                  type="button"
-                  onClick={onOpenAdmin}
-                  className="underline font-semibold hover:text-white cursor-pointer"
-                >
-                  Admin Login
-                </button>
+              {selectedFile ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-semibold text-white">{selectedFile.name}</p>
+                  <p className="text-xs text-slate-400">
+                    {(selectedFile.size / 1024).toFixed(1)} KB • Ready for extraction
+                  </p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFile(null);
+                    }}
+                    className="mt-2 text-xs text-rose-400 hover:underline"
+                  >
+                    Remove file
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-slate-400">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-200">
+                    Drag & drop scanned tutorial image, or <span className="text-indigo-400 underline">browse files</span>
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Supports PNG, JPG, WEBP (OCR via Tesseract) or TXT, MD documents (up to 10MB)
+                  </p>
+                </div>
               )}
             </div>
-          )}
-        </form>
 
-        {/* Quick-load Godot 4 Presets */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80">
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-3">
-            <Gamepad2 className="w-4 h-4 text-indigo-400" />
-            <span>Try with Godot 4 Documentation Presets (0 extra tokens if already cached):</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {GODOT_PRESETS.map((preset) => {
-              const Icon = preset.icon;
-              return (
+            {/* OCR Live Progress Bar */}
+            {ocrProgress && (
+              <div className="p-4 rounded-xl bg-slate-900/80 border border-indigo-500/30 space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-mono text-indigo-300 flex items-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                    {ocrProgress.status}
+                  </span>
+                  <span className="font-bold text-white font-mono">{ocrProgress.progress}%</span>
+                </div>
+                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-200"
+                    style={{ width: `${ocrProgress.progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="relative flex-1">
                 <button
-                  key={preset.name}
                   type="button"
-                  onClick={() => handleSelectPreset(preset.url)}
-                  disabled={isLoading}
-                  className="flex items-center gap-2 text-xs py-1.5 px-3 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-indigo-500/40 hover:bg-slate-850 transition-colors cursor-pointer"
+                  disabled={isLoading || Boolean(ocrProgress)}
+                  onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                  className="w-full py-3.5 pl-3.5 pr-8 bg-slate-900/90 border border-slate-700/80 rounded-2xl text-slate-200 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 flex items-center justify-between cursor-pointer disabled:opacity-50"
                 >
-                  <Icon className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>{preset.name}</span>
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="font-semibold text-white truncate">
+                      {MODEL_OPTIONS.find(m => m.id === selectedModel)?.label || 'Flash Lite (Fastest)'}
+                    </span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                      {MODEL_OPTIONS.find(m => m.id === selectedModel)?.badge || '0.5 cr'}
+                    </span>
+                  </div>
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                    ▼
+                  </div>
                 </button>
-              );
-            })}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading || isOutOfQuota || !selectedFile || Boolean(ocrProgress)}
+                className="btn-primary py-3 px-6 rounded-2xl flex items-center justify-center gap-2 text-sm sm:text-base font-semibold shadow-lg shadow-indigo-600/25 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              >
+                {isLoading || ocrProgress ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Extracting & Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Run OCR & Build Course</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Quota & Error Status Banners */}
+        {error && (
+          <div className="mt-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
+        )}
+
+        {/* Quota remaining counter */}
+        <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isOutOfQuota ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'}`} />
+            <span>
+              {isAuthenticated ? (
+                <>Account Credits: <strong className="text-slate-200">{typeof remainingCredits === 'number' ? remainingCredits.toFixed(1) : remainingCredits}/250 Remaining</strong></>
+              ) : (
+                <>Shared Guest Trial: <strong className="text-indigo-400">{guestRemaining}/3 remaining</strong> (URL + OCR shared • 24h Window)</>
+              )}
+            </span>
+          </div>
+
+          {!isAdmin && (
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className="text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer font-medium"
+            >
+              {isAuthenticated ? 'Need credit top-up?' : 'Sign up or log in for 250 account credits →'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 3/3 Trial Limit Exhausted / Beta Access Modal */}
+      {showTrialModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative overflow-hidden text-center">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Beta Access Required</h3>
+            <p className="text-sm text-slate-300 leading-relaxed mb-6">
+              Free trial limit reached (3/3). You can use another free trial in 24 hours, or request access to the beta test for 250 free credits!
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTrialModal(false);
+                  if (onOpenAdmin) onOpenAdmin();
+                }}
+                className="btn-primary py-3 px-6 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Request Access for Beta Test (250 Free Credits)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTrialModal(false)}
+                className="py-2.5 px-4 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preset Multi-Framework Quick Links */}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-2 px-1">
+          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Quick-Load Official Developer Docs (Cross-Ecosystem)
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {CROSS_DOC_PRESETS.map((preset) => {
+            const Icon = preset.icon;
+            const isCurrent = url === preset.url && inputMode === 'url';
+            return (
+              <button
+                key={preset.name}
+                type="button"
+                onClick={() => handlePresetClick(preset.url)}
+                disabled={isLoading}
+                className={`p-3 rounded-2xl border text-left transition-all flex flex-col gap-2 group cursor-pointer ${
+                  isCurrent
+                    ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-lg shadow-indigo-500/10'
+                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="p-1.5 rounded-xl bg-slate-800 text-indigo-400 group-hover:scale-105 transition-transform">
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-500">{preset.framework}</span>
+                </div>
+                <div className="text-xs font-semibold truncate w-full">{preset.name}</div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

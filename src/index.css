@@ -11,6 +11,100 @@ body {
   background-color: #030712;
   color: #f3f4f6;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Light Mode Overrides */
+html.light {
+  color-scheme: light;
+}
+
+html.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+html.light header {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light header span.text-white {
+  color: #0f172a !important;
+}
+
+html.light .glass-panel {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+html.light .glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+html.light .glass-card:hover {
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 12px 28px -8px rgba(99, 102, 241, 0.15);
+}
+
+/* Full Light Mode Overrides for Landing Page & All Pages */
+html.light .landing-root {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.light .landing-root h1,
+html.light .landing-root h2,
+html.light .landing-root h3,
+html.light .landing-root h4 {
+  color: #0f172a !important;
+}
+
+html.light .landing-root p {
+  color: #334155 !important;
+}
+
+html.light .landing-root section {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light .landing-root .bg-slate-950,
+html.light .landing-root .bg-slate-950\/60,
+html.light .landing-root .bg-slate-950\/80,
+html.light .landing-root .bg-slate-950\/40 {
+  background-color: rgba(241, 245, 249, 0.9) !important;
+}
+
+html.light .landing-root .bg-slate-900,
+html.light .landing-root .bg-slate-900\/80,
+html.light .landing-root .bg-slate-900\/60,
+html.light .landing-root .bg-slate-900\/40 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.light .landing-root .text-slate-100 {
+  color: #0f172a !important;
+}
+
+html.light .landing-root .text-slate-300,
+html.light .landing-root .text-slate-400 {
+  color: #475569 !important;
+}
+
+html.light .landing-root .text-slate-500 {
+  color: #64748b !important;
+}
+
+html.light .landing-root .border-slate-800,
+html.light .landing-root .border-slate-800\/80,
+html.light .landing-root .border-slate-800\/90 {
+  border-color: #e2e8f0 !important;
 }
 
 /* Custom glow and backdrop effects */
@@ -42,6 +136,26 @@ body {
   background-size: 24px 24px;
 }
 
+html.light .bg-grid-pattern {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+}
+
+/* Page load animation */
+@keyframes pageLoadFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-load {
+  animation: pageLoadFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -52,11 +166,59 @@ body {
   background: #030712;
 }
 
+html.light ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #1f2937;
   border-radius: 4px;
 }
 
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #374151;
 }
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Print / PDF Document Layout Styling */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  nav, footer, .print\:hidden, .course-tutor-root, button {
+    display: none !important;
+  }
+
+  .glass-panel {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    color: #0f172a !important;
+  }
+
+  h1, h2, h3, h4, p, span {
+    color: #0f172a !important;
+  }
+
+  pre, code {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    white-space: pre-wrap !important;
+  }
+
+  .step-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+

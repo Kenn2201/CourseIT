@@ -1,0 +1,6364 @@
+backgrounds:"
+npx shadcn@latest add @react-bits/ShapeGrid-JS-CSS
+import ShapeGrid from './ShapeGrid';
+  
+<ShapeGrid 
+speed={0.5}
+squareSize={40}
+direction='diagonal' // up, down, left, right, diagonal
+borderColor="#2F293A"
+hoverFillColor='#222'
+shape='square' // square, hexagon, circle, triangle
+hoverTrailAmount={0} // number of trailing hovered shapes (0 = no trail)
+  direction="diagonal"
+  hoverColor="#222222"
+  size={40}
+  shape="square"
+/>
+import { useRef, useEffect } from 'react';
+import './ShapeGrid.css';
+
+const ShapeGrid = ({
+  direction = 'right',
+  speed = 1,
+  borderColor = '#999',
+  squareSize = 40,
+  hoverFillColor = '#222',
+  shape = 'square',
+  hoverTrailAmount = 0,
+  className = ''
+}) => {
+  const canvasRef = useRef(null);
+  const requestRef = useRef(null);
+  const numSquaresX = useRef();
+  const numSquaresY = useRef();
+  const gridOffset = useRef({ x: 0, y: 0 });
+  const hoveredSquare = useRef(null);
+  const trailCells = useRef([]);
+  const cellOpacities = useRef(new Map());
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    const isHex = shape === 'hexagon';
+    const isTri = shape === 'triangle';
+    const hexHoriz = squareSize * 1.5;
+    const hexVert = squareSize * Math.sqrt(3);
+
+    const resizeCanvas = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      numSquaresX.current = Math.ceil(canvas.width / squareSize) + 1;
+      numSquaresY.current = Math.ceil(canvas.height / squareSize) + 1;
+    };
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const drawHex = (cx, cy, size) => {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i;
+        const vx = cx + size * Math.cos(angle);
+        const vy = cy + size * Math.sin(angle);
+        if (i === 0) ctx.moveTo(vx, vy);
+        else ctx.lineTo(vx, vy);
+      }
+      ctx.closePath();
+    };
+
+    const drawCircle = (cx, cy, size) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+      ctx.closePath();
+    };
+
+    const drawTriangle = (cx, cy, size, flip) => {
+      ctx.beginPath();
+      if (flip) {
+        ctx.moveTo(cx, cy + size / 2);
+        ctx.lineTo(cx + size / 2, cy - size / 2);
+        ctx.lineTo(cx - size / 2, cy - size / 2);
+      } else {
+        ctx.moveTo(cx, cy - size / 2);
+        ctx.lineTo(cx + size / 2, cy + size / 2);
+        ctx.lineTo(cx - size / 2, cy + size / 2);
+      }
+      ctx.closePath();
+    };
+
+    const drawGrid = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (isHex) {
+        const colShift = Math.floor(gridOffset.current.x / hexHoriz);
+        const offsetX = ((gridOffset.current.x % hexHoriz) + hexHoriz) % hexHoriz;
+        const offsetY = ((gridOffset.current.y % hexVert) + hexVert) % hexVert;
+
+        const cols = Math.ceil(canvas.width / hexHoriz) + 3;
+        const rows = Math.ceil(canvas.height / hexVert) + 3;
+
+        for (let col = -2; col < cols; col++) {
+          for (let row = -2; row < rows; row++) {
+            const cx = col * hexHoriz + offsetX;
+            const cy = row * hexVert + ((col + colShift) % 2 !== 0 ? hexVert / 2 : 0) + offsetY;
+
+            const cellKey = `${col},${row}`;
+            const alpha = cellOpacities.current.get(cellKey);
+            if (alpha) {
+              ctx.globalAlpha = alpha;
+              drawHex(cx, cy, squareSize);
+              ctx.fillStyle = hoverFillColor;
+              ctx.fill();
+              ctx.globalAlpha = 1;
+            }
+
+            drawHex(cx, cy, squareSize);
+            ctx.strokeStyle = borderColor;
+            ctx.stroke();
+          }
+        }
+      } else if (isTri) {
+        const halfW = squareSize / 2;
+        const colShift = Math.floor(gridOffset.current.x / halfW);
+        const rowShift = Math.floor(gridOffset.current.y / squareSize);
+        const offsetX = ((gridOffset.current.x % halfW) + halfW) % halfW;
+        const offsetY = ((gridOffset.current.y % squareSize) + squareSize) % squareSize;
+
+        const cols = Math.ceil(canvas.width / halfW) + 4;
+        const rows = Math.ceil(canvas.height / squareSize) + 4;
+
+        for (let col = -2; col < cols; col++) {
+          for (let row = -2; row < rows; row++) {
+            const cx = col * halfW + offsetX;
+            const cy = row * squareSize + squareSize / 2 + offsetY;
+            const flip = ((col + colShift + row + rowShift) % 2 + 2) % 2 !== 0;
+
+            const cellKey = `${col},${row}`;
+            const alpha = cellOpacities.current.get(cellKey);
+            if (alpha) {
+              ctx.globalAlpha = alpha;
+              drawTriangle(cx, cy, squareSize, flip);
+              ctx.fillStyle = hoverFillColor;
+              ctx.fill();
+              ctx.globalAlpha = 1;
+            }
+
+            drawTriangle(cx, cy, squareSize, flip);
+            ctx.strokeStyle = borderColor;
+            ctx.stroke();
+          }
+        }
+      } else if (shape === 'circle') {
+        const offsetX = ((gridOffset.current.x % squareSize) + squareSize) % squareSize;
+        const offsetY = ((gridOffset.current.y % squareSize) + squareSize) % squareSize;
+
+        const cols = Math.ceil(canvas.width / squareSize) + 3;
+        const rows = Math.ceil(canvas.height / squareSize) + 3;
+
+        for (let col = -2; col < cols; col++) {
+          for (let row = -2; row < rows; row++) {
+            const cx = col * squareSize + squareSize / 2 + offsetX;
+            const cy = row * squareSize + squareSize / 2 + offsetY;
+
+            const cellKey = `${col},${row}`;
+            const alpha = cellOpacities.current.get(cellKey);
+            if (alpha) {
+              ctx.globalAlpha = alpha;
+              drawCircle(cx, cy, squareSize);
+              ctx.fillStyle = hoverFillColor;
+              ctx.fill();
+              ctx.globalAlpha = 1;
+            }
+
+            drawCircle(cx, cy, squareSize);
+            ctx.strokeStyle = borderColor;
+            ctx.stroke();
+          }
+        }
+      } else {
+        const offsetX = ((gridOffset.current.x % squareSize) + squareSize) % squareSize;
+        const offsetY = ((gridOffset.current.y % squareSize) + squareSize) % squareSize;
+
+        const cols = Math.ceil(canvas.width / squareSize) + 3;
+        const rows = Math.ceil(canvas.height / squareSize) + 3;
+
+        for (let col = -2; col < cols; col++) {
+          for (let row = -2; row < rows; row++) {
+            const sx = col * squareSize + offsetX;
+            const sy = row * squareSize + offsetY;
+
+            const cellKey = `${col},${row}`;
+            const alpha = cellOpacities.current.get(cellKey);
+            if (alpha) {
+              ctx.globalAlpha = alpha;
+              ctx.fillStyle = hoverFillColor;
+              ctx.fillRect(sx, sy, squareSize, squareSize);
+              ctx.globalAlpha = 1;
+            }
+
+            ctx.strokeStyle = borderColor;
+            ctx.strokeRect(sx, sy, squareSize, squareSize);
+          }
+        }
+      }
+
+      const gradient = ctx.createRadialGradient(
+        canvas.width / 2,
+        canvas.height / 2,
+        0,
+        canvas.width / 2,
+        canvas.height / 2,
+        Math.sqrt(canvas.width ** 2 + canvas.height ** 2) / 2
+      );
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    };
+
+    const updateAnimation = () => {
+      const effectiveSpeed = Math.max(speed, 0.1);
+      const wrapX = isHex ? hexHoriz * 2 : squareSize;
+      const wrapY = isHex ? hexVert : isTri ? squareSize * 2 : squareSize;
+
+      switch (direction) {
+        case 'right':
+          gridOffset.current.x = (gridOffset.current.x - effectiveSpeed + wrapX) % wrapX;
+          break;
+        case 'left':
+          gridOffset.current.x = (gridOffset.current.x + effectiveSpeed + wrapX) % wrapX;
+          break;
+        case 'up':
+          gridOffset.current.y = (gridOffset.current.y + effectiveSpeed + wrapY) % wrapY;
+          break;
+        case 'down':
+          gridOffset.current.y = (gridOffset.current.y - effectiveSpeed + wrapY) % wrapY;
+          break;
+        case 'diagonal':
+          gridOffset.current.x = (gridOffset.current.x - effectiveSpeed + wrapX) % wrapX;
+          gridOffset.current.y = (gridOffset.current.y - effectiveSpeed + wrapY) % wrapY;
+          break;
+        default:
+          break;
+      }
+
+      updateCellOpacities();
+      drawGrid();
+      requestRef.current = requestAnimationFrame(updateAnimation);
+    };
+
+    const updateCellOpacities = () => {
+      const targets = new Map();
+
+      if (hoveredSquare.current) {
+        targets.set(`${hoveredSquare.current.x},${hoveredSquare.current.y}`, 1);
+      }
+
+      if (hoverTrailAmount > 0) {
+        for (let i = 0; i < trailCells.current.length; i++) {
+          const t = trailCells.current[i];
+          const key = `${t.x},${t.y}`;
+          if (!targets.has(key)) {
+            targets.set(key, (trailCells.current.length - i) / (trailCells.current.length + 1));
+          }
+        }
+      }
+
+      for (const [key] of targets) {
+        if (!cellOpacities.current.has(key)) {
+          cellOpacities.current.set(key, 0);
+        }
+      }
+
+      for (const [key, opacity] of cellOpacities.current) {
+        const target = targets.get(key) || 0;
+        const next = opacity + (target - opacity) * 0.15;
+        if (next < 0.005) {
+          cellOpacities.current.delete(key);
+        } else {
+          cellOpacities.current.set(key, next);
+        }
+      }
+    };
+
+    const handleMouseMove = event => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
+
+      if (isHex) {
+        const colShift = Math.floor(gridOffset.current.x / hexHoriz);
+        const offsetX = ((gridOffset.current.x % hexHoriz) + hexHoriz) % hexHoriz;
+        const offsetY = ((gridOffset.current.y % hexVert) + hexVert) % hexVert;
+        const adjustedX = mouseX - offsetX;
+        const adjustedY = mouseY - offsetY;
+
+        const col = Math.round(adjustedX / hexHoriz);
+        const rowOffset = (col + colShift) % 2 !== 0 ? hexVert / 2 : 0;
+        const row = Math.round((adjustedY - rowOffset) / hexVert);
+
+        if (
+          !hoveredSquare.current ||
+          hoveredSquare.current.x !== col ||
+          hoveredSquare.current.y !== row
+        ) {
+          if (hoveredSquare.current && hoverTrailAmount > 0) {
+            trailCells.current.unshift({ ...hoveredSquare.current });
+            if (trailCells.current.length > hoverTrailAmount) trailCells.current.length = hoverTrailAmount;
+          }
+          hoveredSquare.current = { x: col, y: row };
+        }
+      } else if (isTri) {
+        const halfW = squareSize / 2;
+        const offsetX = ((gridOffset.current.x % halfW) + halfW) % halfW;
+        const offsetY = ((gridOffset.current.y % squareSize) + squareSize) % squareSize;
+
+        const adjustedX = mouseX - offsetX;
+        const adjustedY = mouseY - offsetY;
+
+        const col = Math.round(adjustedX / halfW);
+        const row = Math.floor(adjustedY / squareSize);
+
+        if (
+          !hoveredSquare.current ||
+          hoveredSquare.current.x !== col ||
+          hoveredSquare.current.y !== row
+        ) {
+          if (hoveredSquare.current && hoverTrailAmount > 0) {
+            trailCells.current.unshift({ ...hoveredSquare.current });
+            if (trailCells.current.length > hoverTrailAmount) trailCells.current.length = hoverTrailAmount;
+          }
+          hoveredSquare.current = { x: col, y: row };
+        }
+      } else if (shape === 'circle') {
+        const offsetX = ((gridOffset.current.x % squareSize) + squareSize) % squareSize;
+        const offsetY = ((gridOffset.current.y % squareSize) + squareSize) % squareSize;
+
+        const adjustedX = mouseX - offsetX;
+        const adjustedY = mouseY - offsetY;
+
+        const col = Math.round(adjustedX / squareSize);
+        const row = Math.round(adjustedY / squareSize);
+
+        if (
+          !hoveredSquare.current ||
+          hoveredSquare.current.x !== col ||
+          hoveredSquare.current.y !== row
+        ) {
+          if (hoveredSquare.current && hoverTrailAmount > 0) {
+            trailCells.current.unshift({ ...hoveredSquare.current });
+            if (trailCells.current.length > hoverTrailAmount) trailCells.current.length = hoverTrailAmount;
+          }
+          hoveredSquare.current = { x: col, y: row };
+        }
+      } else {
+        const offsetX = ((gridOffset.current.x % squareSize) + squareSize) % squareSize;
+        const offsetY = ((gridOffset.current.y % squareSize) + squareSize) % squareSize;
+
+        const adjustedX = mouseX - offsetX;
+        const adjustedY = mouseY - offsetY;
+
+        const col = Math.floor(adjustedX / squareSize);
+        const row = Math.floor(adjustedY / squareSize);
+
+        if (
+          !hoveredSquare.current ||
+          hoveredSquare.current.x !== col ||
+          hoveredSquare.current.y !== row
+        ) {
+          if (hoveredSquare.current && hoverTrailAmount > 0) {
+            trailCells.current.unshift({ ...hoveredSquare.current });
+            if (trailCells.current.length > hoverTrailAmount) trailCells.current.length = hoverTrailAmount;
+          }
+          hoveredSquare.current = { x: col, y: row };
+        }
+      }
+    };
+
+    const handleMouseLeave = () => {
+      if (hoveredSquare.current && hoverTrailAmount > 0) {
+        trailCells.current.unshift({ ...hoveredSquare.current });
+        if (trailCells.current.length > hoverTrailAmount) trailCells.current.length = hoverTrailAmount;
+      }
+      hoveredSquare.current = null;
+    };
+
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+
+    let isVisible = false;
+    let isPageVisible = !document.hidden;
+
+    const tryStart = () => {
+      if (isVisible && isPageVisible && !requestRef.current) {
+        requestRef.current = requestAnimationFrame(updateAnimation);
+      }
+    };
+    const tryStop = () => {
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
+    };
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+        isVisible ? tryStart() : tryStop();
+      },
+      { threshold: 0 }
+    );
+    io.observe(canvas);
+
+    const onVisibility = () => {
+      isPageVisible = !document.hidden;
+      isPageVisible ? tryStart() : tryStop();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    tryStart();
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      tryStop();
+      io.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [direction, speed, borderColor, hoverFillColor, squareSize, shape, hoverTrailAmount]);
+
+  return <canvas ref={canvasRef} className={`shapegrid-canvas ${className}`}></canvas>;
+};
+
+export default ShapeGrid;
+
+
+.shapegrid-canvas {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+"
+
+
+
+text animatiions:"
+npx shadcn@latest add @react-bits/ParticleText-JS-CSS
+
+import ParticleText from './ParticleText';
+
+<div style={{ width: '100%', height: 360, background: '#09090f' }}>
+  <ParticleText
+    text="Future Interfaces"
+    particleSize={2.2}
+    density={4}
+    color="#f8fafc"
+    highlightColor="#8b5cf6"
+    scatter={190}
+    gatherDuration={1600}
+    stagger={420}
+    pointerRepel={42}
+    repelRadius={120}
+    idleDrift={0.8}
+    trigger="mount"
+    fontSize="clamp(3.5rem, 13vw, 9rem)"
+    fontWeight={800}
+    fontFamily="inherit"
+    glow
+  />
+</div>
+
+import { useEffect, useRef } from 'react';
+import './ParticleText.css';
+
+const hexToRgb = hex => {
+  const clean = hex.replace('#', '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return null;
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16)
+  };
+};
+
+const mixRgb = (from, to, amount) => ({
+  r: Math.round(from.r + (to.r - from.r) * amount),
+  g: Math.round(from.g + (to.g - from.g) * amount),
+  b: Math.round(from.b + (to.b - from.b) * amount)
+});
+
+const rgbToCss = rgb => `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+const resolveFontSize = (value, container, fontWeight, fontFamily) => {
+  if (typeof value === 'number') return value;
+
+  const probe = document.createElement('span');
+  probe.textContent = 'M';
+  probe.style.position = 'absolute';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  probe.style.fontSize = value;
+  probe.style.fontWeight = String(fontWeight);
+  probe.style.fontFamily = fontFamily;
+  container.appendChild(probe);
+  const size = parseFloat(window.getComputedStyle(probe).fontSize) || 96;
+  probe.remove();
+  return size;
+};
+
+const waitForFonts = async font => {
+  if (!('fonts' in document)) return;
+
+  try {
+    await document.fonts.load(font);
+  } catch {}
+
+  await document.fonts.ready;
+};
+
+const ParticleText = ({
+  text = 'React Bits',
+  particleSize = 2,
+  density = 4,
+  color = '#ffffff',
+  highlightColor = '#8b5cf6',
+  scatter = 180,
+  gatherDuration = 1600,
+  stagger = 420,
+  pointerRepel = 40,
+  repelRadius = 120,
+  idleDrift = 0.7,
+  trigger = 'mount',
+  fontSize = 'clamp(3rem, 12vw, 8rem)',
+  fontWeight = 800,
+  fontFamily = 'inherit',
+  glow = true,
+  className = '',
+  style
+}) => {
+  const containerRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return undefined;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return undefined;
+
+    let particles = [];
+    let animationFrame = null;
+    let resizeFrame = null;
+    let buildId = 0;
+    let gathering = false;
+    let gatherStart = 0;
+    let reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+
+    const pointer = {
+      active: false,
+      x: 0,
+      y: 0,
+      smoothX: 0,
+      smoothY: 0
+    };
+
+    const startGather = (fromScatter = true) => {
+      if (!particles.length) return;
+
+      const now = performance.now();
+      const spread = reducedMotion ? 0 : scatter;
+
+      particles.forEach(particle => {
+        if (fromScatter) {
+          const angle = particle.seed * Math.PI * 2;
+          const distance = spread * (0.35 + particle.depth * 0.75);
+          particle.x = particle.targetX + Math.cos(angle) * distance + (particle.depth - 0.5) * spread * 0.55;
+          particle.y = particle.targetY + Math.sin(angle) * distance + (particle.seed - 0.5) * spread * 0.55;
+        }
+
+        particle.startX = particle.x;
+        particle.startY = particle.y;
+        particle.delay = reducedMotion ? 0 : particle.seed * stagger;
+      });
+
+      gatherStart = now;
+      gathering = true;
+    };
+
+    const drawParticle = particle => {
+      const size = particle.size;
+      ctx.fillStyle = particle.color;
+
+      if (size <= 2.1) {
+        ctx.fillRect(particle.x - size / 2, particle.y - size / 2, size, size);
+        return;
+      }
+
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    const render = now => {
+      ctx.clearRect(0, 0, width, height);
+
+      if (glow && !reducedMotion) {
+        ctx.shadowBlur = particleSize * 3;
+        ctx.shadowColor = highlightColor;
+      } else {
+        ctx.shadowBlur = 0;
+      }
+
+      pointer.smoothX += (pointer.x - pointer.smoothX) * 0.18;
+      pointer.smoothY += (pointer.y - pointer.smoothY) * 0.18;
+
+      let complete = true;
+
+      particles.forEach(particle => {
+        let baseX = particle.targetX;
+        let baseY = particle.targetY;
+        let progress = 1;
+
+        if (gathering) {
+          const local = (now - gatherStart - particle.delay) / Math.max(1, reducedMotion ? 1 : gatherDuration);
+          progress = clamp(local, 0, 1);
+          const eased = easeOutCubic(progress);
+          baseX = particle.startX + (particle.targetX - particle.startX) * eased;
+          baseY = particle.startY + (particle.targetY - particle.startY) * eased;
+          if (progress < 1) complete = false;
+        } else if (!reducedMotion && idleDrift > 0) {
+          const driftTime = now * 0.001;
+          baseX += Math.sin(driftTime * 0.9 + particle.seed * 10) * idleDrift * particle.depth;
+          baseY += Math.cos(driftTime * 0.75 + particle.depth * 10) * idleDrift * particle.depth;
+        }
+
+        if (pointer.active && !reducedMotion && pointerRepel > 0 && repelRadius > 0) {
+          const dx = baseX - pointer.smoothX;
+          const dy = baseY - pointer.smoothY;
+          const distance = Math.hypot(dx, dy);
+          if (distance > 0 && distance < repelRadius) {
+            const force = Math.pow(1 - distance / repelRadius, 2) * pointerRepel;
+            baseX += (dx / distance) * force;
+            baseY += (dy / distance) * force;
+          }
+        }
+
+        const follow = reducedMotion ? 1 : 0.22;
+        particle.x += (baseX - particle.x) * follow;
+        particle.y += (baseY - particle.y) * follow;
+
+        ctx.globalAlpha = clamp(0.35 + progress * 0.65, 0, 1);
+        drawParticle(particle);
+      });
+
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+
+      if (gathering && complete) {
+        gathering = false;
+      }
+
+      animationFrame = window.requestAnimationFrame(render);
+    };
+
+    const ensureRenderLoop = () => {
+      if (animationFrame === null) {
+        animationFrame = window.requestAnimationFrame(render);
+      }
+    };
+
+    const sampleText = async () => {
+      const currentBuild = ++buildId;
+      const rect = container.getBoundingClientRect();
+      width = Math.floor(rect.width);
+      height = Math.floor(rect.height);
+
+      if (width <= 0 || height <= 0) return;
+
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.floor(width * dpr));
+      canvas.height = Math.max(1, Math.floor(height * dpr));
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const computed = window.getComputedStyle(container);
+      const resolvedFamily = fontFamily === 'inherit' ? computed.fontFamily || 'sans-serif' : fontFamily;
+      let resolvedSize = resolveFontSize(fontSize, container, fontWeight, resolvedFamily);
+      let font = `${fontWeight} ${resolvedSize}px ${resolvedFamily}`;
+
+      await waitForFonts(font);
+      if (currentBuild !== buildId) return;
+
+      const offscreen = document.createElement('canvas');
+      const offCtx = offscreen.getContext('2d', { willReadFrequently: true });
+      if (!offCtx) return;
+
+      const content = String(text || ' ');
+      const maxTextWidth = width * 0.92;
+      offCtx.font = font;
+      let metrics = offCtx.measureText(content);
+      const measuredWidth = Math.max(1, metrics.width);
+      if (measuredWidth > maxTextWidth) {
+        resolvedSize = Math.max(18, resolvedSize * (maxTextWidth / measuredWidth));
+        font = `${fontWeight} ${resolvedSize}px ${resolvedFamily}`;
+        await waitForFonts(font);
+        if (currentBuild !== buildId) return;
+        offCtx.font = font;
+        metrics = offCtx.measureText(content);
+      }
+
+      const left = Math.ceil(metrics.actualBoundingBoxLeft || 0);
+      const right = Math.ceil(metrics.actualBoundingBoxRight || metrics.width);
+      const ascent = Math.ceil(metrics.actualBoundingBoxAscent || resolvedSize * 0.78);
+      const descent = Math.ceil(metrics.actualBoundingBoxDescent || resolvedSize * 0.22);
+      const padding = Math.max(12, Math.ceil(resolvedSize * 0.08));
+      const textWidth = Math.max(1, left + right);
+      const textHeight = Math.max(1, ascent + descent);
+
+      offscreen.width = textWidth + padding * 2;
+      offscreen.height = textHeight + padding * 2;
+      offCtx.clearRect(0, 0, offscreen.width, offscreen.height);
+      offCtx.font = font;
+      offCtx.textAlign = 'left';
+      offCtx.textBaseline = 'alphabetic';
+      offCtx.fillStyle = '#ffffff';
+      offCtx.fillText(content, padding - left, padding + ascent);
+
+      const imageData = offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
+      const targets = [];
+      const step = Math.max(2, Math.floor(density));
+
+      for (let y = 0; y < offscreen.height; y += step) {
+        for (let x = 0; x < offscreen.width; x += step) {
+          const alpha = imageData.data[(y * offscreen.width + x) * 4 + 3];
+          if (alpha > 40) {
+            targets.push({
+              x: width / 2 - offscreen.width / 2 + x,
+              y: height / 2 - offscreen.height / 2 + y,
+              alpha: alpha / 255
+            });
+          }
+        }
+      }
+
+      const maxParticles = Math.max(900, Math.min(5200, Math.floor((width * height) / 90)));
+      const stride = Math.max(1, Math.ceil(targets.length / maxParticles));
+      const baseRgb = hexToRgb(color);
+      const highlightRgb = hexToRgb(highlightColor);
+      const selected = targets.filter((_, index) => index % stride === 0);
+
+      particles = selected.map((target, index) => {
+        const seed = ((index * 9301 + 49297) % 233280) / 233280;
+        const depth = 0.45 + (((index * 233 + 97) % 1000) / 1000) * 0.9;
+        const blend = baseRgb && highlightRgb ? clamp(target.x / Math.max(1, width) + (seed - 0.5) * 0.35, 0, 1) : 0;
+        const particleColor = baseRgb && highlightRgb ? rgbToCss(mixRgb(baseRgb, highlightRgb, blend)) : color;
+        const angle = seed * Math.PI * 2;
+        const distance = (reducedMotion ? 0 : scatter) * (0.35 + depth * 0.75);
+        const startX = target.x + Math.cos(angle) * distance + (seed - 0.5) * scatter * 0.45;
+        const startY = target.y + Math.sin(angle) * distance + (depth - 0.9) * scatter * 0.45;
+
+        return {
+          x: reducedMotion ? target.x : startX,
+          y: reducedMotion ? target.y : startY,
+          startX,
+          startY,
+          targetX: target.x,
+          targetY: target.y,
+          size: Math.max(0.6, particleSize * (0.75 + target.alpha * 0.45)),
+          color: particleColor,
+          seed,
+          depth,
+          delay: seed * stagger
+        };
+      });
+
+      pointer.x = width / 2;
+      pointer.y = height / 2;
+      pointer.smoothX = pointer.x;
+      pointer.smoothY = pointer.y;
+
+      if (reducedMotion) {
+        particles.forEach(particle => {
+          particle.x = particle.targetX;
+          particle.y = particle.targetY;
+          particle.startX = particle.targetX;
+          particle.startY = particle.targetY;
+          particle.delay = 0;
+        });
+        gathering = false;
+      } else {
+        startGather(false);
+      }
+
+      ensureRenderLoop();
+    };
+
+    const queueSample = () => {
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(sampleText);
+    };
+
+    const handlePointerMove = event => {
+      const rect = canvas.getBoundingClientRect();
+      pointer.x = event.clientX - rect.left;
+      pointer.y = event.clientY - rect.top;
+      pointer.active = true;
+    };
+
+    const handlePointerLeave = () => {
+      pointer.active = false;
+    };
+
+    const handlePointerEnter = event => {
+      handlePointerMove(event);
+      if (trigger === 'hover') startGather(true);
+    };
+
+    const handleClick = () => {
+      if (trigger === 'click') startGather(true);
+    };
+
+    const reduceMotionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    const handleReduceMotionChange = event => {
+      reducedMotion = event.matches;
+      sampleText();
+    };
+
+    reduceMotionQuery?.addEventListener('change', handleReduceMotionChange);
+    canvas.addEventListener('pointerenter', handlePointerEnter);
+    canvas.addEventListener('pointermove', handlePointerMove);
+    canvas.addEventListener('pointerleave', handlePointerLeave);
+    canvas.addEventListener('click', handleClick);
+
+    const resizeObserver = new ResizeObserver(queueSample);
+    resizeObserver.observe(container);
+    sampleText();
+
+    return () => {
+      buildId += 1;
+      resizeObserver.disconnect();
+      reduceMotionQuery?.removeEventListener('change', handleReduceMotionChange);
+      canvas.removeEventListener('pointerenter', handlePointerEnter);
+      canvas.removeEventListener('pointermove', handlePointerMove);
+      canvas.removeEventListener('pointerleave', handlePointerLeave);
+      canvas.removeEventListener('click', handleClick);
+
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+      if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
+    };
+  }, [
+    text,
+    particleSize,
+    density,
+    color,
+    highlightColor,
+    scatter,
+    gatherDuration,
+    stagger,
+    pointerRepel,
+    repelRadius,
+    idleDrift,
+    trigger,
+    fontSize,
+    fontWeight,
+    fontFamily,
+    glow
+  ]);
+
+  return (
+    <div ref={containerRef} className={`particle-text ${className}`} style={style} aria-label={text}>
+      <canvas ref={canvasRef} className="particle-text__canvas" aria-hidden="true" />
+      <span className="particle-text__sr">{text}</span>
+    </div>
+  );
+};
+
+export default ParticleText;
+
+.particle-text {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  overflow: hidden;
+  touch-action: none;
+  isolation: isolate;
+}
+
+.particle-text__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.particle-text__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+
+npx shadcn@latest add @react-bits/StrokeText-JS-CSS
+import StrokeText from './StrokeText';
+
+<StrokeText
+  text="Draw Attention"
+  strokeColor="#A78BFA"
+  fillColor="#F8FAFC"
+  strokeWidth={1.4}
+  drawDuration={1.6}
+  fillDelay={0.2}
+  stagger={0.05}
+  ease="power2.out"
+  trigger="mount"
+  fillMode="wipe"
+  fontSize={128}
+  fontWeight={800}
+  letterSpacing={-4}
+  reverse={false}
+/>
+
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+import './StrokeText.css';
+
+if (typeof window !== 'undefined') {
+  gsap.registerPlugin(ScrollTrigger);
+}
+
+const DEFAULT_TEXT = 'Draw Attention';
+
+const StrokeText = ({
+  text = DEFAULT_TEXT,
+  strokeColor = '#A78BFA',
+  fillColor = '#F8FAFC',
+  strokeWidth = 1.4,
+  drawDuration = 1.6,
+  fillDelay = 0.2,
+  stagger = 0.05,
+  ease = 'power2.out',
+  trigger = 'mount',
+  fillMode = 'wipe',
+  fontSize = 128,
+  fontWeight = 800,
+  letterSpacing = -4,
+  reverse = false,
+  className = '',
+  style = {}
+}) => {
+  const rootRef = useRef(null);
+  const strokeTextRef = useRef(null);
+  const wipeRectRef = useRef(null);
+
+  const [box, setBox] = useState(null);
+
+  const rawId = useId();
+  const wipeId = `stroke-text-wipe-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
+  const characters = useMemo(() => Array.from(String(text ?? '')), [text]);
+
+  const dash = Math.max(fontSize * 7, 200);
+
+  const fontStyle = useMemo(
+    () => ({
+      fontSize: `${fontSize}px`,
+      fontWeight,
+      letterSpacing: `${letterSpacing}px`
+    }),
+    [fontSize, fontWeight, letterSpacing]
+  );
+
+  useLayoutEffect(() => {
+    const node = strokeTextRef.current;
+    if (!node) return undefined;
+
+    let cancelled = false;
+
+    const measure = () => {
+      if (cancelled || !strokeTextRef.current) return;
+      let bbox;
+      try {
+        bbox = strokeTextRef.current.getBBox();
+      } catch {
+        return;
+      }
+      if (!bbox || !bbox.width) return;
+
+      const pad = Math.max(Number(strokeWidth) || 1, fontSize * 0.1);
+      const next = {
+        x: bbox.x - pad,
+        y: bbox.y - pad,
+        width: bbox.width + pad * 2,
+        height: bbox.height + pad * 2
+      };
+
+      setBox(prev =>
+        prev &&
+        Math.abs(prev.x - next.x) < 0.5 &&
+        Math.abs(prev.width - next.width) < 0.5 &&
+        Math.abs(prev.y - next.y) < 0.5
+          ? prev
+          : next
+      );
+    };
+
+    measure();
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(measure).catch(() => {});
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [characters, fontSize, fontWeight, letterSpacing, strokeWidth]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (typeof window === 'undefined' || !root || !box) return undefined;
+
+    const strokes = gsap.utils.toArray(root.querySelectorAll('[data-stroke-char]'));
+    const fills = gsap.utils.toArray(root.querySelectorAll('[data-fill-char]'));
+    const wipe = wipeRectRef.current;
+    if (!strokes.length) return undefined;
+
+    const fillEnabled = fillMode !== 'none';
+    const useWipe = fillEnabled && fillMode === 'wipe';
+    const fillDuration = Math.max(0.4, drawDuration * 0.5);
+    const staggerConfig = reverse ? { each: stagger, from: 'end' } : stagger;
+    const targets = [...strokes, ...fills, wipe].filter(Boolean);
+
+    const setStart = () => {
+      gsap.killTweensOf(targets);
+      gsap.set(strokes, { strokeDasharray: dash, strokeDashoffset: dash });
+      gsap.set(fills, { opacity: useWipe ? 1 : 0 });
+      if (wipe) gsap.set(wipe, { attr: { width: 0 } });
+    };
+
+    const setEnd = () => {
+      gsap.killTweensOf(targets);
+      gsap.set(strokes, { strokeDasharray: dash, strokeDashoffset: 0 });
+      gsap.set(fills, { opacity: fillEnabled ? 1 : 0 });
+      if (wipe) gsap.set(wipe, { attr: { width: fillEnabled ? box.width : 0 } });
+    };
+
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      setEnd();
+      return () => gsap.killTweensOf(targets);
+    }
+
+    const build = () => {
+      setStart();
+      const tl = gsap.timeline({
+        paused: true,
+        repeat: trigger === 'loop' ? -1 : 0,
+        repeatDelay: trigger === 'loop' ? 0.9 : 0,
+        defaults: { overwrite: 'auto' }
+      });
+
+      tl.to(strokes, { strokeDashoffset: 0, duration: drawDuration, ease, stagger: staggerConfig }, 0);
+
+      if (useWipe && wipe) {
+        tl.to(
+          wipe,
+          { attr: { width: box.width }, duration: fillDuration, ease: 'power2.inOut' },
+          drawDuration + fillDelay
+        );
+      } else if (fillEnabled) {
+        tl.to(
+          fills,
+          { opacity: 1, duration: fillDuration, ease: 'power2.out', stagger: staggerConfig },
+          drawDuration + fillDelay
+        );
+      }
+
+      return tl;
+    };
+
+    let timeline = null;
+    let scrollTrigger = null;
+    let removeHover = null;
+
+    if (trigger === 'hover') {
+      setEnd();
+      const play = () => {
+        timeline?.kill();
+        timeline = build();
+        timeline.play(0);
+      };
+      root.addEventListener('pointerenter', play);
+      removeHover = () => root.removeEventListener('pointerenter', play);
+    } else {
+      timeline = build();
+      if (trigger === 'scroll') {
+        scrollTrigger = ScrollTrigger.create({
+          trigger: root,
+          start: 'top 82%',
+          once: true,
+          onEnter: () => timeline?.play(0)
+        });
+      } else {
+        timeline.play(0);
+      }
+    }
+
+    return () => {
+      removeHover?.();
+      scrollTrigger?.kill();
+      timeline?.kill();
+      gsap.killTweensOf(targets);
+    };
+  }, [box, dash, drawDuration, fillDelay, stagger, ease, trigger, fillMode, reverse]);
+
+  const viewBox = box ? `${box.x} ${box.y} ${box.width} ${box.height}` : `0 ${-fontSize} 600 ${fontSize * 1.3}`;
+
+  return (
+    <span
+      ref={rootRef}
+      className={`stroke-text ${trigger === 'hover' ? 'stroke-text--hover' : ''} ${className}`.trim()}
+      style={{ ...style, '--stroke-text-height': `${Math.round(fontSize * 1.3)}px` }}
+      role="img"
+      aria-label={String(text ?? '')}
+    >
+      <svg className="stroke-text__svg" viewBox={viewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        {fillMode === 'wipe' && box && (
+          <defs>
+            <clipPath id={wipeId} clipPathUnits="userSpaceOnUse">
+              <rect ref={wipeRectRef} x={box.x} y={box.y} width="0" height={box.height} />
+            </clipPath>
+          </defs>
+        )}
+
+        <text
+          ref={strokeTextRef}
+          className="stroke-text__stroke"
+          x="0"
+          y="0"
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={strokeWidth}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          style={fontStyle}
+        >
+          {characters.map((char, index) => (
+            <tspan data-stroke-char key={`s-${index}`}>
+              {char}
+            </tspan>
+          ))}
+        </text>
+
+        <text
+          className="stroke-text__fill"
+          x="0"
+          y="0"
+          fill={fillColor}
+          stroke="none"
+          style={fontStyle}
+          clipPath={fillMode === 'wipe' && box ? `url(#${wipeId})` : undefined}
+        >
+          {characters.map((char, index) => (
+            <tspan data-fill-char key={`f-${index}`}>
+              {char}
+            </tspan>
+          ))}
+        </text>
+      </svg>
+    </span>
+  );
+};
+
+export default StrokeText;
+
+.stroke-text {
+  display: block;
+  width: 100%;
+  line-height: 0;
+}
+
+.stroke-text--hover {
+  cursor: pointer;
+}
+
+.stroke-text__svg {
+  display: block;
+  width: 100%;
+  height: var(--stroke-text-height, 160px);
+}
+
+.stroke-text__stroke,
+.stroke-text__fill {
+  user-select: none;
+}
+
+npx shadcn@latest add @react-bits/FoldText-JS-CSS
+import FoldText from './FoldText';
+
+<FoldText
+  text="Design unfolds"
+  splitBy="char"
+  hinge="top"
+  trigger="mount"
+  duration={0.65}
+  stagger={0.045}
+  ease="power3.out"
+  perspective={700}
+  creaseShading={0.55}
+  fontSize={80}
+  fontWeight={800}
+  color="#f7f2e8"
+/>
+
+import { useEffect, useMemo, useRef } from 'react';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+import './FoldText.css';
+
+gsap.registerPlugin(ScrollTrigger);
+
+const HINGE_CONFIG = {
+  top: { origin: '50% 0%', rotateX: -92, rotateY: 0 },
+  bottom: { origin: '50% 100%', rotateX: 92, rotateY: 0 },
+  left: { origin: '0% 50%', rotateX: 0, rotateY: 92 },
+  right: { origin: '100% 50%', rotateX: 0, rotateY: -92 }
+};
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const renderWhitespace = (value, key) =>
+  value.split(/(\n)/).map((part, index) => {
+    if (part === '\n') return <br key={`${key}-br-${index}`} />;
+    if (!part) return null;
+
+    return (
+      <span className="fold-text-whitespace" key={`${key}-space-${index}`}>
+        {part.replace(/ /g, '\u00A0')}
+      </span>
+    );
+  });
+
+const FoldText = ({
+  text = 'Design unfolds',
+  splitBy = 'char',
+  hinge = 'top',
+  duration = 0.65,
+  stagger = 0.045,
+  ease = 'power3.out',
+  perspective = 700,
+  creaseShading = 0.55,
+  trigger = 'mount',
+  fontSize = 80,
+  fontWeight = 800,
+  color = '#f7f2e8',
+  className = '',
+  style = {}
+}) => {
+  const rootRef = useRef(null);
+  const timelineRef = useRef(null);
+  const hingeConfig = HINGE_CONFIG[hinge] || HINGE_CONFIG.top;
+  const safeCrease = clamp(creaseShading, 0, 1);
+  const safePerspective = Math.max(120, perspective);
+
+  const segments = useMemo(() => {
+    let segmentIndex = 0;
+
+    const renderSegment = (content, key, split = splitBy) => {
+      segmentIndex += 1;
+      return (
+        <span
+          className="fold-text-segment"
+          data-fold-split={split}
+          key={key}
+          style={{ '--fold-perspective': `${safePerspective}px` }}
+        >
+          <span
+            className="fold-text-piece"
+            data-fold-hinge={hinge}
+            style={{ transformOrigin: hingeConfig.origin, '--fold-crease': 0 }}
+          >
+            {content || '\u00A0'}
+          </span>
+        </span>
+      );
+    };
+
+    if (splitBy === 'line') {
+      return text.split('\n').map((line, index) => (
+        <span className="fold-text-line" key={`line-${index}`}>
+          {renderSegment(line || '\u00A0', `segment-line-${index}`, 'line')}
+        </span>
+      ));
+    }
+
+    if (splitBy === 'word') {
+      return text.split(/(\s+)/).flatMap((part, index) => {
+        if (!part) return [];
+        if (/^\s+$/.test(part)) return renderWhitespace(part, `ws-${index}`);
+        return renderSegment(part, `segment-word-${segmentIndex}`);
+      });
+    }
+
+    return Array.from(text).map((char, index) => {
+      if (char === '\n') return <br key={`br-${index}`} />;
+      return renderSegment(char === ' ' ? '\u00A0' : char, `segment-char-${index}`);
+    });
+  }, [text, splitBy, hinge, hingeConfig.origin, safePerspective]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const root = rootRef.current;
+    if (!root) return undefined;
+
+    const pieces = Array.from(root.querySelectorAll('.fold-text-piece'));
+    if (!pieces.length) return undefined;
+
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const activeDuration = reduceMotion ? Math.min(duration, 0.22) : duration;
+    const activeStagger = reduceMotion ? Math.min(stagger, 0.02) : stagger;
+    const fromVars = {
+      opacity: 0,
+      rotateX: reduceMotion ? 0 : hingeConfig.rotateX,
+      rotateY: reduceMotion ? 0 : hingeConfig.rotateY,
+      '--fold-crease': reduceMotion ? 0 : safeCrease,
+      transformOrigin: hingeConfig.origin,
+      force3D: true
+    };
+    const toVars = {
+      opacity: 1,
+      rotateX: 0,
+      rotateY: 0,
+      '--fold-crease': 0,
+      duration: activeDuration,
+      ease: reduceMotion ? 'power1.out' : ease,
+      stagger: activeStagger,
+      clearProps: 'willChange'
+    };
+
+    const killTimeline = () => {
+      timelineRef.current?.kill();
+      timelineRef.current = null;
+      gsap.killTweensOf(pieces);
+    };
+
+    const play = repeat => {
+      killTimeline();
+      timelineRef.current = gsap.timeline({ repeat: repeat ? -1 : 0, repeatDelay: repeat ? 0.75 : 0 });
+      timelineRef.current.fromTo(pieces, fromVars, toVars);
+      return timelineRef.current;
+    };
+
+    let scrollTrigger;
+    let hoverHandler;
+
+    if (trigger === 'hover') {
+      gsap.set(pieces, { opacity: 1, rotateX: 0, rotateY: 0, '--fold-crease': 0, transformOrigin: hingeConfig.origin });
+      hoverHandler = () => play(false);
+      root.addEventListener('mouseenter', hoverHandler);
+    } else if (trigger === 'scroll') {
+      gsap.set(pieces, fromVars);
+      scrollTrigger = ScrollTrigger.create({
+        trigger: root,
+        start: 'top 82%',
+        once: true,
+        onEnter: () => play(false)
+      });
+    } else if (trigger === 'loop') {
+      play(true);
+    } else {
+      play(false);
+    }
+
+    return () => {
+      if (hoverHandler) root.removeEventListener('mouseenter', hoverHandler);
+      scrollTrigger?.kill();
+      killTimeline();
+    };
+  }, [
+    text,
+    splitBy,
+    hinge,
+    duration,
+    stagger,
+    ease,
+    perspective,
+    safeCrease,
+    trigger,
+    hingeConfig.origin,
+    hingeConfig.rotateX,
+    hingeConfig.rotateY
+  ]);
+
+  const rootStyle = {
+    '--fold-text-font-size': typeof fontSize === 'number' ? `${fontSize}px` : fontSize,
+    '--fold-text-font-weight': fontWeight,
+    '--fold-text-color': color,
+    ...style
+  };
+
+  return (
+    <span ref={rootRef} className={`fold-text ${className}`.trim()} style={rootStyle}>
+      <span className="fold-text-sr-only">{text}</span>
+      <span className="fold-text-visual" aria-hidden="true">
+        {segments}
+      </span>
+    </span>
+  );
+};
+
+export default FoldText;
+
+
+.fold-text {
+  display: inline-block;
+  color: var(--fold-text-color, currentColor);
+  font-size: var(--fold-text-font-size, inherit);
+  font-weight: var(--fold-text-font-weight, inherit);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.fold-text-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fold-text-visual {
+  display: inline;
+}
+
+.fold-text-line {
+  display: block;
+}
+
+.fold-text-whitespace {
+  display: inline;
+}
+
+.fold-text-segment {
+  display: inline-block;
+  line-height: inherit;
+  perspective: var(--fold-perspective, 700px);
+  transform-style: preserve-3d;
+  vertical-align: baseline;
+}
+
+.fold-text-segment[data-fold-split='line'] {
+  display: block;
+}
+
+.fold-text-piece {
+  position: relative;
+  display: inline-block;
+  color: inherit;
+  line-height: inherit;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+.fold-text-piece::after {
+  content: '';
+  position: absolute;
+  inset: -0.08em -0.02em;
+  pointer-events: none;
+  opacity: var(--fold-crease, 0);
+  mix-blend-mode: multiply;
+  border-radius: 0.08em;
+}
+
+.fold-text-piece[data-fold-hinge='top']::after {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0.22) 42%, rgba(255, 255, 255, 0.26) 100%);
+}
+
+.fold-text-piece[data-fold-hinge='bottom']::after {
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0.22) 42%, rgba(255, 255, 255, 0.26) 100%);
+}
+
+.fold-text-piece[data-fold-hinge='left']::after {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0.22) 42%, rgba(255, 255, 255, 0.26) 100%);
+}
+
+.fold-text-piece[data-fold-hinge='right']::after {
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0.22) 42%, rgba(255, 255, 255, 0.26) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fold-text-piece {
+    transform: none !important;
+  }
+
+  .fold-text-piece::after {
+    opacity: 0 !important;
+  }
+}
+
+
+npx shadcn@latest add @react-bits/TextType-JS-CSS
+
+import TextType from './TextType';
+
+<TextType 
+  text={["Text typing effect", "for your websites", "Happy coding!"]}
+  typingSpeed={75}
+  pauseDuration={1500}
+  showCursor
+  cursorCharacter="_"
+  texts={["Welcome to React Bits! Good to see you!","Build some amazing experiences!"]}
+  deletingSpeed={50}
+  variableSpeedEnabled={false}
+  variableSpeedMin={60}
+  variableSpeedMax={120}
+  cursorBlinkDuration={0.5}
+/>
+
+'use client';
+
+import { useEffect, useRef, useState, createElement, useMemo, useCallback } from 'react';
+import { gsap } from 'gsap';
+import './TextType.css';
+
+const TextType = ({
+  text,
+  as: Component = 'div',
+  typingSpeed = 50,
+  initialDelay = 0,
+  pauseDuration = 2000,
+  deletingSpeed = 30,
+  loop = true,
+  className = '',
+  showCursor = true,
+  hideCursorWhileTyping = false,
+  cursorCharacter = '|',
+  cursorClassName = '',
+  cursorBlinkDuration = 0.5,
+  textColors = [],
+  variableSpeed,
+  onSentenceComplete,
+  startOnVisible = false,
+  reverseMode = false,
+  ...props
+}) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [currentCharIndex, setCurrentCharIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [currentTextIndex, setCurrentTextIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(!startOnVisible);
+  const cursorRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const textArray = useMemo(() => (Array.isArray(text) ? text : [text]), [text]);
+
+  const getRandomSpeed = useCallback(() => {
+    if (!variableSpeed) return typingSpeed;
+    const { min, max } = variableSpeed;
+    return Math.random() * (max - min) + min;
+  }, [variableSpeed, typingSpeed]);
+
+  const getCurrentTextColor = () => {
+    if (textColors.length === 0) return 'inherit';
+    return textColors[currentTextIndex % textColors.length];
+  };
+
+  useEffect(() => {
+    if (!startOnVisible || !containerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [startOnVisible]);
+
+  useEffect(() => {
+    if (showCursor && cursorRef.current) {
+      gsap.set(cursorRef.current, { opacity: 1 });
+      gsap.to(cursorRef.current, {
+        opacity: 0,
+        duration: cursorBlinkDuration,
+        repeat: -1,
+        yoyo: true,
+        ease: 'power2.inOut'
+      });
+    }
+  }, [showCursor, cursorBlinkDuration]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    let timeout;
+    const currentText = textArray[currentTextIndex];
+    const processedText = reverseMode ? currentText.split('').reverse().join('') : currentText;
+
+    const executeTypingAnimation = () => {
+      if (isDeleting) {
+        if (displayedText === '') {
+          setIsDeleting(false);
+          if (currentTextIndex === textArray.length - 1 && !loop) {
+            return;
+          }
+
+          if (onSentenceComplete) {
+            onSentenceComplete(textArray[currentTextIndex], currentTextIndex);
+          }
+
+          setCurrentTextIndex(prev => (prev + 1) % textArray.length);
+          setCurrentCharIndex(0);
+          timeout = setTimeout(() => {}, pauseDuration);
+        } else {
+          timeout = setTimeout(() => {
+            setDisplayedText(prev => prev.slice(0, -1));
+          }, deletingSpeed);
+        }
+      } else {
+        if (currentCharIndex < processedText.length) {
+          timeout = setTimeout(
+            () => {
+              setDisplayedText(prev => prev + processedText[currentCharIndex]);
+              setCurrentCharIndex(prev => prev + 1);
+            },
+            variableSpeed ? getRandomSpeed() : typingSpeed
+          );
+        } else if (textArray.length >= 1) {
+          if (!loop && currentTextIndex === textArray.length - 1) return;
+          timeout = setTimeout(() => {
+            setIsDeleting(true);
+          }, pauseDuration);
+        }
+      }
+    };
+
+    if (currentCharIndex === 0 && !isDeleting && displayedText === '') {
+      timeout = setTimeout(executeTypingAnimation, initialDelay);
+    } else {
+      executeTypingAnimation();
+    }
+
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    currentCharIndex,
+    displayedText,
+    isDeleting,
+    typingSpeed,
+    deletingSpeed,
+    pauseDuration,
+    textArray,
+    currentTextIndex,
+    loop,
+    initialDelay,
+    isVisible,
+    reverseMode,
+    variableSpeed,
+    onSentenceComplete
+  ]);
+
+  const shouldHideCursor =
+    hideCursorWhileTyping && (currentCharIndex < textArray[currentTextIndex].length || isDeleting);
+
+  return createElement(
+    Component,
+    {
+      ref: containerRef,
+      className: `text-type ${className}`,
+      ...props
+    },
+    <span className="text-type__content" style={{ color: getCurrentTextColor() || 'inherit' }}>
+      {displayedText}
+    </span>,
+    showCursor && (
+      <span
+        ref={cursorRef}
+        className={`text-type__cursor ${cursorClassName} ${shouldHideCursor ? 'text-type__cursor--hidden' : ''}`}
+      >
+        {cursorCharacter}
+      </span>
+    )
+  );
+};
+
+export default TextType;
+
+.text-type {
+  display: inline-block;
+  white-space: pre-wrap;
+}
+
+.text-type__cursor {
+  margin-left: 0.25rem;
+  display: inline-block;
+  opacity: 1;
+}
+
+.text-type__cursor--hidden {
+  display: none;
+}
+
+some 404 text iidea:
+
+npx shadcn@latest add @react-bits/FuzzyText-JS-CSS
+import FuzzyText from './FuzzyText';
+  
+<FuzzyText 
+  baseIntensity={0.2}
+  hoverIntensity={0.5}
+  enableHover
+>
+  404
+</FuzzyText>    
+import React, { useEffect, useRef } from 'react';
+
+const FuzzyText = ({
+  children,
+  fontSize = 'clamp(2rem, 8vw, 8rem)',
+  fontWeight = 900,
+  fontFamily = 'inherit',
+  color = '#fff',
+  enableHover = true,
+  baseIntensity = 0.18,
+  hoverIntensity = 0.5,
+  fuzzRange = 30,
+  fps = 60,
+  direction = 'horizontal',
+  transitionDuration = 0,
+  clickEffect = false,
+  glitchMode = false,
+  glitchInterval = 2000,
+  glitchDuration = 200,
+  gradient = null,
+  letterSpacing = 0,
+  className = ''
+}) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    let animationFrameId;
+    let isCancelled = false;
+    let glitchTimeoutId;
+    let glitchEndTimeoutId;
+    let clickTimeoutId;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const init = async () => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const computedFontFamily =
+        fontFamily === 'inherit' ? window.getComputedStyle(canvas).fontFamily || 'sans-serif' : fontFamily;
+
+      const fontSizeStr = typeof fontSize === 'number' ? `${fontSize}px` : fontSize;
+      const fontString = `${fontWeight} ${fontSizeStr} ${computedFontFamily}`;
+
+      try {
+        await document.fonts.load(fontString);
+      } catch {
+        await document.fonts.ready;
+      }
+      if (isCancelled) return;
+
+      let numericFontSize;
+      if (typeof fontSize === 'number') {
+        numericFontSize = fontSize;
+      } else {
+        const temp = document.createElement('span');
+        temp.style.fontSize = fontSize;
+        document.body.appendChild(temp);
+        const computedSize = window.getComputedStyle(temp).fontSize;
+        numericFontSize = parseFloat(computedSize);
+        document.body.removeChild(temp);
+      }
+
+      const text = React.Children.toArray(children).join('');
+
+      const offscreen = document.createElement('canvas');
+      const offCtx = offscreen.getContext('2d');
+      if (!offCtx) return;
+
+      offCtx.font = `${fontWeight} ${fontSizeStr} ${computedFontFamily}`;
+      offCtx.textBaseline = 'alphabetic';
+
+      let totalWidth = 0;
+      if (letterSpacing !== 0) {
+        for (const char of text) {
+          totalWidth += offCtx.measureText(char).width + letterSpacing;
+        }
+        totalWidth -= letterSpacing;
+      } else {
+        totalWidth = offCtx.measureText(text).width;
+      }
+
+      const metrics = offCtx.measureText(text);
+      const actualLeft = metrics.actualBoundingBoxLeft ?? 0;
+      const actualRight = letterSpacing !== 0 ? totalWidth : (metrics.actualBoundingBoxRight ?? metrics.width);
+      const actualAscent = metrics.actualBoundingBoxAscent ?? numericFontSize;
+      const actualDescent = metrics.actualBoundingBoxDescent ?? numericFontSize * 0.2;
+
+      const textBoundingWidth = Math.ceil(letterSpacing !== 0 ? totalWidth : actualLeft + actualRight);
+      const tightHeight = Math.ceil(actualAscent + actualDescent);
+
+      const extraWidthBuffer = 10;
+      const offscreenWidth = textBoundingWidth + extraWidthBuffer;
+
+      offscreen.width = offscreenWidth;
+      offscreen.height = tightHeight;
+
+      const xOffset = extraWidthBuffer / 2;
+      offCtx.font = `${fontWeight} ${fontSizeStr} ${computedFontFamily}`;
+      offCtx.textBaseline = 'alphabetic';
+
+      if (gradient && Array.isArray(gradient) && gradient.length >= 2) {
+        const grad = offCtx.createLinearGradient(0, 0, offscreenWidth, 0);
+        gradient.forEach((c, i) => grad.addColorStop(i / (gradient.length - 1), c));
+        offCtx.fillStyle = grad;
+      } else {
+        offCtx.fillStyle = color;
+      }
+
+      if (letterSpacing !== 0) {
+        let xPos = xOffset;
+        for (const char of text) {
+          offCtx.fillText(char, xPos, actualAscent);
+          xPos += offCtx.measureText(char).width + letterSpacing;
+        }
+      } else {
+        offCtx.fillText(text, xOffset - actualLeft, actualAscent);
+      }
+
+      const horizontalMargin = fuzzRange + 20;
+      const verticalMargin = 0;
+      canvas.width = offscreenWidth + horizontalMargin * 2;
+      canvas.height = tightHeight + verticalMargin * 2;
+      ctx.translate(horizontalMargin, verticalMargin);
+
+      const interactiveLeft = horizontalMargin + xOffset;
+      const interactiveTop = verticalMargin;
+      const interactiveRight = interactiveLeft + textBoundingWidth;
+      const interactiveBottom = interactiveTop + tightHeight;
+
+      let isHovering = false;
+      let isClicking = false;
+      let isGlitching = false;
+      let currentIntensity = baseIntensity;
+      let targetIntensity = baseIntensity;
+      let lastFrameTime = 0;
+      const frameDuration = 1000 / fps;
+
+      const startGlitchLoop = () => {
+        if (!glitchMode || isCancelled) return;
+        glitchTimeoutId = setTimeout(() => {
+          if (isCancelled) return;
+          isGlitching = true;
+          glitchEndTimeoutId = setTimeout(() => {
+            isGlitching = false;
+            startGlitchLoop();
+          }, glitchDuration);
+        }, glitchInterval);
+      };
+
+      if (glitchMode) startGlitchLoop();
+
+      const run = timestamp => {
+        if (isCancelled) return;
+
+        if (timestamp - lastFrameTime < frameDuration) {
+          animationFrameId = window.requestAnimationFrame(run);
+          return;
+        }
+        lastFrameTime = timestamp;
+
+        ctx.clearRect(
+          -fuzzRange - 20,
+          -fuzzRange - 10,
+          offscreenWidth + 2 * (fuzzRange + 20),
+          tightHeight + 2 * (fuzzRange + 10)
+        );
+
+        if (isClicking) {
+          targetIntensity = 1;
+        } else if (isGlitching) {
+          targetIntensity = 1;
+        } else if (isHovering) {
+          targetIntensity = hoverIntensity;
+        } else {
+          targetIntensity = baseIntensity;
+        }
+
+        if (transitionDuration > 0) {
+          const step = 1 / (transitionDuration / frameDuration);
+          if (currentIntensity < targetIntensity) {
+            currentIntensity = Math.min(currentIntensity + step, targetIntensity);
+          } else if (currentIntensity > targetIntensity) {
+            currentIntensity = Math.max(currentIntensity - step, targetIntensity);
+          }
+        } else {
+          currentIntensity = targetIntensity;
+        }
+
+        if (direction === 'horizontal') {
+          // Horizontal: shift each row left/right
+          for (let j = 0; j < tightHeight; j++) {
+            const dx = Math.floor(currentIntensity * (Math.random() - 0.5) * fuzzRange);
+            ctx.drawImage(offscreen, 0, j, offscreenWidth, 1, dx, j, offscreenWidth, 1);
+          }
+        } else if (direction === 'vertical') {
+          // Vertical: shift each column up/down
+          for (let i = 0; i < offscreenWidth; i++) {
+            const dy = Math.floor(currentIntensity * (Math.random() - 0.5) * fuzzRange);
+            ctx.drawImage(offscreen, i, 0, 1, tightHeight, i, dy, 1, tightHeight);
+          }
+        } else {
+          // Both: shift each row horizontally, then shift each column vertically
+          // First pass: draw with horizontal displacement to a temp position
+          for (let j = 0; j < tightHeight; j++) {
+            const dx = Math.floor(currentIntensity * (Math.random() - 0.5) * fuzzRange);
+            ctx.drawImage(offscreen, 0, j, offscreenWidth, 1, dx, j, offscreenWidth, 1);
+          }
+          // Second pass: read what we just drew and apply vertical displacement
+          const tempData = ctx.getImageData(0, 0, offscreenWidth + fuzzRange, tightHeight + fuzzRange);
+          ctx.clearRect(
+            -fuzzRange - 20,
+            -fuzzRange - 10,
+            offscreenWidth + 2 * (fuzzRange + 20),
+            tightHeight + 2 * (fuzzRange + 10)
+          );
+          ctx.putImageData(tempData, 0, 0);
+          for (let i = 0; i < offscreenWidth + fuzzRange; i++) {
+            const dy = Math.floor(currentIntensity * (Math.random() - 0.5) * fuzzRange * 0.5);
+            const colData = ctx.getImageData(i, 0, 1, tightHeight + fuzzRange);
+            ctx.clearRect(i, -fuzzRange, 1, tightHeight + 2 * fuzzRange);
+            ctx.putImageData(colData, i, dy);
+          }
+        }
+        animationFrameId = window.requestAnimationFrame(run);
+      };
+
+      animationFrameId = window.requestAnimationFrame(run);
+
+      const isInsideTextArea = (x, y) => {
+        return x >= interactiveLeft && x <= interactiveRight && y >= interactiveTop && y <= interactiveBottom;
+      };
+
+      const handleMouseMove = e => {
+        if (!enableHover) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        isHovering = isInsideTextArea(x, y);
+      };
+
+      const handleMouseLeave = () => {
+        isHovering = false;
+      };
+
+      const handleClick = () => {
+        if (!clickEffect) return;
+        isClicking = true;
+        clearTimeout(clickTimeoutId);
+        clickTimeoutId = setTimeout(() => {
+          isClicking = false;
+        }, 150);
+      };
+
+      const handleTouchMove = e => {
+        if (!enableHover) return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        isHovering = isInsideTextArea(x, y);
+      };
+
+      const handleTouchEnd = () => {
+        isHovering = false;
+      };
+
+      if (enableHover) {
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseleave', handleMouseLeave);
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd);
+      }
+
+      if (clickEffect) {
+        canvas.addEventListener('click', handleClick);
+      }
+
+      const cleanup = () => {
+        window.cancelAnimationFrame(animationFrameId);
+        clearTimeout(glitchTimeoutId);
+        clearTimeout(glitchEndTimeoutId);
+        clearTimeout(clickTimeoutId);
+        if (enableHover) {
+          canvas.removeEventListener('mousemove', handleMouseMove);
+          canvas.removeEventListener('mouseleave', handleMouseLeave);
+          canvas.removeEventListener('touchmove', handleTouchMove);
+          canvas.removeEventListener('touchend', handleTouchEnd);
+        }
+        if (clickEffect) {
+          canvas.removeEventListener('click', handleClick);
+        }
+      };
+
+      canvas.cleanupFuzzyText = cleanup;
+    };
+
+    init();
+
+    return () => {
+      isCancelled = true;
+      window.cancelAnimationFrame(animationFrameId);
+      clearTimeout(glitchTimeoutId);
+      clearTimeout(glitchEndTimeoutId);
+      clearTimeout(clickTimeoutId);
+      if (canvas && canvas.cleanupFuzzyText) {
+        canvas.cleanupFuzzyText();
+      }
+    };
+  }, [
+    children,
+    fontSize,
+    fontWeight,
+    fontFamily,
+    color,
+    enableHover,
+    baseIntensity,
+    hoverIntensity,
+    fuzzRange,
+    fps,
+    direction,
+    transitionDuration,
+    clickEffect,
+    glitchMode,
+    glitchInterval,
+    glitchDuration,
+    gradient,
+    letterSpacing
+  ]);
+
+  return <canvas ref={canvasRef} className={className} />;
+};
+
+export default FuzzyText;
+
+some text animations:"
+npx shadcn@latest add @react-bits/RotatingText-JS-CSS
+import RotatingText from './RotatingText'
+  
+<RotatingText
+  texts={['React', 'Bits', 'Is', 'Cool!']}
+  mainClassName="px-2 sm:px-2 md:px-3 bg-cyan-300 text-black overflow-hidden py-0.5 sm:py-1 md:py-2 justify-center rounded-lg"
+  staggerFrom="last"
+  initial={{ y: "100%" }}
+  animate={{ y: 0 }}
+  exit={{ y: "-120%" }}
+  staggerDuration={0.025}
+  splitLevelClassName="overflow-hidden pb-0.5 sm:pb-1 md:pb-1"
+  transition={{ type: "spring", damping: 30, stiffness: 400 }}
+  rotationInterval={2000}
+  splitBy="characters"
+  auto
+  loop
+/>
+
+
+'use client';
+
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+
+import './RotatingText.css';
+
+function cn(...classes) {
+  return classes.filter(Boolean).join(' ');
+}
+
+const RotatingText = forwardRef((props, ref) => {
+  const {
+    texts,
+    transition = { type: 'spring', damping: 25, stiffness: 300 },
+    initial = { y: '100%', opacity: 0 },
+    animate = { y: 0, opacity: 1 },
+    exit = { y: '-120%', opacity: 0 },
+    animatePresenceMode = 'wait',
+    animatePresenceInitial = false,
+    rotationInterval = 2000,
+    staggerDuration = 0,
+    staggerFrom = 'first',
+    loop = true,
+    auto = true,
+    splitBy = 'characters',
+    onNext,
+    mainClassName,
+    splitLevelClassName,
+    elementLevelClassName,
+    ...rest
+  } = props;
+
+  const [currentTextIndex, setCurrentTextIndex] = useState(0);
+
+  const splitIntoCharacters = text => {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+      return Array.from(segmenter.segment(text), segment => segment.segment);
+    }
+    return Array.from(text);
+  };
+
+  const elements = useMemo(() => {
+    const currentText = texts[currentTextIndex];
+    if (splitBy === 'characters') {
+      const words = currentText.split(' ');
+      return words.map((word, i) => ({
+        characters: splitIntoCharacters(word),
+        needsSpace: i !== words.length - 1
+      }));
+    }
+    if (splitBy === 'words') {
+      return currentText.split(' ').map((word, i, arr) => ({
+        characters: [word],
+        needsSpace: i !== arr.length - 1
+      }));
+    }
+    if (splitBy === 'lines') {
+      return currentText.split('\n').map((line, i, arr) => ({
+        characters: [line],
+        needsSpace: i !== arr.length - 1
+      }));
+    }
+
+    return currentText.split(splitBy).map((part, i, arr) => ({
+      characters: [part],
+      needsSpace: i !== arr.length - 1
+    }));
+  }, [texts, currentTextIndex, splitBy]);
+
+  const getStaggerDelay = useCallback(
+    (index, totalChars) => {
+      const total = totalChars;
+      if (staggerFrom === 'first') return index * staggerDuration;
+      if (staggerFrom === 'last') return (total - 1 - index) * staggerDuration;
+      if (staggerFrom === 'center') {
+        const center = Math.floor(total / 2);
+        return Math.abs(center - index) * staggerDuration;
+      }
+      if (staggerFrom === 'random') {
+        const randomIndex = Math.floor(Math.random() * total);
+        return Math.abs(randomIndex - index) * staggerDuration;
+      }
+      return Math.abs(staggerFrom - index) * staggerDuration;
+    },
+    [staggerFrom, staggerDuration]
+  );
+
+  const handleIndexChange = useCallback(
+    newIndex => {
+      setCurrentTextIndex(newIndex);
+      if (onNext) onNext(newIndex);
+    },
+    [onNext]
+  );
+
+  const next = useCallback(() => {
+    const nextIndex = currentTextIndex === texts.length - 1 ? (loop ? 0 : currentTextIndex) : currentTextIndex + 1;
+    if (nextIndex !== currentTextIndex) {
+      handleIndexChange(nextIndex);
+    }
+  }, [currentTextIndex, texts.length, loop, handleIndexChange]);
+
+  const previous = useCallback(() => {
+    const prevIndex = currentTextIndex === 0 ? (loop ? texts.length - 1 : currentTextIndex) : currentTextIndex - 1;
+    if (prevIndex !== currentTextIndex) {
+      handleIndexChange(prevIndex);
+    }
+  }, [currentTextIndex, texts.length, loop, handleIndexChange]);
+
+  const jumpTo = useCallback(
+    index => {
+      const validIndex = Math.max(0, Math.min(index, texts.length - 1));
+      if (validIndex !== currentTextIndex) {
+        handleIndexChange(validIndex);
+      }
+    },
+    [texts.length, currentTextIndex, handleIndexChange]
+  );
+
+  const reset = useCallback(() => {
+    if (currentTextIndex !== 0) {
+      handleIndexChange(0);
+    }
+  }, [currentTextIndex, handleIndexChange]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      next,
+      previous,
+      jumpTo,
+      reset
+    }),
+    [next, previous, jumpTo, reset]
+  );
+
+  useEffect(() => {
+    if (!auto) return;
+    const intervalId = setInterval(next, rotationInterval);
+    return () => clearInterval(intervalId);
+  }, [next, rotationInterval, auto]);
+
+  return (
+    <motion.span className={cn('text-rotate', mainClassName)} {...rest} layout transition={transition}>
+      <span className="text-rotate-sr-only">{texts[currentTextIndex]}</span>
+      <AnimatePresence mode={animatePresenceMode} initial={animatePresenceInitial}>
+        <motion.span
+          key={currentTextIndex}
+          className={cn(splitBy === 'lines' ? 'text-rotate-lines' : 'text-rotate')}
+          layout
+          aria-hidden="true"
+        >
+          {elements.map((wordObj, wordIndex, array) => {
+            const previousCharsCount = array.slice(0, wordIndex).reduce((sum, word) => sum + word.characters.length, 0);
+            return (
+              <span key={wordIndex} className={cn('text-rotate-word', splitLevelClassName)}>
+                {wordObj.characters.map((char, charIndex) => (
+                  <motion.span
+                    key={charIndex}
+                    initial={initial}
+                    animate={animate}
+                    exit={exit}
+                    transition={{
+                      ...transition,
+                      delay: getStaggerDelay(
+                        previousCharsCount + charIndex,
+                        array.reduce((sum, word) => sum + word.characters.length, 0)
+                      )
+                    }}
+                    className={cn('text-rotate-element', elementLevelClassName)}
+                  >
+                    {char}
+                  </motion.span>
+                ))}
+                {wordObj.needsSpace && <span className="text-rotate-space"> </span>}
+              </span>
+            );
+          })}
+        </motion.span>
+      </AnimatePresence>
+    </motion.span>
+  );
+});
+
+RotatingText.displayName = 'RotatingText';
+export default RotatingText;
+
+.text-rotate {
+  display: flex;
+  flex-wrap: wrap;
+  white-space: pre-wrap;
+  position: relative;
+}
+
+.text-rotate-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.text-rotate-word {
+  display: inline-flex;
+}
+
+.text-rotate-lines {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.text-rotate-element {
+  display: inline-block;
+}
+
+.text-rotate-space {
+  white-space: pre;
+}
+
+
+npx shadcn@latest add @react-bits/CountUp-JS-CSS
+import CountUp from './CountUp'
+
+<CountUp
+  from={0}
+  to={100}
+  separator=","
+  direction="up"
+  duration={1}
+  className="count-up-text"
+  delay={0}
+/>
+
+import { useInView, useMotionValue, useSpring } from 'motion/react';
+import { useCallback, useEffect, useRef } from 'react';
+
+export default function CountUp({
+  to,
+  from = 0,
+  direction = 'up',
+  delay = 0,
+  duration = 2,
+  className = '',
+  startWhen = true,
+  separator = '',
+  onStart,
+  onEnd
+}) {
+  const ref = useRef(null);
+  const motionValue = useMotionValue(direction === 'down' ? to : from);
+
+  const damping = 20 + 40 * (1 / duration);
+  const stiffness = 100 * (1 / duration);
+
+  const springValue = useSpring(motionValue, {
+    damping,
+    stiffness
+  });
+
+  const isInView = useInView(ref, { once: true, margin: '0px' });
+
+  const getDecimalPlaces = num => {
+    const str = num.toString();
+
+    if (str.includes('.')) {
+      const decimals = str.split('.')[1];
+
+      if (parseInt(decimals) !== 0) {
+        return decimals.length;
+      }
+    }
+
+    return 0;
+  };
+
+  const maxDecimals = Math.max(getDecimalPlaces(from), getDecimalPlaces(to));
+
+  const formatValue = useCallback(
+    latest => {
+      const hasDecimals = maxDecimals > 0;
+
+      const options = {
+        useGrouping: !!separator,
+        minimumFractionDigits: hasDecimals ? maxDecimals : 0,
+        maximumFractionDigits: hasDecimals ? maxDecimals : 0
+      };
+
+      const formattedNumber = Intl.NumberFormat('en-US', options).format(latest);
+
+      return separator ? formattedNumber.replace(/,/g, separator) : formattedNumber;
+    },
+    [maxDecimals, separator]
+  );
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.textContent = formatValue(direction === 'down' ? to : from);
+    }
+  }, [from, to, direction, formatValue]);
+
+  useEffect(() => {
+    if (isInView && startWhen) {
+      if (typeof onStart === 'function') onStart();
+
+      const timeoutId = setTimeout(() => {
+        motionValue.set(direction === 'down' ? from : to);
+      }, delay * 1000);
+
+      const durationTimeoutId = setTimeout(
+        () => {
+          if (typeof onEnd === 'function') onEnd();
+        },
+        delay * 1000 + duration * 1000
+      );
+
+      return () => {
+        clearTimeout(timeoutId);
+        clearTimeout(durationTimeoutId);
+      };
+    }
+  }, [isInView, startWhen, motionValue, direction, from, to, delay, onStart, onEnd, duration]);
+
+  useEffect(() => {
+    const unsubscribe = springValue.on('change', latest => {
+      if (ref.current) {
+        ref.current.textContent = formatValue(latest);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [springValue, formatValue]);
+
+  return <span className={className} ref={ref} />;
+}
+
+"
+"
+
+some animations:
+"
+npx shadcn@latest add @react-bits/ScrollExpand-JS-CSS
+
+import ScrollExpand from './ScrollExpand';
+
+<ScrollExpand
+  src="/hero.jpg"
+  alt="Product hero"
+  title="Built to scale"
+  scrollHint="Scroll inside the frame"
+  useWindowScroll
+>
+  <h2>Every pixel, everywhere</h2>
+  <p>The frame opens up as you scroll and hands the whole stage to your media.</p>
+</ScrollExpand>
+
+<div style={{ height: '520px' }}>
+  <ScrollExpand src="/hero.jpg" title="Built to scale" mediaZoom={1.35}
+  startWidth={42}
+  startHeight={58}
+  startRadius={24}
+  endRadius={0}
+  mediaZoom={1.35}
+  scrollDistance={1.2}
+  holdDistance={0.35}
+  smoothing={0.1}
+  overlayScrim={0.45}
+  enabled
+/>
+</div>
+
+import { useCallback, useEffect, useRef } from 'react';
+
+import './ScrollExpand.css';
+
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+const smoothstep = (edge0, edge1, x) => {
+  const t = clamp((x - edge0) / (edge1 - edge0 || 1e-6), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+
+const ScrollExpand = ({
+  src = '',
+  mediaType = 'image',
+  poster = '',
+  alt = '',
+  title = '',
+  scrollHint = '',
+  startWidth = 42,
+  startHeight = 58,
+  startRadius = 24,
+  endRadius = 0,
+  mediaZoom = 1.35,
+  scrollDistance = 1.2,
+  holdDistance = 0.35,
+  smoothing = 0.1,
+  overlayScrim = 0.45,
+  useWindowScroll = false,
+  enabled = true,
+  children,
+  className = '',
+  style,
+  ...rest
+}) => {
+  const rootRef = useRef(null);
+  const trackRef = useRef(null);
+  const stageRef = useRef(null);
+  const frameRef = useRef(null);
+  const mediaRef = useRef(null);
+  const titleRef = useRef(null);
+  const overlayRef = useRef(null);
+  const scrimRef = useRef(null);
+  const hintRef = useRef(null);
+
+  const propsRef = useRef({});
+  propsRef.current = {
+    startWidth,
+    startHeight,
+    startRadius,
+    endRadius,
+    mediaZoom,
+    scrollDistance,
+    holdDistance,
+    smoothing,
+    overlayScrim,
+    useWindowScroll,
+    enabled
+  };
+
+  const applyProgress = useCallback(p => {
+    const frame = frameRef.current;
+    const media = mediaRef.current;
+    if (!frame || !media) return;
+    const c = propsRef.current;
+
+    const e = smoothstep(0, 1, p);
+
+    const w = c.startWidth + (100 - c.startWidth) * e;
+    const h = c.startHeight + (100 - c.startHeight) * e;
+    const ix = Math.max(0, (100 - w) / 2);
+    const iy = Math.max(0, (100 - h) / 2);
+    const r = c.startRadius + (c.endRadius - c.startRadius) * e;
+    frame.style.clipPath = `inset(${iy}% ${ix}% ${iy}% ${ix}% round ${r}px)`;
+
+    media.style.transform = `scale(${c.mediaZoom + (1 - c.mediaZoom) * e})`;
+
+    if (scrimRef.current) scrimRef.current.style.opacity = `${c.overlayScrim * e}`;
+
+    if (titleRef.current) {
+      const out = smoothstep(0.4, 0.88, p);
+      titleRef.current.style.opacity = `${1 - out}`;
+      titleRef.current.style.transform = `translate3d(0, ${-28 * out}px, 0) scale(${1 + 0.06 * out})`;
+    }
+
+    if (hintRef.current) {
+      const gone = smoothstep(0, 0.12, p);
+      hintRef.current.style.opacity = `${1 - gone}`;
+      hintRef.current.style.transform = `translate3d(0, ${8 * gone}px, 0)`;
+    }
+
+    if (overlayRef.current) {
+      const inn = smoothstep(0.68, 1, p);
+      overlayRef.current.style.opacity = `${inn}`;
+      overlayRef.current.style.transform = `translate3d(0, ${18 * (1 - inn)}px, 0)`;
+    }
+  }, []);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    const track = trackRef.current;
+    const stage = stageRef.current;
+    if (!root || !track || !stage) return;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let raf = 0;
+    let current = 0;
+    let target = 0;
+    let stageH = 0;
+    let running = false;
+
+    const measure = () => {
+      const c = propsRef.current;
+      stageH = c.useWindowScroll ? window.innerHeight : root.clientHeight;
+      if (stageH <= 0) return;
+      stage.style.height = `${stageH}px`;
+      track.style.height = `${stageH * (1 + Math.max(0, c.scrollDistance) + Math.max(0, c.holdDistance))}px`;
+
+      const w = root.clientWidth || stageH;
+      stage.style.setProperty('--se-title-size', `${clamp(w * 0.075, 20, 84)}px`);
+    };
+
+    const readProgress = () => {
+      const c = propsRef.current;
+      if (!c.enabled) return 1;
+      const span = stageH * Math.max(0.01, c.scrollDistance);
+      if (c.useWindowScroll) {
+        const top = track.getBoundingClientRect().top;
+        return clamp(-top / span, 0, 1);
+      }
+      return clamp(root.scrollTop / span, 0, 1);
+    };
+
+    const tick = () => {
+      const c = propsRef.current;
+      const k = c.smoothing <= 0 ? 1 : 1 - Math.exp(-1 / (60 * c.smoothing));
+      current += (target - current) * k;
+      if (Math.abs(target - current) < 0.0004) {
+        current = target;
+        running = false;
+      }
+      applyProgress(current);
+      raf = running ? requestAnimationFrame(tick) : 0;
+    };
+
+    const kick = () => {
+      if (running) return;
+      running = true;
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    const onScroll = () => {
+      target = readProgress();
+      if (propsRef.current.smoothing <= 0 || reduceMotion) {
+        current = target;
+        applyProgress(current);
+        return;
+      }
+      kick();
+    };
+
+    const onResize = () => {
+      measure();
+      target = readProgress();
+      current = target;
+      applyProgress(current);
+    };
+
+    measure();
+    target = readProgress();
+    current = target;
+    applyProgress(current);
+
+    const scroller = useWindowScroll ? window : root;
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
+    const ro = new ResizeObserver(onResize);
+    ro.observe(root);
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      scroller.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+      ro.disconnect();
+    };
+  }, [applyProgress, useWindowScroll]);
+
+  const media =
+    mediaType === 'video' ? (
+      <video
+        ref={mediaRef}
+        className="scroll-expand__media"
+        src={src}
+        poster={poster}
+        autoPlay
+        muted
+        loop
+        playsInline
+      />
+    ) : (
+      <img ref={mediaRef} className="scroll-expand__media" src={src} alt={alt} draggable={false} />
+    );
+
+  return (
+    <div
+      ref={rootRef}
+      className={`scroll-expand ${useWindowScroll ? '' : 'scroll-expand--scroller'} ${className}`.trim()}
+      style={style}
+      {...rest}
+    >
+      <div ref={trackRef} className="scroll-expand__track">
+        <div ref={stageRef} className="scroll-expand__stage">
+          <div ref={frameRef} className="scroll-expand__frame">
+            {media}
+            <div ref={scrimRef} className="scroll-expand__scrim" />
+            {children ? (
+              <div ref={overlayRef} className="scroll-expand__overlay">
+                {children}
+              </div>
+            ) : null}
+          </div>
+          {title ? (
+            <div ref={titleRef} className="scroll-expand__title">
+              {title}
+            </div>
+          ) : null}
+          {scrollHint ? (
+            <div ref={hintRef} className="scroll-expand__hint">
+              {scrollHint}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ScrollExpand;
+
+
+.scroll-expand {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.scroll-expand--scroller {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior: contain;
+}
+
+.scroll-expand--scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-expand__track {
+  position: relative;
+  width: 100%;
+}
+
+.scroll-expand__stage {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  overflow: hidden;
+  --se-title-size: 4rem;
+}
+
+.scroll-expand__frame {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(21% 29% 21% 29% round 24px);
+  will-change: clip-path;
+}
+
+.scroll-expand__media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  will-change: transform;
+  transform-origin: center;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.scroll-expand__scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.1) 45%, rgba(0, 0, 0, 0.35));
+  opacity: 0;
+}
+
+.scroll-expand__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6%;
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+.scroll-expand__title {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 6%;
+  text-align: center;
+  font-size: var(--se-title-size);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
+.scroll-expand__hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1.25rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
+
+light mode swiitch idea:"
+npx shadcn@latest add @react-bits/PixelSwap-JS-CSS
+import PixelSwap from './PixelSwap';
+
+<PixelSwap
+  firstContent={
+    <div className="click-prompt">
+      <span>Click me</span>
+    </div>
+  }
+  secondContent={
+    <div className="found-message">
+      <span>You found me</span>
+    </div>
+  }
+  pixelSize={64}
+  gap={0}
+  pixelRadius={0}
+  pixelSpin={0}
+  pixelScale={0.35}
+  duration={1400}
+  pixelDuration={450}
+  pattern="random"
+  randomness={0}
+  fade
+  trigger="hover"
+/>
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import './PixelSwap.css';
+
+// Every pixel is a window onto its own copy of the incoming content, so the
+// grid stays bounded no matter how small the requested pixel size is.
+const MAX_PIXELS = 220;
+const KEYFRAME_STEPS = 14;
+
+const PATTERNS = {
+  random: () => null,
+  center: (x, y) => Math.hypot(x - 0.5, y - 0.5) / Math.SQRT1_2,
+  edges: (x, y) => Math.min(x, 1 - x, y, 1 - y) * 2,
+  'left-to-right': x => x,
+  'right-to-left': x => 1 - x,
+  'top-to-bottom': (_x, y) => y,
+  'bottom-to-top': (_x, y) => 1 - y,
+  diagonal: (x, y) => (x + y) / 2,
+  spiral: (x, y) => {
+    const angle = (Math.atan2(y - 0.5, x - 0.5) + Math.PI) / (Math.PI * 2);
+    const radius = Math.hypot(x - 0.5, y - 0.5) / Math.SQRT1_2;
+    return (angle + radius) % 1;
+  }
+};
+
+const EASINGS = {
+  linear: [0, 0, 1, 1],
+  ease: [0.25, 0.1, 0.25, 1],
+  'ease-in': [0.42, 0, 1, 1],
+  'ease-out': [0, 0, 0.58, 1],
+  'ease-in-out': [0.42, 0, 0.58, 1]
+};
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const noise = seed => {
+  const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return value - Math.floor(value);
+};
+
+const makeEasing = value => {
+  const match = /cubic-bezier\(([^)]+)\)/.exec(value);
+  const points = match ? match[1].split(',').map(Number) : EASINGS[value];
+  if (!points || points.length !== 4 || points.some(Number.isNaN)) return makeEasing('ease');
+
+  const [x1, y1, x2, y2] = points;
+  if (x1 === y1 && x2 === y2) return progress => progress;
+
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+
+  return progress => {
+    let t = progress;
+    for (let i = 0; i < 5; i += 1) {
+      const slope = (3 * ax * t + 2 * bx) * t + cx;
+      if (!slope) break;
+      t -= (((ax * t + bx) * t + cx) * t - progress) / slope;
+    }
+    t = clamp(t, 0, 1);
+    return ((ay * t + by) * t + cy) * t;
+  };
+};
+
+// Pixels grow slightly past their own box so gaps and rounded corners close
+// completely by the end. Overlap is invisible because every pixel shows the
+// same content locked to the same origin.
+const coverScale = (size, gap, radius) => {
+  const p = clamp(radius, 0, 50) / 100;
+  const corner = Math.SQRT1_2 / (Math.SQRT2 * (0.5 - p) + p);
+  return ((size + gap) / size) * Math.max(1, corner);
+};
+
+const buildGrid = ({ width, height, pixelSize, gap, pattern, randomness }) => {
+  let size = pixelSize;
+  let columns = Math.max(1, Math.ceil((width + gap) / (size + gap)));
+  let rows = Math.max(1, Math.ceil((height + gap) / (size + gap)));
+
+  if (columns * rows > MAX_PIXELS) {
+    size = Math.ceil(size * Math.sqrt((columns * rows) / MAX_PIXELS));
+    columns = Math.max(1, Math.ceil((width + gap) / (size + gap)));
+    rows = Math.max(1, Math.ceil((height + gap) / (size + gap)));
+  }
+
+  // Overhang the box so edge pixels stay square instead of being cut short.
+  const stride = size + gap;
+  const originX = (width - (columns * stride - gap)) / 2;
+  const originY = (height - (rows * stride - gap)) / 2;
+  const order = PATTERNS[pattern] ?? PATTERNS.random;
+  const mix = clamp(randomness, 0, 1);
+  const pixels = [];
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const index = row * columns + column;
+      const x = columns <= 1 ? 0.5 : column / (columns - 1);
+      const y = rows <= 1 ? 0.5 : row / (rows - 1);
+      const base = order(x, y);
+      const random = noise(index + 1);
+
+      pixels.push({
+        id: index,
+        left: originX + column * stride,
+        top: originY + row * stride,
+        offset: base === null ? random : base * (1 - mix) + random * mix
+      });
+    }
+  }
+
+  return { pixels, size, gap, width, height };
+};
+
+// One shared pair of keyframe lists for the whole grid: the window transform
+// and its exact inverse, so revealed content never drifts or scales.
+const buildKeyframes = ({ ease, startScale, endScale, spin, fade }) => {
+  const window = [];
+  const content = [];
+
+  for (let step = 0; step <= KEYFRAME_STEPS; step += 1) {
+    const progress = step / KEYFRAME_STEPS;
+    const eased = ease(progress);
+    const scale = startScale + (endScale - startScale) * eased;
+    const angle = spin * (1 - eased);
+
+    window.push({
+      offset: progress,
+      opacity: fade ? Math.min(1, eased * 1.6) : 1,
+      transform: `rotate(${angle}deg) scale(${scale})`
+    });
+    content.push({
+      offset: progress,
+      transform: `scale(${1 / scale}) rotate(${-angle}deg)`
+    });
+  }
+
+  return { window, content };
+};
+
+function PixelSwap({
+  firstContent,
+  secondContent,
+  pixelSize = 64,
+  gap = 0,
+  pixelRadius = 0,
+  pixelSpin = 0,
+  pixelScale = 0.35,
+  fade = true,
+  duration = 1400,
+  pixelDuration = 450,
+  pattern = 'random',
+  randomness = 0,
+  easing = 'cubic-bezier(0.22, 1, 0.36, 1)',
+  trigger = 'hover',
+  initialActive = false,
+  active,
+  onActiveChange,
+  onComplete,
+  aspectRatio = '16 / 10',
+  className = '',
+  style
+}) {
+  const [internalActive, setInternalActive] = useState(initialActive);
+  const [shownActive, setShownActive] = useState(active ?? initialActive);
+  const [transition, setTransition] = useState(null);
+  const [box, setBox] = useState({ width: 0, height: 0 });
+
+  const containerRef = useRef(null);
+  const layerRefs = useRef([]);
+  const pixelRefs = useRef([]);
+  const animationsRef = useRef([]);
+  const timerRef = useRef(0);
+
+  const desiredActive = active ?? internalActive;
+  const incomingIndex = transition?.to ? 1 : 0;
+
+  const grid = useMemo(
+    () =>
+      buildGrid({
+        width: box.width,
+        height: box.height,
+        pixelSize: Math.max(8, Math.round(pixelSize)),
+        gap: Math.max(0, Math.round(gap)),
+        pattern,
+        randomness
+      }),
+    [box.width, box.height, pixelSize, gap, pattern, randomness]
+  );
+
+  // Snapshot the animation inputs so a transition already in flight is never
+  // rebuilt halfway through by an unrelated prop change.
+  const config = { duration, pixelDuration, pixelSpin, pixelScale, pixelRadius, fade, easing, onComplete };
+  const configRef = useRef(config);
+  const gridRef = useRef(grid);
+  configRef.current = config;
+  gridRef.current = grid;
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Measure the padding box, which is the coordinate space the absolutely
+    // positioned layers and pixel grid actually live in.
+    const measure = () => {
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (!width || !height) return;
+      setBox(current => (current.width === width && current.height === height ? current : { width, height }));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  const stopAnimations = useCallback(() => {
+    animationsRef.current.forEach(animation => animation.cancel());
+    animationsRef.current = [];
+    pixelRefs.current.forEach(pixel => pixel?.replaceChildren());
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = 0;
+  }, []);
+
+  useEffect(() => stopAnimations, [stopAnimations]);
+
+  useEffect(() => {
+    if (transition || desiredActive === shownActive) return;
+    setTransition({ to: desiredActive, grid: gridRef.current });
+  }, [desiredActive, shownActive, transition]);
+
+  useEffect(() => {
+    if (!transition) return;
+    const settings = configRef.current;
+    const { grid: frozenGrid, to } = transition;
+
+    const finish = () => {
+      stopAnimations();
+      setShownActive(to);
+      setTransition(null);
+      settings.onComplete?.(to);
+    };
+
+    const source = layerRefs.current[to ? 1 : 0];
+    if (!source || !frozenGrid.pixels.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      finish();
+      return;
+    }
+
+    const total = Math.max(200, settings.duration);
+    const pixelMs = clamp(settings.pixelDuration, 60, total);
+    const spread = Math.max(0, total - pixelMs);
+    const endScale = coverScale(frozenGrid.size, frozenGrid.gap, settings.pixelRadius);
+    const keyframes = buildKeyframes({
+      ease: makeEasing(settings.easing),
+      startScale: clamp(settings.pixelScale, 0.05, 1) * endScale,
+      endScale,
+      spin: settings.pixelSpin,
+      fade: settings.fade
+    });
+
+    frozenGrid.pixels.forEach((pixel, index) => {
+      const pixelElement = pixelRefs.current[index];
+      if (!pixelElement) return;
+
+      // Clone the rendered layer instead of re-rendering the content through
+      // React once per pixel: same visual result, a fraction of the cost.
+      const content = document.createElement('div');
+      content.className = 'pixel-swap__pixel-content';
+      content.style.left = `${-pixel.left}px`;
+      content.style.top = `${-pixel.top}px`;
+      content.style.width = `${frozenGrid.width}px`;
+      content.style.height = `${frozenGrid.height}px`;
+      // Counter-transform about the pixel's centre, not the content's, so the
+      // two transforms cancel to an exact identity at every frame.
+      const originX = pixel.left + frozenGrid.size / 2;
+      const originY = pixel.top + frozenGrid.size / 2;
+      content.style.transformOrigin = `${originX}px ${originY}px`;
+
+      const clone = source.cloneNode(true);
+      clone.dataset.visible = 'true';
+      clone.removeAttribute('aria-hidden');
+      content.appendChild(clone);
+      pixelElement.replaceChildren(content);
+
+      const timing = { duration: pixelMs, delay: pixel.offset * spread, easing: 'linear', fill: 'both' };
+      animationsRef.current.push(
+        pixelElement.animate(keyframes.window, timing),
+        content.animate(keyframes.content, timing)
+      );
+    });
+
+    timerRef.current = window.setTimeout(finish, total);
+    return stopAnimations;
+  }, [stopAnimations, transition]);
+
+  const requestActive = useCallback(
+    next => {
+      if (active === undefined) setInternalActive(next);
+      onActiveChange?.(next);
+    },
+    [active, onActiveChange]
+  );
+
+  const interactionProps = useMemo(() => {
+    if (trigger === 'hover') {
+      return {
+        onMouseEnter: () => requestActive(true),
+        onMouseLeave: () => requestActive(false),
+        onFocus: () => requestActive(true),
+        onBlur: () => requestActive(false),
+        tabIndex: 0
+      };
+    }
+
+    if (trigger === 'click') {
+      return {
+        onClick: () => requestActive(!desiredActive),
+        onKeyDown: event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            requestActive(!desiredActive);
+          }
+        },
+        role: 'button',
+        tabIndex: 0
+      };
+    }
+
+    return {};
+  }, [desiredActive, requestActive, trigger]);
+
+  const renderLayer = (content, index) => {
+    const isShown = index === (shownActive ? 1 : 0);
+    return (
+      <div
+        key={index}
+        ref={element => {
+          layerRefs.current[index] = element;
+        }}
+        className="pixel-swap__layer"
+        data-visible={isShown && !(transition && index === incomingIndex)}
+        style={{ zIndex: isShown ? 2 : 1 }}
+        aria-hidden={!isShown}
+      >
+        {content}
+      </div>
+    );
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={`pixel-swap ${className}`.trim()}
+      style={{ aspectRatio, ...style }}
+      data-active={shownActive}
+      data-transitioning={!!transition}
+      {...interactionProps}
+    >
+      {renderLayer(firstContent, 0)}
+      {renderLayer(secondContent, 1)}
+
+      {transition && (
+        <div className="pixel-swap__grid" aria-hidden="true">
+          {transition.grid.pixels.map((pixel, index) => (
+            <div
+              key={pixel.id}
+              ref={element => {
+                pixelRefs.current[index] = element;
+              }}
+              className="pixel-swap__pixel"
+              style={{
+                left: pixel.left,
+                top: pixel.top,
+                width: transition.grid.size,
+                height: transition.grid.size,
+                borderRadius: `${clamp(pixelRadius, 0, 50)}%`
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default PixelSwap;
+
+.pixel-swap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  outline: none;
+}
+
+.pixel-swap__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.pixel-swap__layer[data-visible='false'] {
+  visibility: hidden;
+}
+
+.pixel-swap__grid {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.pixel-swap__pixel {
+  position: absolute;
+  overflow: hidden;
+  opacity: 0;
+  contain: paint;
+}
+
+.pixel-swap__pixel-content {
+  position: absolute;
+}
+
+"
+
+npx shadcn@latest add @react-bits/FadeContent-JS-CSS
+import FadeContent from './FadeContent'
+  
+<FadeContent blur={true} duration={1000} easing="ease-out" initialOpacity={0}>
+  {/* Anything placed inside this container will be fade into view */}
+</FadeContent>
+import { useRef, useEffect } from 'react';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
+
+const FadeContent = ({
+  children,
+  container,
+  blur = false,
+  duration = 1000,
+  ease = 'power2.out',
+  delay = 0,
+  threshold = 0.1,
+  initialOpacity = 0,
+  disappearAfter = 0,
+  disappearDuration = 0.5,
+  disappearEase = 'power2.in',
+  onComplete,
+  onDisappearanceComplete,
+  className = '',
+  style,
+  ...props
+}) => {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    let scrollerTarget = container || document.getElementById('snap-main-container') || null;
+    if (typeof scrollerTarget === 'string') {
+      scrollerTarget = document.querySelector(scrollerTarget);
+    }
+
+    const startPct = (1 - threshold) * 100;
+
+    const getSeconds = val => (typeof val === 'number' && val > 10 ? val / 1000 : val);
+
+    gsap.set(el, {
+      autoAlpha: initialOpacity,
+      filter: blur ? 'blur(10px)' : 'blur(0px)',
+      willChange: 'opacity, filter, transform'
+    });
+
+    const tl = gsap.timeline({
+      paused: true,
+      delay: getSeconds(delay),
+      onComplete: () => {
+        if (onComplete) onComplete();
+        if (disappearAfter > 0) {
+          gsap.to(el, {
+            autoAlpha: initialOpacity,
+            filter: blur ? 'blur(10px)' : 'blur(0px)',
+            delay: getSeconds(disappearAfter),
+            duration: getSeconds(disappearDuration),
+            ease: disappearEase,
+            onComplete: () => onDisappearanceComplete?.()
+          });
+        }
+      }
+    });
+
+    tl.to(el, {
+      autoAlpha: 1,
+      filter: 'blur(0px)',
+      duration: getSeconds(duration),
+      ease: ease
+    });
+
+    const st = ScrollTrigger.create({
+      trigger: el,
+      scroller: scrollerTarget || window,
+      start: `top ${startPct}%`,
+      once: true,
+      onEnter: () => tl.play()
+    });
+
+    return () => {
+      st.kill();
+      tl.kill();
+      gsap.killTweensOf(el);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div ref={ref} className={className} style={style} {...props}>
+      {children}
+    </div>
+  );
+};
+
+export default FadeContent;
+
+npx shadcn@latest add @react-bits/LogoLoop-JS-CSS
+import LogoLoop from './LogoLoop';
+import { SiReact, SiNextdotjs, SiTypescript, SiTailwindcss } from 'react-icons/si';
+
+const techLogos = [
+  { node: <SiReact />, title: "React", href: "https://react.dev" },
+  { node: <SiNextdotjs />, title: "Next.js", href: "https://nextjs.org" },
+  { node: <SiTypescript />, title: "TypeScript", href: "https://www.typescriptlang.org" },
+  { node: <SiTailwindcss />, title: "Tailwind CSS", href: "https://tailwindcss.com" },
+];
+
+// Alternative with image sources
+const imageLogos = [
+  { src: "/logos/company1.png", alt: "Company 1", href: "https://company1.com" },
+  { src: "/logos/company2.png", alt: "Company 2", href: "https://company2.com" },
+  { src: "/logos/company3.png", alt: "Company 3", href: "https://company3.com" },
+];
+
+function App() {
+  return (
+    <div style={{ height: '200px', position: 'relative', overflow: 'hidden'}}>
+      {/* Basic horizontal loop */}
+      <LogoLoop
+        logos={techLogos}
+        speed={100}
+        direction="left"
+        logoHeight={60}
+        gap={60}
+        hoverSpeed={0}
+        scaleOnHover
+        fadeOut
+        fadeOutColor="#ffffff"
+        ariaLabel="Technology partners"
+      />
+      
+      {/* Vertical loop with deceleration on hover */}
+      <LogoLoop
+        logos={techLogos}
+  useCustomRender={false}
+/>
+    </div>
+  );
+}
+
+
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
+import './LogoLoop.css';
+
+const ANIMATION_CONFIG = { SMOOTH_TAU: 0.25, MIN_COPIES: 2, COPY_HEADROOM: 2 };
+
+const toCssLength = value => (typeof value === 'number' ? `${value}px` : (value ?? undefined));
+
+const useResizeObserver = (callback, elements, dependencies) => {
+  useEffect(() => {
+    if (!window.ResizeObserver) {
+      const handleResize = () => callback();
+      window.addEventListener('resize', handleResize);
+      callback();
+      return () => window.removeEventListener('resize', handleResize);
+    }
+    const observers = elements.map(ref => {
+      if (!ref.current) return null;
+      const observer = new ResizeObserver(callback);
+      observer.observe(ref.current);
+      return observer;
+    });
+    callback();
+    return () => {
+      observers.forEach(observer => observer?.disconnect());
+    };
+  }, [callback, elements, dependencies]);
+};
+
+const useImageLoader = (seqRef, onLoad, dependencies) => {
+  useEffect(() => {
+    const images = seqRef.current?.querySelectorAll('img') ?? [];
+    if (images.length === 0) {
+      onLoad();
+      return;
+    }
+    let remainingImages = images.length;
+    const handleImageLoad = () => {
+      remainingImages -= 1;
+      if (remainingImages === 0) onLoad();
+    };
+    images.forEach(img => {
+      const htmlImg = img;
+      if (htmlImg.complete) {
+        handleImageLoad();
+      } else {
+        htmlImg.addEventListener('load', handleImageLoad, { once: true });
+        htmlImg.addEventListener('error', handleImageLoad, { once: true });
+      }
+    });
+    return () => {
+      images.forEach(img => {
+        img.removeEventListener('load', handleImageLoad);
+        img.removeEventListener('error', handleImageLoad);
+      });
+    };
+  }, [onLoad, seqRef, dependencies]);
+};
+
+const useAnimationLoop = (trackRef, targetVelocity, seqWidth, seqHeight, isHovered, hoverSpeed, isVertical) => {
+  const rafRef = useRef(null);
+  const lastTimestampRef = useRef(null);
+  const offsetRef = useRef(0);
+  const velocityRef = useRef(0);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const seqSize = isVertical ? seqHeight : seqWidth;
+
+    if (seqSize > 0) {
+      offsetRef.current = ((offsetRef.current % seqSize) + seqSize) % seqSize;
+      const transformValue = isVertical
+        ? `translate3d(0, ${-offsetRef.current}px, 0)`
+        : `translate3d(${-offsetRef.current}px, 0, 0)`;
+      track.style.transform = transformValue;
+    }
+
+    const animate = timestamp => {
+      if (lastTimestampRef.current === null) {
+        lastTimestampRef.current = timestamp;
+      }
+
+      const deltaTime = Math.max(0, timestamp - lastTimestampRef.current) / 1000;
+      lastTimestampRef.current = timestamp;
+
+      const target = isHovered && hoverSpeed !== undefined ? hoverSpeed : targetVelocity;
+
+      const easingFactor = 1 - Math.exp(-deltaTime / ANIMATION_CONFIG.SMOOTH_TAU);
+      velocityRef.current += (target - velocityRef.current) * easingFactor;
+
+      if (seqSize > 0) {
+        let nextOffset = offsetRef.current + velocityRef.current * deltaTime;
+        nextOffset = ((nextOffset % seqSize) + seqSize) % seqSize;
+        offsetRef.current = nextOffset;
+
+        const transformValue = isVertical
+          ? `translate3d(0, ${-offsetRef.current}px, 0)`
+          : `translate3d(${-offsetRef.current}px, 0, 0)`;
+        track.style.transform = transformValue;
+      }
+
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      lastTimestampRef.current = null;
+    };
+  }, [targetVelocity, seqWidth, seqHeight, isHovered, hoverSpeed, isVertical, trackRef]);
+};
+
+export const LogoLoop = memo(
+  ({
+    logos,
+    speed = 120,
+    direction = 'left',
+    width = '100%',
+    logoHeight = 28,
+    gap = 32,
+    pauseOnHover,
+    hoverSpeed,
+    fadeOut = false,
+    fadeOutColor,
+    scaleOnHover = false,
+    renderItem,
+    ariaLabel = 'Partner logos',
+    className,
+    style
+  }) => {
+    const containerRef = useRef(null);
+    const trackRef = useRef(null);
+    const seqRef = useRef(null);
+
+    const [seqWidth, setSeqWidth] = useState(0);
+    const [seqHeight, setSeqHeight] = useState(0);
+    const [copyCount, setCopyCount] = useState(ANIMATION_CONFIG.MIN_COPIES);
+    const [isHovered, setIsHovered] = useState(false);
+
+    const effectiveHoverSpeed = useMemo(() => {
+      if (hoverSpeed !== undefined) return hoverSpeed;
+      if (pauseOnHover === true) return 0;
+      if (pauseOnHover === false) return undefined;
+      return 0;
+    }, [hoverSpeed, pauseOnHover]);
+
+    const isVertical = direction === 'up' || direction === 'down';
+
+    const targetVelocity = useMemo(() => {
+      const magnitude = Math.abs(speed);
+      let directionMultiplier;
+      if (isVertical) {
+        directionMultiplier = direction === 'up' ? 1 : -1;
+      } else {
+        directionMultiplier = direction === 'left' ? 1 : -1;
+      }
+      const speedMultiplier = speed < 0 ? -1 : 1;
+      return magnitude * directionMultiplier * speedMultiplier;
+    }, [speed, direction, isVertical]);
+
+    const updateDimensions = useCallback(() => {
+      const containerWidth = containerRef.current?.clientWidth ?? 0;
+      const sequenceRect = seqRef.current?.getBoundingClientRect?.();
+      const sequenceWidth = sequenceRect?.width ?? 0;
+      const sequenceHeight = sequenceRect?.height ?? 0;
+      if (isVertical) {
+        const parentHeight = containerRef.current?.parentElement?.clientHeight ?? 0;
+        if (containerRef.current && parentHeight > 0) {
+          const targetHeight = Math.ceil(parentHeight);
+          if (containerRef.current.style.height !== `${targetHeight}px`)
+            containerRef.current.style.height = `${targetHeight}px`;
+        }
+        if (sequenceHeight > 0) {
+          setSeqHeight(Math.ceil(sequenceHeight));
+          const viewport = containerRef.current?.clientHeight ?? parentHeight ?? sequenceHeight;
+          const copiesNeeded = Math.ceil(viewport / sequenceHeight) + ANIMATION_CONFIG.COPY_HEADROOM;
+          setCopyCount(Math.max(ANIMATION_CONFIG.MIN_COPIES, copiesNeeded));
+        }
+      } else if (sequenceWidth > 0) {
+        setSeqWidth(Math.ceil(sequenceWidth));
+        const copiesNeeded = Math.ceil(containerWidth / sequenceWidth) + ANIMATION_CONFIG.COPY_HEADROOM;
+        setCopyCount(Math.max(ANIMATION_CONFIG.MIN_COPIES, copiesNeeded));
+      }
+    }, [isVertical]);
+
+    useResizeObserver(updateDimensions, [containerRef, seqRef], [logos, gap, logoHeight, isVertical]);
+
+    useImageLoader(seqRef, updateDimensions, [logos, gap, logoHeight, isVertical]);
+
+    useAnimationLoop(trackRef, targetVelocity, seqWidth, seqHeight, isHovered, effectiveHoverSpeed, isVertical);
+
+    const cssVariables = useMemo(
+      () => ({
+        '--logoloop-gap': `${gap}px`,
+        '--logoloop-logoHeight': `${logoHeight}px`,
+        ...(fadeOutColor && { '--logoloop-fadeColor': fadeOutColor })
+      }),
+      [gap, logoHeight, fadeOutColor]
+    );
+
+    const rootClassName = useMemo(
+      () =>
+        [
+          'logoloop',
+          isVertical ? 'logoloop--vertical' : 'logoloop--horizontal',
+          fadeOut && 'logoloop--fade',
+          scaleOnHover && 'logoloop--scale-hover',
+          className
+        ]
+          .filter(Boolean)
+          .join(' '),
+      [isVertical, fadeOut, scaleOnHover, className]
+    );
+
+    const handleMouseEnter = useCallback(() => {
+      if (effectiveHoverSpeed !== undefined) setIsHovered(true);
+    }, [effectiveHoverSpeed]);
+    const handleMouseLeave = useCallback(() => {
+      if (effectiveHoverSpeed !== undefined) setIsHovered(false);
+    }, [effectiveHoverSpeed]);
+
+    const renderLogoItem = useCallback(
+      (item, key) => {
+        if (renderItem) {
+          return (
+            <li className="logoloop__item" key={key} role="listitem">
+              {renderItem(item, key)}
+            </li>
+          );
+        }
+        const isNodeItem = 'node' in item;
+        const content = isNodeItem ? (
+          <span className="logoloop__node" aria-hidden={!!item.href && !item.ariaLabel}>
+            {item.node}
+          </span>
+        ) : (
+          <img
+            src={item.src}
+            srcSet={item.srcSet}
+            sizes={item.sizes}
+            width={item.width}
+            height={item.height}
+            alt={item.alt ?? ''}
+            title={item.title}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+          />
+        );
+        const itemAriaLabel = isNodeItem ? (item.ariaLabel ?? item.title) : (item.alt ?? item.title);
+        const itemContent = item.href ? (
+          <a
+            className="logoloop__link"
+            href={item.href}
+            aria-label={itemAriaLabel || 'logo link'}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            {content}
+          </a>
+        ) : (
+          content
+        );
+        return (
+          <li className="logoloop__item" key={key} role="listitem">
+            {itemContent}
+          </li>
+        );
+      },
+      [renderItem]
+    );
+
+    const logoLists = useMemo(
+      () =>
+        Array.from({ length: copyCount }, (_, copyIndex) => (
+          <ul
+            className="logoloop__list"
+            key={`copy-${copyIndex}`}
+            role="list"
+            aria-hidden={copyIndex > 0}
+            ref={copyIndex === 0 ? seqRef : undefined}
+          >
+            {logos.map((item, itemIndex) => renderLogoItem(item, `${copyIndex}-${itemIndex}`))}
+          </ul>
+        )),
+      [copyCount, logos, renderLogoItem]
+    );
+
+    const containerStyle = useMemo(
+      () => ({
+        width: isVertical
+          ? toCssLength(width) === '100%'
+            ? undefined
+            : toCssLength(width)
+          : (toCssLength(width) ?? '100%'),
+        ...cssVariables,
+        ...style
+      }),
+      [width, cssVariables, style, isVertical]
+    );
+
+    return (
+      <div ref={containerRef} className={rootClassName} style={containerStyle} role="region" aria-label={ariaLabel}>
+        <div className="logoloop__track" ref={trackRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+          {logoLists}
+        </div>
+      </div>
+    );
+  }
+);
+
+LogoLoop.displayName = 'LogoLoop';
+
+export default LogoLoop;
+
+
+.logoloop {
+  position: relative;
+
+  --logoloop-gap: 32px;
+  --logoloop-logoHeight: 28px;
+  --logoloop-fadeColorAuto: #ffffff;
+}
+
+.logoloop--vertical {
+  height: 100%;
+  display: inline-block;
+}
+
+.logoloop--scale-hover {
+  padding-top: calc(var(--logoloop-logoHeight) * 0.1);
+  padding-bottom: calc(var(--logoloop-logoHeight) * 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .logoloop {
+    --logoloop-fadeColorAuto: #0b0b0b;
+  }
+}
+
+.logoloop__track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  user-select: none;
+  position: relative;
+  z-index: 0;
+}
+
+.logoloop--vertical .logoloop__track {
+  flex-direction: column;
+  height: max-content;
+  width: 100%;
+}
+
+.logoloop__list {
+  display: flex;
+  align-items: center;
+}
+
+.logoloop--vertical .logoloop__list {
+  flex-direction: column;
+}
+
+.logoloop__item {
+  flex: 0 0 auto;
+  margin-right: var(--logoloop-gap);
+  font-size: var(--logoloop-logoHeight);
+  line-height: 1;
+}
+
+.logoloop--vertical .logoloop__item {
+  margin-right: 0;
+  margin-bottom: var(--logoloop-gap);
+}
+
+.logoloop__item:last-child {
+  margin-right: var(--logoloop-gap);
+}
+
+.logoloop--vertical .logoloop__item:last-child {
+  margin-right: 0;
+  margin-bottom: var(--logoloop-gap);
+}
+
+.logoloop__node {
+  display: inline-flex;
+  align-items: center;
+}
+
+.logoloop__item img {
+  height: var(--logoloop-logoHeight);
+  width: auto;
+  display: block;
+  object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+  -webkit-user-drag: none;
+  pointer-events: none;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logoloop--scale-hover .logoloop__item {
+  overflow: visible;
+}
+
+.logoloop--scale-hover .logoloop__item:hover img,
+.logoloop--scale-hover .logoloop__item:hover .logoloop__node {
+  transform: scale(1.2);
+  transform-origin: center center;
+}
+
+.logoloop--scale-hover .logoloop__node {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logoloop__link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: opacity 0.2s ease;
+}
+
+.logoloop__link:hover {
+  opacity: 0.8;
+}
+
+.logoloop__link:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.logoloop--fade::before,
+.logoloop--fade::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: clamp(24px, 8%, 120px);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.logoloop--fade::before {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    var(--logoloop-fadeColor, var(--logoloop-fadeColorAuto)) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+.logoloop--fade::after {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    var(--logoloop-fadeColor, var(--logoloop-fadeColorAuto)) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+.logoloop--vertical.logoloop--fade::before,
+.logoloop--vertical.logoloop--fade::after {
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: clamp(24px, 8%, 120px);
+}
+
+.logoloop--vertical.logoloop--fade::before {
+  top: 0;
+  bottom: auto;
+  background: linear-gradient(
+    to bottom,
+    var(--logoloop-fadeColor, var(--logoloop-fadeColorAuto)) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+.logoloop--vertical.logoloop--fade::after {
+  bottom: 0;
+  top: auto;
+  background: linear-gradient(
+    to top,
+    var(--logoloop-fadeColor, var(--logoloop-fadeColorAuto)) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logoloop__track {
+    transform: translate3d(0, 0, 0) !important;
+  }
+
+  .logoloop__item img,
+  .logoloop__node {
+    transition: none !important;
+  }
+}
+"
+
+some componenets:"
+npx shadcn@latest add @react-bits/DriftWall-JS-CSS
+import DriftWall from './DriftWall';
+
+const items = [
+  { image: 'https://picsum.photos/id/1015/600/400', title: 'Peaks', href: 'https://example.com/one' },
+  { image: 'https://picsum.photos/id/1025/600/400', title: 'Pup', href: 'https://example.com/two' },
+  { image: 'https://picsum.photos/id/1039/600/400', title: 'Falls', href: 'https://example.com/three' },
+];
+
+<div style={{ height: 600 }}>
+  <DriftWall
+    items={items}
+    columns={5}
+    tileWidth={200}
+    tileHeight={132}
+    gap={18}
+    tilt={16}
+    turn={-14}
+    perspective={1200}
+    depth={120}
+    speed={42}
+    direction="up"
+    variance={0.45}
+    parallax={0.6}
+    lift={64}
+    fade={0.6}
+    dim={0.55}
+    overlayColor="#060010"
+    radius={14}
+    roll={0}
+    pauseOnHover={false}
+    grayscale={false}
+/>
+</div>
+
+
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import './DriftWall.css';
+
+const DEFAULT_ITEMS = Array.from({ length: 15 }, (_, i) => {
+  const ids = [1015, 1025, 1039, 1043, 1044, 1050, 1062, 1069, 1074, 1080, 1084, 106, 110, 133, 164];
+  return {
+    image: `https://picsum.photos/id/${ids[i % ids.length]}/600/400`,
+    title: `Tile ${i + 1}`,
+    href: undefined
+  };
+});
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const columnFactor = (index, variance) => {
+  const pseudo = ((index * 0.6180339887 + 0.35) % 1) * 2 - 1;
+  return 1 + variance * pseudo;
+};
+
+const DriftWall = ({
+  items = DEFAULT_ITEMS,
+  columns = 5,
+  tileWidth = 200,
+  tileHeight = 132,
+  gap = 18,
+  radius = 14,
+  tilt = 16,
+  turn = -14,
+  roll = 0,
+  perspective = 1200,
+  depth = 120,
+  speed = 42,
+  direction = 'up',
+  variance = 0.45,
+  parallax = 0.6,
+  pauseOnHover = false,
+  lift = 64,
+  fade = 0.6,
+  dim = 0.55,
+  grayscale = false,
+  overlayColor = '#060010',
+  className = '',
+  style
+}) => {
+  const containerRef = useRef(null);
+  const planeRef = useRef(null);
+  const trackRefs = useRef([]);
+  const rafRef = useRef(null);
+
+  const offsetsRef = useRef([]);
+  const velocitiesRef = useRef([]);
+  const hoveredColRef = useRef(-1);
+  const wallHoveredRef = useRef(false);
+  const pointerRef = useRef({ x: 0, y: 0 });
+  const pointerDampedRef = useRef({ x: 0, y: 0 });
+  const lastTsRef = useRef(null);
+
+  const [containerHeight, setContainerHeight] = useState(600);
+  const [activeId, setActiveId] = useState(null);
+  const activeIdRef = useRef(null);
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    setReduced(prefersReducedMotion());
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = e => setReduced(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const columnItems = useMemo(() => {
+    const cols = Array.from({ length: columns }, () => []);
+    items.forEach((item, i) => cols[i % columns].push(item));
+    return cols.map(col => (col.length ? col : items.slice(0, 1)));
+  }, [items, columns]);
+
+  const columnMeta = useMemo(() => {
+    const unit = tileHeight + gap;
+    return columnItems.map(col => {
+      const copyHeight = Math.max(unit, col.length * unit);
+      const copies = Math.max(2, Math.ceil((containerHeight * 1.6) / copyHeight) + 1);
+      return { copyHeight, copies };
+    });
+  }, [columnItems, tileHeight, gap, containerHeight]);
+
+  useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerHeight(entry.contentRect.height || 600);
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const baseVelocities = useMemo(() => {
+    const dirSign = direction === 'up' ? 1 : -1;
+    return columnItems.map((_, c) => {
+      const altSign = c % 2 === 0 ? 1 : -1;
+      return speed * columnFactor(c, variance) * dirSign * altSign;
+    });
+  }, [columnItems, speed, direction, variance]);
+
+  useEffect(() => {
+    offsetsRef.current = columnMeta.map((meta, c) => meta.copyHeight * ((c * 0.37) % 1));
+    velocitiesRef.current = columnItems.map(() => 0);
+  }, [columnMeta, columnItems]);
+
+  const applyPlaneTransform = useCallback(
+    (px, py) => {
+      const plane = planeRef.current;
+      if (!plane) return;
+      plane.style.transform =
+        `translate(-50%, -50%) scale(1.18) ` +
+        `rotateX(${tilt + py}deg) rotateY(${turn + px}deg) rotateZ(${roll}deg) ` +
+        `translateZ(${-depth}px)`;
+    },
+    [tilt, turn, roll, depth]
+  );
+
+  useEffect(() => {
+    const animate = ts => {
+      if (lastTsRef.current === null) lastTsRef.current = ts;
+      const dt = Math.min(0.05, Math.max(0, ts - lastTsRef.current) / 1000);
+      lastTsRef.current = ts;
+
+      const maxTilt = parallax * 8;
+      const targetX = pointerRef.current.x * maxTilt;
+      const targetY = -pointerRef.current.y * maxTilt;
+      const damp = 1 - Math.exp(-dt / 0.12);
+      pointerDampedRef.current.x += (targetX - pointerDampedRef.current.x) * damp;
+      pointerDampedRef.current.y += (targetY - pointerDampedRef.current.y) * damp;
+      applyPlaneTransform(pointerDampedRef.current.x, pointerDampedRef.current.y);
+
+      if (!reduced) {
+        for (let c = 0; c < trackRefs.current.length; c++) {
+          const meta = columnMeta[c];
+          if (!meta) continue;
+          const paused = wallHoveredRef.current && pauseOnHover;
+          const factor = paused || hoveredColRef.current === c ? 0 : 1;
+          const target = baseVelocities[c] * factor;
+
+          const ease = 1 - Math.exp(-dt / (target === 0 ? 0.16 : 0.28));
+          velocitiesRef.current[c] += (target - velocitiesRef.current[c]) * ease;
+          let next = (offsetsRef.current[c] ?? 0) + velocitiesRef.current[c] * dt;
+          next = ((next % meta.copyHeight) + meta.copyHeight) % meta.copyHeight;
+          offsetsRef.current[c] = next;
+
+          const el = trackRefs.current[c];
+          if (el) el.style.transform = `translate3d(0, ${-next}px, 0)`;
+        }
+      } else {
+        for (let c = 0; c < trackRefs.current.length; c++) {
+          const el = trackRefs.current[c];
+          const meta = columnMeta[c];
+          if (el && meta) el.style.transform = `translate3d(0, ${-(offsetsRef.current[c] ?? 0)}px, 0)`;
+        }
+      }
+
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    rafRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      lastTsRef.current = null;
+    };
+  }, [baseVelocities, columnMeta, pauseOnHover, parallax, reduced, applyPlaneTransform]);
+
+  const activate = useCallback((id, index) => {
+    activeIdRef.current = id;
+    hoveredColRef.current = index;
+    setActiveId(id);
+  }, []);
+  const release = useCallback(() => {
+    activeIdRef.current = null;
+    hoveredColRef.current = -1;
+    setActiveId(null);
+  }, []);
+
+  const handlePointerMove = useCallback(
+    e => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      if (parallax > 0 && !reduced) {
+        pointerRef.current = {
+          x: (e.clientX - rect.left) / rect.width - 0.5,
+          y: (e.clientY - rect.top) / rect.height - 0.5
+        };
+      }
+      const hit = document.elementFromPoint(e.clientX, e.clientY);
+      const tile = hit && hit.closest ? hit.closest('[data-tile-id]') : null;
+      if (!tile) return;
+      const id = tile.dataset.tileId;
+      if (id === activeIdRef.current) return;
+      activeIdRef.current = id;
+      hoveredColRef.current = Number(tile.dataset.col);
+      setActiveId(id);
+    },
+    [parallax, reduced]
+  );
+
+  const handlePointerLeaveWall = useCallback(() => {
+    wallHoveredRef.current = false;
+    pointerRef.current = { x: 0, y: 0 };
+    release();
+  }, [release]);
+
+  const cssVars = useMemo(
+    () => ({
+      '--dw-tile-w': `${tileWidth}px`,
+      '--dw-tile-h': `${tileHeight}px`,
+      '--dw-gap': `${gap}px`,
+      '--dw-radius': `${radius}px`,
+      '--dw-perspective': `${perspective}px`,
+      '--dw-lift': `${lift}px`,
+      '--dw-dim': dim,
+      '--dw-gray': grayscale ? 1 : 0,
+      '--dw-overlay': overlayColor,
+      '--dw-edge': `${Math.max(0, (1 - fade) * 100)}%`,
+      ...style
+    }),
+    [tileWidth, tileHeight, gap, radius, perspective, lift, dim, grayscale, overlayColor, fade, style]
+  );
+
+  const renderTile = (item, id, colIndex) => {
+    const inner = (
+      <span className="drift-wall__inner">
+        <img src={item.image} alt={item.title ?? ''} loading="lazy" decoding="async" draggable={false} />
+        <span className="drift-wall__overlay" aria-hidden="true" />
+      </span>
+    );
+    const commonProps = {
+      className: `drift-wall__tile${activeId === id ? ' is-active' : ''}`,
+      'data-tile-id': id,
+      'data-col': colIndex,
+      onFocus: () => activate(id, colIndex),
+      onBlur: release
+    };
+    if (item.href) {
+      return (
+        <a key={id} href={item.href} target="_blank" rel="noreferrer noopener" {...commonProps}>
+          {inner}
+        </a>
+      );
+    }
+    return (
+      <div key={id} tabIndex={0} role="button" aria-label={item.title ?? 'tile'} {...commonProps}>
+        {inner}
+      </div>
+    );
+  };
+
+  const rootClass = ['drift-wall', reduced ? 'drift-wall--reduced' : '', className].filter(Boolean).join(' ');
+
+  return (
+    <div
+      ref={containerRef}
+      className={rootClass}
+      style={cssVars}
+      onPointerMove={handlePointerMove}
+      onPointerEnter={() => {
+        wallHoveredRef.current = true;
+      }}
+      onPointerLeave={handlePointerLeaveWall}
+      role="group"
+      aria-label="Drifting wall of tiles"
+    >
+      <div ref={planeRef} className="drift-wall__plane">
+        {columnItems.map((col, c) => {
+          const meta = columnMeta[c];
+          const copies = Array.from({ length: meta.copies });
+          return (
+            <div className="drift-wall__col" key={`col-${c}`}>
+              <div className="drift-wall__track" ref={el => (trackRefs.current[c] = el)}>
+                {copies.map((_, copyIndex) =>
+                  col.map((item, itemIndex) => renderTile(item, `${c}-${copyIndex}-${itemIndex}`, c))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+export default DriftWall;
+
+.drift-wall {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  perspective: var(--dw-perspective, 1200px);
+  perspective-origin: 50% 50%;
+  --dw-tile-w: 200px;
+  --dw-tile-h: 132px;
+  --dw-gap: 18px;
+  --dw-radius: 14px;
+  --dw-lift: 64px;
+  --dw-dim: 0.55;
+  --dw-gray: 0;
+  --dw-overlay: #060010;
+  --dw-edge: 40%;
+  -webkit-mask-image:
+    radial-gradient(ellipse 78% 82% at 50% 46%, #000 var(--dw-edge), transparent 100%),
+    linear-gradient(to top, #000 var(--dw-edge), transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(ellipse 78% 82% at 50% 46%, #000 var(--dw-edge), transparent 100%),
+    linear-gradient(to top, #000 var(--dw-edge), transparent 100%);
+  mask-composite: intersect;
+}
+
+.drift-wall__plane {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: row;
+  transform-style: preserve-3d;
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.drift-wall__col {
+  position: relative;
+  width: calc(var(--dw-tile-w) + var(--dw-gap));
+  transform-style: preserve-3d;
+}
+
+.drift-wall__track {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+
+.drift-wall__tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: calc(var(--dw-tile-h) + var(--dw-gap));
+  flex: 0 0 auto;
+  outline: none;
+  transform-style: preserve-3d;
+}
+
+.drift-wall__inner {
+  position: absolute;
+  inset: calc(var(--dw-gap) / 2);
+  display: block;
+  border-radius: var(--dw-radius);
+  overflow: hidden;
+  background: #0b0b12;
+  opacity: var(--dw-dim);
+  transform: translateZ(0);
+  pointer-events: none;
+  transition:
+    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.drift-wall__tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: grayscale(var(--dw-gray)) saturate(0.92);
+  transition: filter 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.drift-wall__overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--dw-overlay);
+  opacity: 0.42;
+  pointer-events: none;
+  transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.drift-wall__tile.is-active .drift-wall__inner,
+.drift-wall__tile:focus-visible .drift-wall__inner {
+  opacity: 1;
+  transform: translateZ(var(--dw-lift));
+  box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.7);
+}
+
+.drift-wall__tile.is-active img,
+.drift-wall__tile:focus-visible img {
+  filter: grayscale(0) saturate(1.05);
+}
+
+.drift-wall__tile.is-active .drift-wall__overlay,
+.drift-wall__tile:focus-visible .drift-wall__overlay {
+  opacity: 0;
+}
+
+.drift-wall__tile:focus-visible .drift-wall__inner {
+  box-shadow:
+    0 24px 60px -18px rgba(0, 0, 0, 0.7),
+    0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drift-wall__plane,
+  .drift-wall__track {
+    will-change: auto;
+  }
+}
+
+npx shadcn@latest add @react-bits/ScrollStack-JS-CSS
+import ScrollStack, { ScrollStackItem } from './ScrollStack'
+
+<ScrollStack>
+  <ScrollStackItem>
+    <h2>Card 1</h2>
+    <p>This is the first card in the stack</p>
+  </ScrollStackItem>
+  <ScrollStackItem>
+    <h2>Card 2</h2>
+    <p>This is the second card in the stack</p>
+  </ScrollStackItem>
+  <ScrollStackItem>
+    <h2>Card 3</h2>
+    <p>This is the third card in the stack</p>
+  </ScrollStackItem>
+</ScrollStack>
+import { useLayoutEffect, useRef, useCallback } from 'react';
+import Lenis from 'lenis';
+import './ScrollStack.css';
+
+export const ScrollStackItem = ({ children, itemClassName = '' }) => (
+  <div className={`scroll-stack-card ${itemClassName}`.trim()}>{children}</div>
+);
+
+const ScrollStack = ({
+  children,
+  className = '',
+  itemDistance = 100,
+  itemScale = 0.03,
+  itemStackDistance = 30,
+  stackPosition = '20%',
+  scaleEndPosition = '10%',
+  baseScale = 0.85,
+  scaleDuration = 0.5,
+  rotationAmount = 0,
+  blurAmount = 0,
+  useWindowScroll = false,
+  onStackComplete
+}) => {
+  const scrollerRef = useRef(null);
+  const stackCompletedRef = useRef(false);
+  const animationFrameRef = useRef(null);
+  const lenisRef = useRef(null);
+  const cardsRef = useRef([]);
+  const lastTransformsRef = useRef(new Map());
+  const isUpdatingRef = useRef(false);
+
+  const calculateProgress = useCallback((scrollTop, start, end) => {
+    if (scrollTop < start) return 0;
+    if (scrollTop > end) return 1;
+    return (scrollTop - start) / (end - start);
+  }, []);
+
+  const parsePercentage = useCallback((value, containerHeight) => {
+    if (typeof value === 'string' && value.includes('%')) {
+      return (parseFloat(value) / 100) * containerHeight;
+    }
+    return parseFloat(value);
+  }, []);
+
+  const getScrollData = useCallback(() => {
+    if (useWindowScroll) {
+      return {
+        scrollTop: window.scrollY,
+        containerHeight: window.innerHeight,
+        scrollContainer: document.documentElement
+      };
+    } else {
+      const scroller = scrollerRef.current;
+      return {
+        scrollTop: scroller.scrollTop,
+        containerHeight: scroller.clientHeight,
+        scrollContainer: scroller
+      };
+    }
+  }, [useWindowScroll]);
+
+  const getElementOffset = useCallback(
+    element => {
+      if (useWindowScroll) {
+        const rect = element.getBoundingClientRect();
+        return rect.top + window.scrollY;
+      } else {
+        return element.offsetTop;
+      }
+    },
+    [useWindowScroll]
+  );
+
+  const updateCardTransforms = useCallback(() => {
+    if (!cardsRef.current.length || isUpdatingRef.current) return;
+
+    isUpdatingRef.current = true;
+
+    const { scrollTop, containerHeight } = getScrollData();
+    const stackPositionPx = parsePercentage(stackPosition, containerHeight);
+    const scaleEndPositionPx = parsePercentage(scaleEndPosition, containerHeight);
+
+    const endElement = useWindowScroll
+      ? document.querySelector('.scroll-stack-end')
+      : scrollerRef.current?.querySelector('.scroll-stack-end');
+
+    const endElementTop = endElement ? getElementOffset(endElement) : 0;
+
+    cardsRef.current.forEach((card, i) => {
+      if (!card) return;
+
+      const cardTop = getElementOffset(card);
+      const triggerStart = cardTop - stackPositionPx - itemStackDistance * i;
+      const triggerEnd = cardTop - scaleEndPositionPx;
+      const pinStart = cardTop - stackPositionPx - itemStackDistance * i;
+      const pinEnd = endElementTop - containerHeight / 2;
+
+      const scaleProgress = calculateProgress(scrollTop, triggerStart, triggerEnd);
+      const targetScale = baseScale + i * itemScale;
+      const scale = 1 - scaleProgress * (1 - targetScale);
+      const rotation = rotationAmount ? i * rotationAmount * scaleProgress : 0;
+
+      let blur = 0;
+      if (blurAmount) {
+        let topCardIndex = 0;
+        for (let j = 0; j < cardsRef.current.length; j++) {
+          const jCardTop = getElementOffset(cardsRef.current[j]);
+          const jTriggerStart = jCardTop - stackPositionPx - itemStackDistance * j;
+          if (scrollTop >= jTriggerStart) {
+            topCardIndex = j;
+          }
+        }
+
+        if (i < topCardIndex) {
+          const depthInStack = topCardIndex - i;
+          blur = Math.max(0, depthInStack * blurAmount);
+        }
+      }
+
+      let translateY = 0;
+      const isPinned = scrollTop >= pinStart && scrollTop <= pinEnd;
+
+      if (isPinned) {
+        translateY = scrollTop - cardTop + stackPositionPx + itemStackDistance * i;
+      } else if (scrollTop > pinEnd) {
+        translateY = pinEnd - cardTop + stackPositionPx + itemStackDistance * i;
+      }
+
+      const newTransform = {
+        translateY: Math.round(translateY * 100) / 100,
+        scale: Math.round(scale * 1000) / 1000,
+        rotation: Math.round(rotation * 100) / 100,
+        blur: Math.round(blur * 100) / 100
+      };
+
+      const lastTransform = lastTransformsRef.current.get(i);
+      const hasChanged =
+        !lastTransform ||
+        Math.abs(lastTransform.translateY - newTransform.translateY) > 0.1 ||
+        Math.abs(lastTransform.scale - newTransform.scale) > 0.001 ||
+        Math.abs(lastTransform.rotation - newTransform.rotation) > 0.1 ||
+        Math.abs(lastTransform.blur - newTransform.blur) > 0.1;
+
+      if (hasChanged) {
+        const transform = `translate3d(0, ${newTransform.translateY}px, 0) scale(${newTransform.scale}) rotate(${newTransform.rotation}deg)`;
+        const filter = newTransform.blur > 0 ? `blur(${newTransform.blur}px)` : '';
+
+        card.style.transform = transform;
+        card.style.filter = filter;
+
+        lastTransformsRef.current.set(i, newTransform);
+      }
+
+      if (i === cardsRef.current.length - 1) {
+        const isInView = scrollTop >= pinStart && scrollTop <= pinEnd;
+        if (isInView && !stackCompletedRef.current) {
+          stackCompletedRef.current = true;
+          onStackComplete?.();
+        } else if (!isInView && stackCompletedRef.current) {
+          stackCompletedRef.current = false;
+        }
+      }
+    });
+
+    isUpdatingRef.current = false;
+  }, [
+    itemScale,
+    itemStackDistance,
+    stackPosition,
+    scaleEndPosition,
+    baseScale,
+    rotationAmount,
+    blurAmount,
+    useWindowScroll,
+    onStackComplete,
+    calculateProgress,
+    parsePercentage,
+    getScrollData,
+    getElementOffset
+  ]);
+
+  const handleScroll = useCallback(() => {
+    updateCardTransforms();
+  }, [updateCardTransforms]);
+
+  const setupLenis = useCallback(() => {
+    if (useWindowScroll) {
+      const lenis = new Lenis({
+        duration: 1.2,
+        easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        touchMultiplier: 2,
+        infinite: false,
+        wheelMultiplier: 1,
+        lerp: 0.1,
+        syncTouch: true,
+        syncTouchLerp: 0.075
+      });
+
+      lenis.on('scroll', handleScroll);
+
+      const raf = time => {
+        lenis.raf(time);
+        animationFrameRef.current = requestAnimationFrame(raf);
+      };
+      animationFrameRef.current = requestAnimationFrame(raf);
+
+      lenisRef.current = lenis;
+      return lenis;
+    } else {
+      const scroller = scrollerRef.current;
+      if (!scroller) return;
+
+      const lenis = new Lenis({
+        wrapper: scroller,
+        content: scroller.querySelector('.scroll-stack-inner'),
+        duration: 1.2,
+        easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        touchMultiplier: 2,
+        infinite: false,
+        gestureOrientationHandler: true,
+        normalizeWheel: true,
+        wheelMultiplier: 1,
+        touchInertiaMultiplier: 35,
+        lerp: 0.1,
+        syncTouch: true,
+        syncTouchLerp: 0.075,
+        touchInertia: 0.6
+      });
+
+      lenis.on('scroll', handleScroll);
+
+      const raf = time => {
+        lenis.raf(time);
+        animationFrameRef.current = requestAnimationFrame(raf);
+      };
+      animationFrameRef.current = requestAnimationFrame(raf);
+
+      lenisRef.current = lenis;
+      return lenis;
+    }
+  }, [handleScroll, useWindowScroll]);
+
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const cards = Array.from(
+      useWindowScroll
+        ? document.querySelectorAll('.scroll-stack-card')
+        : scroller.querySelectorAll('.scroll-stack-card')
+    );
+
+    cardsRef.current = cards;
+    const transformsCache = lastTransformsRef.current;
+
+    cards.forEach((card, i) => {
+      if (i < cards.length - 1) {
+        card.style.marginBottom = `${itemDistance}px`;
+      }
+      card.style.willChange = 'transform, filter';
+      card.style.transformOrigin = 'top center';
+      card.style.backfaceVisibility = 'hidden';
+      card.style.transform = 'translateZ(0)';
+      card.style.webkitTransform = 'translateZ(0)';
+      card.style.perspective = '1000px';
+      card.style.webkitPerspective = '1000px';
+    });
+
+    setupLenis();
+
+    updateCardTransforms();
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (lenisRef.current) {
+        lenisRef.current.destroy();
+      }
+      stackCompletedRef.current = false;
+      cardsRef.current = [];
+      transformsCache.clear();
+      isUpdatingRef.current = false;
+    };
+  }, [
+    itemDistance,
+    itemScale,
+    itemStackDistance,
+    stackPosition,
+    scaleEndPosition,
+    baseScale,
+    scaleDuration,
+    rotationAmount,
+    blurAmount,
+    useWindowScroll,
+    onStackComplete,
+    setupLenis,
+    updateCardTransforms
+  ]);
+
+  return (
+    <div className={`scroll-stack-scroller ${className}`.trim()} ref={scrollerRef}>
+      <div className="scroll-stack-inner">
+        {children}
+        {/* Spacer so the last pin can release cleanly */}
+        <div className="scroll-stack-end" />
+      </div>
+    </div>
+  );
+};
+
+export default ScrollStack;
+
+.scroll-stack-scroller {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: visible;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: scroll-position;
+}
+
+.scroll-stack-inner {
+  padding: 20vh 5rem 50rem;
+  min-height: 100vh;
+}
+
+.scroll-stack-card-wrapper {
+  position: relative;
+}
+
+.scroll-stack-card {
+  transform-origin: top center;
+  will-change: transform, filter;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.1);
+  height: 20rem;
+  width: 100%;
+  margin: 30px 0;
+  padding: 3rem;
+  border-radius: 40px;
+  box-sizing: border-box;
+  /* Improve mobile performance */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  position: relative;
+}
+
+.scroll-stack-end {
+  width: 100%;
+  height: 1px;
+}
+
+
+npx shadcn@latest add @react-bits/MagicBento-JS-CSS
+import MagicBento from './MagicBento'
+
+<MagicBento 
+  textAutoHide={true}
+  enableStars
+  enableSpotlight
+  enableBorderGlow={true}
+  enableTilt={false}
+  enableMagnetism={false}
+  clickEffect
+  spotlightRadius={400}
+  particleCount={12}
+  glowColor="132, 0, 255"
+  disableAnimations={false}
+/>
+
+import { useRef, useEffect, useCallback, useState } from 'react';
+import { gsap } from 'gsap';
+import './MagicBento.css';
+
+const DEFAULT_PARTICLE_COUNT = 12;
+const DEFAULT_SPOTLIGHT_RADIUS = 300;
+const DEFAULT_GLOW_COLOR = '132, 0, 255';
+const MOBILE_BREAKPOINT = 768;
+
+const cardData = [
+  {
+    color: '#120F17',
+    title: 'Analytics',
+    description: 'Track user behavior',
+    label: 'Insights'
+  },
+  {
+    color: '#120F17',
+    title: 'Dashboard',
+    description: 'Centralized data view',
+    label: 'Overview'
+  },
+  {
+    color: '#120F17',
+    title: 'Collaboration',
+    description: 'Work together seamlessly',
+    label: 'Teamwork'
+  },
+  {
+    color: '#120F17',
+    title: 'Automation',
+    description: 'Streamline workflows',
+    label: 'Efficiency'
+  },
+  {
+    color: '#120F17',
+    title: 'Integration',
+    description: 'Connect favorite tools',
+    label: 'Connectivity'
+  },
+  {
+    color: '#120F17',
+    title: 'Security',
+    description: 'Enterprise-grade protection',
+    label: 'Protection'
+  }
+];
+
+const createParticleElement = (x, y, color = DEFAULT_GLOW_COLOR) => {
+  const el = document.createElement('div');
+  el.className = 'particle';
+  el.style.cssText = `
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(${color}, 1);
+    box-shadow: 0 0 6px rgba(${color}, 0.6);
+    pointer-events: none;
+    z-index: 100;
+    left: ${x}px;
+    top: ${y}px;
+  `;
+  return el;
+};
+
+const calculateSpotlightValues = radius => ({
+  proximity: radius * 0.5,
+  fadeDistance: radius * 0.75
+});
+
+const updateCardGlowProperties = (card, mouseX, mouseY, glow, radius) => {
+  const rect = card.getBoundingClientRect();
+  const relativeX = ((mouseX - rect.left) / rect.width) * 100;
+  const relativeY = ((mouseY - rect.top) / rect.height) * 100;
+
+  card.style.setProperty('--glow-x', `${relativeX}%`);
+  card.style.setProperty('--glow-y', `${relativeY}%`);
+  card.style.setProperty('--glow-intensity', glow.toString());
+  card.style.setProperty('--glow-radius', `${radius}px`);
+};
+
+const ParticleCard = ({
+  children,
+  className = '',
+  disableAnimations = false,
+  style,
+  particleCount = DEFAULT_PARTICLE_COUNT,
+  glowColor = DEFAULT_GLOW_COLOR,
+  enableTilt = true,
+  clickEffect = false,
+  enableMagnetism = false
+}) => {
+  const cardRef = useRef(null);
+  const particlesRef = useRef([]);
+  const timeoutsRef = useRef([]);
+  const isHoveredRef = useRef(false);
+  const memoizedParticles = useRef([]);
+  const particlesInitialized = useRef(false);
+  const magnetismAnimationRef = useRef(null);
+
+  const initializeParticles = useCallback(() => {
+    if (particlesInitialized.current || !cardRef.current) return;
+
+    const { width, height } = cardRef.current.getBoundingClientRect();
+    memoizedParticles.current = Array.from({ length: particleCount }, () =>
+      createParticleElement(Math.random() * width, Math.random() * height, glowColor)
+    );
+    particlesInitialized.current = true;
+  }, [particleCount, glowColor]);
+
+  const clearAllParticles = useCallback(() => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+    magnetismAnimationRef.current?.kill();
+
+    particlesRef.current.forEach(particle => {
+      gsap.to(particle, {
+        scale: 0,
+        opacity: 0,
+        duration: 0.3,
+        ease: 'back.in(1.7)',
+        onComplete: () => {
+          particle.parentNode?.removeChild(particle);
+        }
+      });
+    });
+    particlesRef.current = [];
+  }, []);
+
+  const animateParticles = useCallback(() => {
+    if (!cardRef.current || !isHoveredRef.current) return;
+
+    if (!particlesInitialized.current) {
+      initializeParticles();
+    }
+
+    memoizedParticles.current.forEach((particle, index) => {
+      const timeoutId = setTimeout(() => {
+        if (!isHoveredRef.current || !cardRef.current) return;
+
+        const clone = particle.cloneNode(true);
+        cardRef.current.appendChild(clone);
+        particlesRef.current.push(clone);
+
+        gsap.fromTo(clone, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(1.7)' });
+
+        gsap.to(clone, {
+          x: (Math.random() - 0.5) * 100,
+          y: (Math.random() - 0.5) * 100,
+          rotation: Math.random() * 360,
+          duration: 2 + Math.random() * 2,
+          ease: 'none',
+          repeat: -1,
+          yoyo: true
+        });
+
+        gsap.to(clone, {
+          opacity: 0.3,
+          duration: 1.5,
+          ease: 'power2.inOut',
+          repeat: -1,
+          yoyo: true
+        });
+      }, index * 100);
+
+      timeoutsRef.current.push(timeoutId);
+    });
+  }, [initializeParticles]);
+
+  useEffect(() => {
+    if (disableAnimations || !cardRef.current) return;
+
+    const element = cardRef.current;
+
+    const handleMouseEnter = () => {
+      isHoveredRef.current = true;
+      animateParticles();
+
+      if (enableTilt) {
+        gsap.to(element, {
+          rotateX: 5,
+          rotateY: 5,
+          duration: 0.3,
+          ease: 'power2.out',
+          transformPerspective: 1000
+        });
+      }
+    };
+
+    const handleMouseLeave = () => {
+      isHoveredRef.current = false;
+      clearAllParticles();
+
+      if (enableTilt) {
+        gsap.to(element, {
+          rotateX: 0,
+          rotateY: 0,
+          duration: 0.3,
+          ease: 'power2.out'
+        });
+      }
+
+      if (enableMagnetism) {
+        gsap.to(element, {
+          x: 0,
+          y: 0,
+          duration: 0.3,
+          ease: 'power2.out'
+        });
+      }
+    };
+
+    const handleMouseMove = e => {
+      if (!enableTilt && !enableMagnetism) return;
+
+      const rect = element.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      if (enableTilt) {
+        const rotateX = ((y - centerY) / centerY) * -10;
+        const rotateY = ((x - centerX) / centerX) * 10;
+
+        gsap.to(element, {
+          rotateX,
+          rotateY,
+          duration: 0.1,
+          ease: 'power2.out',
+          transformPerspective: 1000
+        });
+      }
+
+      if (enableMagnetism) {
+        const magnetX = (x - centerX) * 0.05;
+        const magnetY = (y - centerY) * 0.05;
+
+        magnetismAnimationRef.current = gsap.to(element, {
+          x: magnetX,
+          y: magnetY,
+          duration: 0.3,
+          ease: 'power2.out'
+        });
+      }
+    };
+
+    const handleClick = e => {
+      if (!clickEffect) return;
+
+      const rect = element.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const maxDistance = Math.max(
+        Math.hypot(x, y),
+        Math.hypot(x - rect.width, y),
+        Math.hypot(x, y - rect.height),
+        Math.hypot(x - rect.width, y - rect.height)
+      );
+
+      const ripple = document.createElement('div');
+      ripple.style.cssText = `
+        position: absolute;
+        width: ${maxDistance * 2}px;
+        height: ${maxDistance * 2}px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(${glowColor}, 0.4) 0%, rgba(${glowColor}, 0.2) 30%, transparent 70%);
+        left: ${x - maxDistance}px;
+        top: ${y - maxDistance}px;
+        pointer-events: none;
+        z-index: 1000;
+      `;
+
+      element.appendChild(ripple);
+
+      gsap.fromTo(
+        ripple,
+        {
+          scale: 0,
+          opacity: 1
+        },
+        {
+          scale: 1,
+          opacity: 0,
+          duration: 0.8,
+          ease: 'power2.out',
+          onComplete: () => ripple.remove()
+        }
+      );
+    };
+
+    element.addEventListener('mouseenter', handleMouseEnter);
+    element.addEventListener('mouseleave', handleMouseLeave);
+    element.addEventListener('mousemove', handleMouseMove);
+    element.addEventListener('click', handleClick);
+
+    return () => {
+      isHoveredRef.current = false;
+      element.removeEventListener('mouseenter', handleMouseEnter);
+      element.removeEventListener('mouseleave', handleMouseLeave);
+      element.removeEventListener('mousemove', handleMouseMove);
+      element.removeEventListener('click', handleClick);
+      clearAllParticles();
+    };
+  }, [animateParticles, clearAllParticles, disableAnimations, enableTilt, enableMagnetism, clickEffect, glowColor]);
+
+  return (
+    <div
+      ref={cardRef}
+      className={`${className} particle-container`}
+      style={{ ...style, position: 'relative', overflow: 'hidden' }}
+    >
+      {children}
+    </div>
+  );
+};
+
+const GlobalSpotlight = ({
+  gridRef,
+  disableAnimations = false,
+  enabled = true,
+  spotlightRadius = DEFAULT_SPOTLIGHT_RADIUS,
+  glowColor = DEFAULT_GLOW_COLOR
+}) => {
+  const spotlightRef = useRef(null);
+  const isInsideSection = useRef(false);
+
+  useEffect(() => {
+    if (disableAnimations || !gridRef?.current || !enabled) return;
+
+    const spotlight = document.createElement('div');
+    spotlight.className = 'global-spotlight';
+    spotlight.style.cssText = `
+      position: fixed;
+      width: 800px;
+      height: 800px;
+      border-radius: 50%;
+      pointer-events: none;
+      background: radial-gradient(circle,
+        rgba(${glowColor}, 0.15) 0%,
+        rgba(${glowColor}, 0.08) 15%,
+        rgba(${glowColor}, 0.04) 25%,
+        rgba(${glowColor}, 0.02) 40%,
+        rgba(${glowColor}, 0.01) 65%,
+        transparent 70%
+      );
+      z-index: 200;
+      opacity: 0;
+      transform: translate(-50%, -50%);
+      mix-blend-mode: screen;
+    `;
+    document.body.appendChild(spotlight);
+    spotlightRef.current = spotlight;
+
+    const handleMouseMove = e => {
+      if (!spotlightRef.current || !gridRef.current) return;
+
+      const section = gridRef.current.closest('.bento-section');
+      const rect = section?.getBoundingClientRect();
+      const mouseInside =
+        rect && e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+
+      isInsideSection.current = mouseInside || false;
+      const cards = gridRef.current.querySelectorAll('.magic-bento-card');
+
+      if (!mouseInside) {
+        gsap.to(spotlightRef.current, {
+          opacity: 0,
+          duration: 0.3,
+          ease: 'power2.out'
+        });
+        cards.forEach(card => {
+          card.style.setProperty('--glow-intensity', '0');
+        });
+        return;
+      }
+
+      const { proximity, fadeDistance } = calculateSpotlightValues(spotlightRadius);
+      let minDistance = Infinity;
+
+      cards.forEach(card => {
+        const cardElement = card;
+        const cardRect = cardElement.getBoundingClientRect();
+        const centerX = cardRect.left + cardRect.width / 2;
+        const centerY = cardRect.top + cardRect.height / 2;
+        const distance =
+          Math.hypot(e.clientX - centerX, e.clientY - centerY) - Math.max(cardRect.width, cardRect.height) / 2;
+        const effectiveDistance = Math.max(0, distance);
+
+        minDistance = Math.min(minDistance, effectiveDistance);
+
+        let glowIntensity = 0;
+        if (effectiveDistance <= proximity) {
+          glowIntensity = 1;
+        } else if (effectiveDistance <= fadeDistance) {
+          glowIntensity = (fadeDistance - effectiveDistance) / (fadeDistance - proximity);
+        }
+
+        updateCardGlowProperties(cardElement, e.clientX, e.clientY, glowIntensity, spotlightRadius);
+      });
+
+      gsap.to(spotlightRef.current, {
+        left: e.clientX,
+        top: e.clientY,
+        duration: 0.1,
+        ease: 'power2.out'
+      });
+
+      const targetOpacity =
+        minDistance <= proximity
+          ? 0.8
+          : minDistance <= fadeDistance
+            ? ((fadeDistance - minDistance) / (fadeDistance - proximity)) * 0.8
+            : 0;
+
+      gsap.to(spotlightRef.current, {
+        opacity: targetOpacity,
+        duration: targetOpacity > 0 ? 0.2 : 0.5,
+        ease: 'power2.out'
+      });
+    };
+
+    const handleMouseLeave = () => {
+      isInsideSection.current = false;
+      gridRef.current?.querySelectorAll('.magic-bento-card').forEach(card => {
+        card.style.setProperty('--glow-intensity', '0');
+      });
+      if (spotlightRef.current) {
+        gsap.to(spotlightRef.current, {
+          opacity: 0,
+          duration: 0.3,
+          ease: 'power2.out'
+        });
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      spotlightRef.current?.parentNode?.removeChild(spotlightRef.current);
+    };
+  }, [gridRef, disableAnimations, enabled, spotlightRadius, glowColor]);
+
+  return null;
+};
+
+const BentoCardGrid = ({ children, gridRef }) => (
+  <div className="card-grid bento-section" ref={gridRef}>
+    {children}
+  </div>
+);
+
+const useMobileDetection = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return isMobile;
+};
+
+const MagicBento = ({
+  textAutoHide = true,
+  enableStars = true,
+  enableSpotlight = true,
+  enableBorderGlow = true,
+  disableAnimations = false,
+  spotlightRadius = DEFAULT_SPOTLIGHT_RADIUS,
+  particleCount = DEFAULT_PARTICLE_COUNT,
+  enableTilt = false,
+  glowColor = DEFAULT_GLOW_COLOR,
+  clickEffect = true,
+  enableMagnetism = true
+}) => {
+  const gridRef = useRef(null);
+  const isMobile = useMobileDetection();
+  const shouldDisableAnimations = disableAnimations || isMobile;
+
+  return (
+    <>
+      {enableSpotlight && (
+        <GlobalSpotlight
+          gridRef={gridRef}
+          disableAnimations={shouldDisableAnimations}
+          enabled={enableSpotlight}
+          spotlightRadius={spotlightRadius}
+          glowColor={glowColor}
+        />
+      )}
+
+      <BentoCardGrid gridRef={gridRef}>
+        {cardData.map((card, index) => {
+          const baseClassName = `magic-bento-card ${textAutoHide ? 'magic-bento-card--text-autohide' : ''} ${enableBorderGlow ? 'magic-bento-card--border-glow' : ''}`;
+          const cardProps = {
+            className: baseClassName,
+            style: {
+              backgroundColor: card.color,
+              '--glow-color': glowColor
+            }
+          };
+
+          if (enableStars) {
+            return (
+              <ParticleCard
+                key={index}
+                {...cardProps}
+                disableAnimations={shouldDisableAnimations}
+                particleCount={particleCount}
+                glowColor={glowColor}
+                enableTilt={enableTilt}
+                clickEffect={clickEffect}
+                enableMagnetism={enableMagnetism}
+              >
+                <div className="magic-bento-card__header">
+                  <div className="magic-bento-card__label">{card.label}</div>
+                </div>
+                <div className="magic-bento-card__content">
+                  <h2 className="magic-bento-card__title">{card.title}</h2>
+                  <p className="magic-bento-card__description">{card.description}</p>
+                </div>
+              </ParticleCard>
+            );
+          }
+
+          return (
+            <div
+              key={index}
+              {...cardProps}
+              ref={el => {
+                if (!el) return;
+
+                const handleMouseMove = e => {
+                  if (shouldDisableAnimations) return;
+
+                  const rect = el.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  const centerX = rect.width / 2;
+                  const centerY = rect.height / 2;
+
+                  if (enableTilt) {
+                    const rotateX = ((y - centerY) / centerY) * -10;
+                    const rotateY = ((x - centerX) / centerX) * 10;
+                    gsap.to(el, {
+                      rotateX,
+                      rotateY,
+                      duration: 0.1,
+                      ease: 'power2.out',
+                      transformPerspective: 1000
+                    });
+                  }
+
+                  if (enableMagnetism) {
+                    const magnetX = (x - centerX) * 0.05;
+                    const magnetY = (y - centerY) * 0.05;
+                    gsap.to(el, {
+                      x: magnetX,
+                      y: magnetY,
+                      duration: 0.3,
+                      ease: 'power2.out'
+                    });
+                  }
+                };
+
+                const handleMouseLeave = () => {
+                  if (shouldDisableAnimations) return;
+
+                  if (enableTilt) {
+                    gsap.to(el, {
+                      rotateX: 0,
+                      rotateY: 0,
+                      duration: 0.3,
+                      ease: 'power2.out'
+                    });
+                  }
+
+                  if (enableMagnetism) {
+                    gsap.to(el, {
+                      x: 0,
+                      y: 0,
+                      duration: 0.3,
+                      ease: 'power2.out'
+                    });
+                  }
+                };
+
+                const handleClick = e => {
+                  if (!clickEffect || shouldDisableAnimations) return;
+
+                  const rect = el.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+
+                  const maxDistance = Math.max(
+                    Math.hypot(x, y),
+                    Math.hypot(x - rect.width, y),
+                    Math.hypot(x, y - rect.height),
+                    Math.hypot(x - rect.width, y - rect.height)
+                  );
+
+                  const ripple = document.createElement('div');
+                  ripple.style.cssText = `
+                    position: absolute;
+                    width: ${maxDistance * 2}px;
+                    height: ${maxDistance * 2}px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, rgba(${glowColor}, 0.4) 0%, rgba(${glowColor}, 0.2) 30%, transparent 70%);
+                    left: ${x - maxDistance}px;
+                    top: ${y - maxDistance}px;
+                    pointer-events: none;
+                    z-index: 1000;
+                  `;
+
+                  el.appendChild(ripple);
+
+                  gsap.fromTo(
+                    ripple,
+                    {
+                      scale: 0,
+                      opacity: 1
+                    },
+                    {
+                      scale: 1,
+                      opacity: 0,
+                      duration: 0.8,
+                      ease: 'power2.out',
+                      onComplete: () => ripple.remove()
+                    }
+                  );
+                };
+
+                el.addEventListener('mousemove', handleMouseMove);
+                el.addEventListener('mouseleave', handleMouseLeave);
+                el.addEventListener('click', handleClick);
+              }}
+            >
+              <div className="magic-bento-card__header">
+                <div className="magic-bento-card__label">{card.label}</div>
+              </div>
+              <div className="magic-bento-card__content">
+                <h2 className="magic-bento-card__title">{card.title}</h2>
+                <p className="magic-bento-card__description">{card.description}</p>
+              </div>
+            </div>
+          );
+        })}
+      </BentoCardGrid>
+    </>
+  );
+};
+
+export default MagicBento;
+
+:root {
+  --hue: 27;
+  --sat: 69%;
+  --white: hsl(0, 0%, 100%);
+  --purple-primary: rgba(132, 0, 255, 1);
+  --purple-glow: rgba(132, 0, 255, 0.2);
+  --purple-border: rgba(132, 0, 255, 0.8);
+  --border-color: #2F293A;
+  --background-dark: #120F17;
+  color-scheme: light dark;
+}
+
+.card-grid {
+  display: grid;
+  gap: 0.5em;
+  padding: 0.75em;
+  max-width: 54em;
+  font-size: clamp(1rem, 0.9rem + 0.5vw, 1.5rem);
+}
+
+.magic-bento-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  aspect-ratio: 4/3;
+  min-height: 200px;
+  width: 100%;
+  max-width: 100%;
+  padding: 1.25em;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--background-dark);
+  font-weight: 300;
+  overflow: hidden;
+  transition: all 0.3s ease;
+
+  --glow-x: 50%;
+  --glow-y: 50%;
+  --glow-intensity: 0;
+  --glow-radius: 200px;
+}
+
+.magic-bento-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.magic-bento-card__header,
+.magic-bento-card__content {
+  display: flex;
+  position: relative;
+  color: var(--white);
+}
+
+.magic-bento-card__header {
+  gap: 0.75em;
+  justify-content: space-between;
+}
+
+.magic-bento-card__content {
+  flex-direction: column;
+}
+
+.magic-bento-card__label {
+  font-size: 16px;
+}
+
+.magic-bento-card__title,
+.magic-bento-card__description {
+  --clamp-title: 1;
+  --clamp-desc: 2;
+}
+
+.magic-bento-card__title {
+  font-weight: 400;
+  font-size: 16px;
+  margin: 0 0 0.25em;
+}
+
+.magic-bento-card__description {
+  font-size: 12px;
+  line-height: 1.2;
+  opacity: 0.9;
+}
+
+.magic-bento-card--text-autohide .magic-bento-card__title,
+.magic-bento-card--text-autohide .magic-bento-card__description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.magic-bento-card--text-autohide .magic-bento-card__title {
+  -webkit-line-clamp: var(--clamp-title);
+  line-clamp: var(--clamp-title);
+}
+
+.magic-bento-card--text-autohide .magic-bento-card__description {
+  -webkit-line-clamp: var(--clamp-desc);
+  line-clamp: var(--clamp-desc);
+}
+
+@media (max-width: 599px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+    width: 90%;
+    margin: 0 auto;
+    padding: 0.5em;
+  }
+
+  .magic-bento-card {
+    width: 100%;
+    min-height: 180px;
+  }
+}
+
+@media (min-width: 600px) {
+  .card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .card-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .magic-bento-card:nth-child(3) {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+
+  .magic-bento-card:nth-child(4) {
+    grid-column: 1 / span 2;
+    grid-row: 2 / span 2;
+  }
+
+  .magic-bento-card:nth-child(6) {
+    grid-column: 4;
+    grid-row: 3;
+  }
+}
+
+/* Border glow effect */
+.magic-bento-card--border-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 6px;
+  background: radial-gradient(
+    var(--glow-radius) circle at var(--glow-x) var(--glow-y),
+    rgba(132, 0, 255, calc(var(--glow-intensity) * 0.8)) 0%,
+    rgba(132, 0, 255, calc(var(--glow-intensity) * 0.4)) 30%,
+    transparent 60%
+  );
+  border-radius: inherit;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+.magic-bento-card--border-glow:hover::after {
+  opacity: 1;
+}
+
+.magic-bento-card--border-glow:hover {
+  box-shadow:
+    0 4px 20px rgba(46, 24, 78, 0.4),
+    0 0 30px var(--purple-glow);
+}
+
+.particle-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.particle::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: rgba(132, 0, 255, 0.2);
+  border-radius: 50%;
+  z-index: -1;
+}
+
+.particle-container:hover {
+  box-shadow:
+    0 4px 20px rgba(46, 24, 78, 0.2),
+    0 0 30px var(--purple-glow);
+}
+
+/* Global spotlight styles */
+.global-spotlight {
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  z-index: 200 !important;
+  pointer-events: none;
+}
+
+.bento-section {
+  position: relative;
+  user-select: none;
+}
+
+npx shadcn@latest add @react-bits/CardSwap-JS-CSS
+
+import CardSwap, { Card } from './CardSwap'
+
+<div style={{ height: '600px', position: 'relative' }}>
+  <CardSwap
+    cardDistance={60}
+    verticalDistance={70}
+    delay={5000}
+    pauseOnHover={false}
+  >
+    <Card>
+      <h3>Card 1</h3>
+      <p>Your content here</p>
+    </Card>
+    <Card>
+      <h3>Card 2</h3>
+      <p>Your content here</p>
+    </Card>
+    <Card>
+      <h3>Card 3</h3>
+      <p>Your content here</p>
+    </Card>
+  </CardSwap>
+</div>
+
+import React, { Children, cloneElement, forwardRef, isValidElement, useEffect, useMemo, useRef } from 'react';
+import gsap from 'gsap';
+import './CardSwap.css';
+
+export const Card = forwardRef(({ customClass, ...rest }, ref) => (
+  <div ref={ref} {...rest} className={`card ${customClass ?? ''} ${rest.className ?? ''}`.trim()} />
+));
+Card.displayName = 'Card';
+
+const makeSlot = (i, distX, distY, total) => ({
+  x: i * distX,
+  y: -i * distY,
+  z: -i * distX * 1.5,
+  zIndex: total - i
+});
+const placeNow = (el, slot, skew) =>
+  gsap.set(el, {
+    x: slot.x,
+    y: slot.y,
+    z: slot.z,
+    xPercent: -50,
+    yPercent: -50,
+    skewY: skew,
+    transformOrigin: 'center center',
+    zIndex: slot.zIndex,
+    force3D: true
+  });
+
+const CardSwap = ({
+  width = 500,
+  height = 400,
+  cardDistance = 60,
+  verticalDistance = 70,
+  delay = 5000,
+  pauseOnHover = false,
+  onCardClick,
+  skewAmount = 6,
+  easing = 'elastic',
+  children
+}) => {
+  const config =
+    easing === 'elastic'
+      ? {
+          ease: 'elastic.out(0.6,0.9)',
+          durDrop: 2,
+          durMove: 2,
+          durReturn: 2,
+          promoteOverlap: 0.9,
+          returnDelay: 0.05
+        }
+      : {
+          ease: 'power1.inOut',
+          durDrop: 0.8,
+          durMove: 0.8,
+          durReturn: 0.8,
+          promoteOverlap: 0.45,
+          returnDelay: 0.2
+        };
+
+  const childArr = useMemo(() => Children.toArray(children), [children]);
+  const refs = useMemo(
+    () => childArr.map(() => React.createRef()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [childArr.length]
+  );
+
+  const order = useRef(Array.from({ length: childArr.length }, (_, i) => i));
+
+  const tlRef = useRef(null);
+  const intervalRef = useRef();
+  const container = useRef(null);
+
+  useEffect(() => {
+    const total = refs.length;
+    refs.forEach((r, i) => placeNow(r.current, makeSlot(i, cardDistance, verticalDistance, total), skewAmount));
+
+    const swap = () => {
+      if (order.current.length < 2) return;
+
+      const [front, ...rest] = order.current;
+      const elFront = refs[front].current;
+      const tl = gsap.timeline();
+      tlRef.current = tl;
+
+      tl.to(elFront, {
+        y: '+=500',
+        duration: config.durDrop,
+        ease: config.ease
+      });
+
+      tl.addLabel('promote', `-=${config.durDrop * config.promoteOverlap}`);
+      rest.forEach((idx, i) => {
+        const el = refs[idx].current;
+        const slot = makeSlot(i, cardDistance, verticalDistance, refs.length);
+        tl.set(el, { zIndex: slot.zIndex }, 'promote');
+        tl.to(
+          el,
+          {
+            x: slot.x,
+            y: slot.y,
+            z: slot.z,
+            duration: config.durMove,
+            ease: config.ease
+          },
+          `promote+=${i * 0.15}`
+        );
+      });
+
+      const backSlot = makeSlot(refs.length - 1, cardDistance, verticalDistance, refs.length);
+      tl.addLabel('return', `promote+=${config.durMove * config.returnDelay}`);
+      tl.call(
+        () => {
+          gsap.set(elFront, { zIndex: backSlot.zIndex });
+        },
+        undefined,
+        'return'
+      );
+      tl.to(
+        elFront,
+        {
+          x: backSlot.x,
+          y: backSlot.y,
+          z: backSlot.z,
+          duration: config.durReturn,
+          ease: config.ease
+        },
+        'return'
+      );
+
+      tl.call(() => {
+        order.current = [...rest, front];
+      });
+    };
+
+    swap();
+    intervalRef.current = window.setInterval(swap, delay);
+
+    if (pauseOnHover) {
+      const node = container.current;
+      const pause = () => {
+        tlRef.current?.pause();
+        clearInterval(intervalRef.current);
+      };
+      const resume = () => {
+        tlRef.current?.play();
+        intervalRef.current = window.setInterval(swap, delay);
+      };
+      node.addEventListener('mouseenter', pause);
+      node.addEventListener('mouseleave', resume);
+      return () => {
+        node.removeEventListener('mouseenter', pause);
+        node.removeEventListener('mouseleave', resume);
+        clearInterval(intervalRef.current);
+      };
+    }
+    return () => clearInterval(intervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardDistance, verticalDistance, delay, pauseOnHover, skewAmount, easing]);
+
+  const rendered = childArr.map((child, i) =>
+    isValidElement(child)
+      ? cloneElement(child, {
+          key: i,
+          ref: refs[i],
+          style: { width, height, ...(child.props.style ?? {}) },
+          onClick: e => {
+            child.props.onClick?.(e);
+            onCardClick?.(i);
+          }
+        })
+      : child
+  );
+
+  return (
+    <div ref={container} className="card-swap-container" style={{ width, height }}>
+      {rendered}
+    </div>
+  );
+};
+
+export default CardSwap;
+.card-swap-container {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  transform: translate(5%, 20%);
+  transform-origin: bottom right;
+
+  perspective: 900px;
+  overflow: visible;
+}
+
+.card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 12px;
+  border: 1px solid #fff;
+  background: #000;
+
+  transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+@media (max-width: 768px) {
+  .card-swap-container {
+    transform: scale(0.75) translate(25%, 25%);
+  }
+}
+
+@media (max-width: 480px) {
+  .card-swap-container {
+    transform: scale(0.55) translate(25%, 25%);
+  }
+}
+
+some first login iideas:"
+npx shadcn@latest add @react-bits/Stepper-JS-CSS
+import Stepper, { Step } from './Stepper';
+  
+<Stepper
+  initialStep={1}
+  onStepChange={(step) => {
+    console.log(step);
+  }}
+  onFinalStepCompleted={() => console.log("All steps completed!")}
+  backButtonText="Previous"
+  nextButtonText="Next"
+>
+  <Step>
+    <h2>Welcome to the React Bits stepper!</h2>
+    <p>Check out the next step!</p>
+  </Step>
+  <Step>
+    <h2>Step 2</h2>
+    <img style={{ height: '100px', width: '100%', objectFit: 'cover', objectPosition: 'center -70px', borderRadius: '15px', marginTop: '1em' }} src="https://www.purrfectcatgifts.co.uk/cdn/shop/collections/Funny_Cat_Cards_640x640.png?v=1663150894" />
+    <p>Custom step content!</p>
+  </Step>
+  <Step>
+    <h2>How about an input?</h2>
+    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name?"
+  disableStepIndicators={false}
+/>
+  </Step>
+  <Step>
+    <h2>Final Step</h2>
+    <p>You made it!</p>
+  </Step>
+</Stepper>
+
+import React, { useState, Children, useRef, useLayoutEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+
+import './Stepper.css';
+
+export default function Stepper({
+  children,
+  initialStep = 1,
+  onStepChange = () => {},
+  onFinalStepCompleted = () => {},
+  stepCircleContainerClassName = '',
+  stepContainerClassName = '',
+  contentClassName = '',
+  footerClassName = '',
+  backButtonProps = {},
+  nextButtonProps = {},
+  backButtonText = 'Back',
+  nextButtonText = 'Continue',
+  disableStepIndicators = false,
+  renderStepIndicator,
+  ...rest
+}) {
+  const [currentStep, setCurrentStep] = useState(initialStep);
+  const [direction, setDirection] = useState(0);
+  const stepsArray = Children.toArray(children);
+  const totalSteps = stepsArray.length;
+  const isCompleted = currentStep > totalSteps;
+  const isLastStep = currentStep === totalSteps;
+
+  const updateStep = newStep => {
+    setCurrentStep(newStep);
+    if (newStep > totalSteps) {
+      onFinalStepCompleted();
+    } else {
+      onStepChange(newStep);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setDirection(-1);
+      updateStep(currentStep - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (!isLastStep) {
+      setDirection(1);
+      updateStep(currentStep + 1);
+    }
+  };
+
+  const handleComplete = () => {
+    setDirection(1);
+    updateStep(totalSteps + 1);
+  };
+
+  return (
+    <div className="outer-container" {...rest}>
+      <div
+        className={`step-circle-container ${stepCircleContainerClassName}`}
+        style={{ border: '1px solid var(--border-primary, #222)' }}
+      >
+        <div className={`step-indicator-row ${stepContainerClassName}`}>
+          {stepsArray.map((_, index) => {
+            const stepNumber = index + 1;
+            const isNotLastStep = index < totalSteps - 1;
+            return (
+              <React.Fragment key={stepNumber}>
+                {renderStepIndicator ? (
+                  renderStepIndicator({
+                    step: stepNumber,
+                    currentStep,
+                    onStepClick: clicked => {
+                      setDirection(clicked > currentStep ? 1 : -1);
+                      updateStep(clicked);
+                    }
+                  })
+                ) : (
+                  <StepIndicator
+                    step={stepNumber}
+                    disableStepIndicators={disableStepIndicators}
+                    currentStep={currentStep}
+                    onClickStep={clicked => {
+                      setDirection(clicked > currentStep ? 1 : -1);
+                      updateStep(clicked);
+                    }}
+                  />
+                )}
+                {isNotLastStep && <StepConnector isComplete={currentStep > stepNumber} />}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        <StepContentWrapper
+          isCompleted={isCompleted}
+          currentStep={currentStep}
+          direction={direction}
+          className={`step-content-default ${contentClassName}`}
+        >
+          {stepsArray[currentStep - 1]}
+        </StepContentWrapper>
+
+        {!isCompleted && (
+          <div className={`footer-container ${footerClassName}`}>
+            <div className={`footer-nav ${currentStep !== 1 ? 'spread' : 'end'}`}>
+              {currentStep !== 1 && (
+                <button
+                  onClick={handleBack}
+                  className={`back-button ${currentStep === 1 ? 'inactive' : ''}`}
+                  {...backButtonProps}
+                >
+                  {backButtonText}
+                </button>
+              )}
+              <button onClick={isLastStep ? handleComplete : handleNext} className="next-button" {...nextButtonProps}>
+                {isLastStep ? 'Complete' : nextButtonText}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StepContentWrapper({ isCompleted, currentStep, direction, children, className }) {
+  const [parentHeight, setParentHeight] = useState(0);
+
+  return (
+    <motion.div
+      className={className}
+      style={{ position: 'relative', overflow: 'hidden' }}
+      animate={{ height: isCompleted ? 0 : parentHeight }}
+      transition={{ type: 'spring', duration: 0.4 }}
+    >
+      <AnimatePresence initial={false} mode="sync" custom={direction}>
+        {!isCompleted && (
+          <SlideTransition key={currentStep} direction={direction} onHeightReady={h => setParentHeight(h)}>
+            {children}
+          </SlideTransition>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function SlideTransition({ children, direction, onHeightReady }) {
+  const containerRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (containerRef.current) onHeightReady(containerRef.current.offsetHeight);
+  }, [children, onHeightReady]);
+
+  return (
+    <motion.div
+      ref={containerRef}
+      custom={direction}
+      variants={stepVariants}
+      initial="enter"
+      animate="center"
+      exit="exit"
+      transition={{ duration: 0.4 }}
+      style={{ position: 'absolute', left: 0, right: 0, top: 0 }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+const stepVariants = {
+  enter: dir => ({
+    x: dir >= 0 ? '-100%' : '100%',
+    opacity: 0
+  }),
+  center: {
+    x: '0%',
+    opacity: 1
+  },
+  exit: dir => ({
+    x: dir >= 0 ? '50%' : '-50%',
+    opacity: 0
+  })
+};
+
+export function Step({ children }) {
+  return <div className="step-default">{children}</div>;
+}
+
+function StepIndicator({ step, currentStep, onClickStep, disableStepIndicators }) {
+  const status = currentStep === step ? 'active' : currentStep < step ? 'inactive' : 'complete';
+
+  const handleClick = () => {
+    if (step !== currentStep && !disableStepIndicators) onClickStep(step);
+  };
+
+  return (
+    <motion.div onClick={handleClick} className="step-indicator" style={disableStepIndicators ? { pointerEvents: 'none', opacity: 0.5 } : {}} animate={status} initial={false}>
+      <motion.div
+        variants={{
+          inactive: { scale: 1, backgroundColor: '#222', color: '#a3a3a3' },
+          active: { scale: 1, backgroundColor: '#5227FF', color: '#5227FF' },
+          complete: { scale: 1, backgroundColor: '#5227FF', color: '#3b82f6' }
+        }}
+        transition={{ duration: 0.3 }}
+        className="step-indicator-inner"
+      >
+        {status === 'complete' ? (
+          <CheckIcon className="check-icon" />
+        ) : status === 'active' ? (
+          <div className="active-dot" />
+        ) : (
+          <span className="step-number">{step}</span>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function StepConnector({ isComplete }) {
+  const lineVariants = {
+    incomplete: { width: 0, backgroundColor: 'transparent' },
+    complete: { width: '100%', backgroundColor: '#5227FF' }
+  };
+
+  return (
+    <div className="step-connector">
+      <motion.div
+        className="step-connector-inner"
+        variants={lineVariants}
+        initial={false}
+        animate={isComplete ? 'complete' : 'incomplete'}
+        transition={{ duration: 0.4 }}
+      />
+    </div>
+  );
+}
+
+function CheckIcon(props) {
+  return (
+    <svg {...props} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <motion.path
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ delay: 0.1, type: 'tween', ease: 'easeOut', duration: 0.3 }}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5 13l4 4L19 7"
+      />
+    </svg>
+  );
+}
+
+
+.outer-container {
+  display: flex;
+  min-height: 100%;
+  flex: 1 1 0%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .outer-container {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (min-width: 768px) {
+  .outer-container {
+    aspect-ratio: 2 / 1;
+  }
+}
+
+.step-circle-container {
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  max-width: 28rem;
+  border-radius: 2rem;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.step-indicator-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  padding: 2rem;
+}
+
+.step-content-default {
+  position: relative;
+  overflow: hidden;
+}
+
+.step-default {
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+.footer-container {
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-bottom: 2rem;
+}
+
+.footer-nav {
+  margin-top: 2.5rem;
+  display: flex;
+}
+
+.footer-nav.spread {
+  justify-content: space-between;
+}
+
+.footer-nav.end {
+  justify-content: flex-end;
+}
+
+.back-button {
+  transition: all 350ms;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  color: #a3a3a3;
+  cursor: pointer;
+}
+
+.back-button:hover {
+  color: #52525b;
+}
+
+.back-button.inactive {
+  pointer-events: none;
+  opacity: 0.5;
+  color: #a3a3a3;
+}
+
+.next-button {
+  transition: all 350ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-color: #5227ff;
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  padding: 0.375rem 0.875rem;
+  cursor: pointer;
+}
+
+.next-button:hover {
+  background-color: #5227ff;
+}
+
+.next-button:active {
+  background-color: #5227ff;
+}
+
+.step-indicator {
+  position: relative;
+  cursor: pointer;
+  outline: none;
+}
+
+.step-indicator-inner {
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+.active-dot {
+  height: 0.75rem;
+  width: 0.75rem;
+  border-radius: 9999px;
+  background-color: #fff;
+}
+
+.step-number {
+  font-size: 0.875rem;
+}
+
+.step-connector {
+  position: relative;
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
+  height: 0.125rem;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background-color: #52525b;
+}
+
+.step-connector-inner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+}
+
+.check-icon {
+  height: 1rem;
+  width: 1rem;
+  color: #fff;
+}
+
+"
+

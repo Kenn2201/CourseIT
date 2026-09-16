@@ -50,39 +50,38 @@ export async function summarizeWithLLM(rawText, fallbackTitle = 'Documentation L
 async function callGemini(rawText, fallbackTitle, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
-  // Use gemini-2.5-flash or gemini-2.0-flash / gemini-1.5-flash
-  // gemini-2.5-flash or gemini-1.5-flash are standard in Google AI Studio
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
-    systemInstruction: SYSTEM_INSTRUCTION,
-    generationConfig: {
-      responseMimeType: 'application/json',
-      temperature: 0.2,
-    }
-  });
+  const modelsToTry = [
+    process.env.GEMINI_MODEL,
+    'gemini-3.6-flash',
+    'gemini-2.5-flash',
+    'gemini-flash-latest'
+  ].filter(Boolean);
 
   const prompt = `Documentation Topic / Page Title: ${fallbackTitle}\n\nDocumentation Content:\n${rawText.slice(0, 35000)}`;
 
-  try {
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    return parseAndValidateSteps(responseText, fallbackTitle);
-  } catch (err) {
-    // Fallback to gemini-1.5-flash if gemini-2.5-flash model name differs
-    if (err.message && (err.message.includes('not found') || err.message.includes('404'))) {
-      const fallbackModel = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
+  let lastError;
+  for (const modelName of modelsToTry) {
+    try {
+      console.log(`[CourseIT] Trying Gemini model: ${modelName}`);
+      const model = genAI.getGenerativeModel({
+        model: modelName,
         systemInstruction: SYSTEM_INSTRUCTION,
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.2,
         }
       });
-      const result = await fallbackModel.generateContent(prompt);
-      return parseAndValidateSteps(result.response.text(), fallbackTitle);
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+      return parseAndValidateSteps(responseText, fallbackTitle);
+    } catch (err) {
+      console.warn(`[CourseIT] Model ${modelName} failed (${err.message.slice(0, 80)}). Trying next model...`);
+      lastError = err;
+      // If temporary overload, 404, or rate limit, proceed to next candidate model
+      continue;
     }
-    throw err;
   }
+  throw lastError;
 }
 
 async function callOpenAI(rawText, fallbackTitle, apiKey) {

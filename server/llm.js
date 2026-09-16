@@ -47,13 +47,18 @@ export async function summarizeWithLLM(rawText, fallbackTitle = 'Documentation L
   }
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function callGemini(rawText, fallbackTitle, apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
+  // Tested models in order of speed and stability
   const modelsToTry = [
     process.env.GEMINI_MODEL,
+    'gemini-flash-lite-latest',
+    'gemini-3.5-flash-lite',
     'gemini-3.6-flash',
-    'gemini-2.5-flash',
+    'gemini-3.1-flash-lite',
     'gemini-flash-latest'
   ].filter(Boolean);
 
@@ -61,24 +66,35 @@ async function callGemini(rawText, fallbackTitle, apiKey) {
 
   let lastError;
   for (const modelName of modelsToTry) {
-    try {
-      console.log(`[CourseIT] Trying Gemini model: ${modelName}`);
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: SYSTEM_INSTRUCTION,
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
+    // Try up to 2 attempts per model for transient 503 / rate limits
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        console.log(`[CourseIT] Calling Gemini (${modelName}, attempt ${attempt})...`);
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: SYSTEM_INSTRUCTION,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+          }
+        });
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        return parseAndValidateSteps(responseText, fallbackTitle);
+      } catch (err) {
+        lastError = err;
+        const msg = err.message || '';
+        const is503Or429 = msg.includes('503') || msg.includes('429') || msg.includes('high demand') || msg.includes('Service Unavailable');
+        
+        if (is503Or429 && attempt === 1) {
+          console.warn(`[CourseIT] Model ${modelName} encountered temporary load (503). Retrying in 1.5s...`);
+          await sleep(1500);
+          continue;
         }
-      });
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text();
-      return parseAndValidateSteps(responseText, fallbackTitle);
-    } catch (err) {
-      console.warn(`[CourseIT] Model ${modelName} failed (${err.message.slice(0, 80)}). Trying next model...`);
-      lastError = err;
-      // If temporary overload, 404, or rate limit, proceed to next candidate model
-      continue;
+
+        console.warn(`[CourseIT] Model ${modelName} failed (${msg.slice(0, 80)}). Moving to next candidate...`);
+        break; // Move to next model
+      }
     }
   }
   throw lastError;

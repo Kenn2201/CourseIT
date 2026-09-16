@@ -76,18 +76,41 @@ export default async ({ req, res, log, error }) => {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: SYSTEM_INSTRUCTION,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.2
-      }
-    });
+    const modelsToTry = [
+      process.env.GEMINI_MODEL,
+      'gemini-flash-lite-latest',
+      'gemini-3.5-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-flash-latest'
+    ].filter(Boolean);
 
-    const llmResult = await model.generateContent(`Title: ${title}\n\nContent:\n${cleanText.slice(0, 35000)}`);
-    const responseText = llmResult.response.text();
-    const parsed = JSON.parse(responseText.replace(/```json|```/g, '').trim());
+    let parsed = null;
+    let lastErr = null;
+    for (const modelName of modelsToTry) {
+      try {
+        log(`Trying model: ${modelName}`);
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: SYSTEM_INSTRUCTION,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.2
+          }
+        });
+        const llmResult = await model.generateContent(`Title: ${title}\n\nContent:\n${cleanText.slice(0, 35000)}`);
+        const responseText = llmResult.response.text();
+        parsed = JSON.parse(responseText.replace(/```json|```/g, '').trim());
+        if (parsed) break;
+      } catch (err) {
+        lastErr = err;
+        log(`Model ${modelName} error: ${err.message}`);
+        continue;
+      }
+    }
+
+    if (!parsed) {
+      throw lastErr || new Error('All Gemini candidate models failed.');
+    }
 
     log(`LLM finished. Writing to Appwrite database...`);
     const endpoint = process.env.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1';

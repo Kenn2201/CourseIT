@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import dotenv from 'dotenv';
-import { processDocumentationUrl } from './server/handler.js';
+import { processDocumentationUrl, getPublicQuota } from './server/handler.js';
 
 dotenv.config();
 
@@ -16,6 +16,14 @@ export default defineConfig(({ mode }) => {
       {
         name: 'courseit-api-server',
         configureServer(server) {
+          // Quota status route
+          server.middlewares.use('/api/quota', (req, res) => {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(getPublicQuota()));
+          });
+
+          // Summarize route
           server.middlewares.use('/api/summarize', async (req, res) => {
             if (req.method !== 'POST') {
               res.statusCode = 405;
@@ -33,6 +41,7 @@ export default defineConfig(({ mode }) => {
               try {
                 const data = JSON.parse(body || '{}');
                 const { url, model } = data;
+                const isAdmin = Boolean(data.isAdmin || req.headers['x-admin-mode'] === 'true');
 
                 if (!url) {
                   res.statusCode = 400;
@@ -41,7 +50,7 @@ export default defineConfig(({ mode }) => {
                   return;
                 }
 
-                const result = await processDocumentationUrl(url, model);
+                const result = await processDocumentationUrl(url, model, isAdmin);
 
                 res.statusCode = 200;
                 res.setHeader('Content-Type', 'application/json');

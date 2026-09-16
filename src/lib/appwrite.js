@@ -42,8 +42,8 @@ const SAMPLE_GODOT_COURSE = {
 };
 
 // Initialize Appwrite Client if project ID exists
-let client = null;
-let databases = null;
+export let client = null;
+export let databases = null;
 
 export function isAppwriteConfigured() {
   return Boolean(PROJECT_ID && DATABASE_ID && COLLECTION_ID);
@@ -59,19 +59,32 @@ if (isAppwriteConfigured()) {
 }
 
 /**
- * Normalizes course document format ensuring steps is an array
+ * Normalizes course document format ensuring steps is an array and rich fields are preserved
  */
 function normalizeCourse(doc) {
   let steps = doc.steps;
+  let overview = doc.overview || '';
+  let recommendedNext = doc.recommended_next_step || '';
+
   if (typeof steps === 'string') {
     try {
-      steps = JSON.parse(steps);
+      const parsed = JSON.parse(steps);
+      if (Array.isArray(parsed)) {
+        steps = parsed;
+      } else if (parsed && typeof parsed === 'object') {
+        steps = parsed.items || parsed.steps || [];
+        overview = parsed.overview || overview;
+        recommendedNext = parsed.recommended_next_step || recommendedNext;
+      }
     } catch {
       steps = [];
     }
   }
+
   return {
     ...doc,
+    overview,
+    recommended_next_step: recommendedNext,
     steps: Array.isArray(steps) ? steps : []
   };
 }

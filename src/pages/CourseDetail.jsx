@@ -148,6 +148,12 @@ export default function CourseDetail() {
               {course.title}
             </h1>
 
+            {course.overview && (
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed mb-4 max-w-3xl">
+                {course.overview}
+              </p>
+            )}
+
             <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-slate-400 pt-4 border-t border-slate-800/80">
               <div className="flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-indigo-400" />
@@ -159,7 +165,7 @@ export default function CourseDetail() {
               </div>
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-emerald-400" />
-                <span>Zero Filler • 1 Concept / Step</span>
+                <span>Code Examples • 1 Concept / Step</span>
               </div>
             </div>
           </div>
@@ -183,7 +189,7 @@ export default function CourseDetail() {
             <div>
               <h4 className="text-base font-bold text-white">Course Complete!</h4>
               <p className="text-xs sm:text-sm text-emerald-300/80 mt-0.5">
-                You have completed all {steps.length} steps in this learning path. Ready to tackle another documentation topic?
+                You have completed all {steps.length} steps in this learning path.
               </p>
             </div>
           </div>
@@ -192,7 +198,7 @@ export default function CourseDetail() {
         {/* Steps List */}
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-bold text-white">Learning Steps</h2>
+            <h2 className="text-lg font-bold text-white">Learning Steps & Implementation</h2>
             <span className="text-xs text-slate-400">Click any step or checkbox to mark done</span>
           </div>
 
@@ -210,6 +216,28 @@ export default function CourseDetail() {
             );
           })}
         </div>
+
+        {/* Recommended Next Step Card */}
+        {course.recommended_next_step && (
+          <div className="mt-10 glass-panel rounded-2xl p-6 sm:p-8 border border-indigo-500/30 bg-gradient-to-br from-indigo-950/40 to-slate-900/80 relative overflow-hidden">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shrink-0">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs font-mono uppercase tracking-wider text-indigo-400 font-semibold">
+                  Recommended Next Step
+                </span>
+                <h3 className="text-lg font-bold text-white mt-1 mb-2">
+                  What to Build / Explore Next
+                </h3>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  {course.recommended_next_step}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

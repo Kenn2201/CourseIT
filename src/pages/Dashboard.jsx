@@ -5,6 +5,7 @@ import UrlInputForm from '../components/UrlInputForm';
 import LoadingPipeline from '../components/LoadingPipeline';
 import CourseCard from '../components/CourseCard';
 import { listCourses, saveLocalCourse } from '../lib/appwrite';
+import { getAdminState } from '../lib/auth';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -13,6 +14,18 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [generateError, setGenerateError] = useState('');
+  const [quota, setQuota] = useState({ total: 20, used: 0, remaining: 20 });
+  const [adminState, setAdminState] = useState(getAdminState());
+
+  const loadQuota = async () => {
+    try {
+      const res = await fetch('/api/quota');
+      if (res.ok) {
+        const data = await res.json();
+        setQuota(data);
+      }
+    } catch {}
+  };
 
   const loadCourses = async () => {
     setLoadingCourses(true);
@@ -28,6 +41,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadCourses();
+    loadQuota();
+    setAdminState(getAdminState());
   }, []);
 
   const handleGenerate = async (url, model) => {
@@ -35,10 +50,18 @@ export default function Dashboard() {
     setGenerateError('');
 
     try {
+      const currentAdmin = getAdminState();
       const response = await fetch('/api/summarize', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, model })
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-mode': currentAdmin.isAdmin ? 'true' : 'false'
+        },
+        body: JSON.stringify({
+          url,
+          model,
+          isAdmin: currentAdmin.isAdmin
+        })
       });
 
       const data = await response.json();
@@ -47,8 +70,11 @@ export default function Dashboard() {
         throw new Error(data.error || 'Failed to generate course.');
       }
 
+      if (data.quota) {
+        setQuota(data.quota);
+      }
+
       const newCourse = data.course;
-      // Save to local fallback cache as well
       saveLocalCourse(newCourse);
 
       // Refresh list and navigate to the newly generated course
@@ -97,7 +123,12 @@ export default function Dashboard() {
             {isGenerating ? (
               <LoadingPipeline />
             ) : (
-              <UrlInputForm onSubmit={handleGenerate} isLoading={isGenerating} />
+              <UrlInputForm
+                onSubmit={handleGenerate}
+                isLoading={isGenerating}
+                quota={quota}
+                isAdmin={adminState?.isAdmin}
+              />
             )}
 
             {generateError && (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowRight, Link2, Gamepad2, Layers, Radio, Code2 } from 'lucide-react';
+import { Sparkles, ArrowRight, Link2, Gamepad2, Layers, Radio, Code2, ShieldCheck, Zap } from 'lucide-react';
 
 const GODOT_PRESETS = [
   {
@@ -31,14 +31,21 @@ const MODEL_OPTIONS = [
   { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', badge: 'High Power' }
 ];
 
-export default function UrlInputForm({ onSubmit, isLoading }) {
+export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, onOpenAdmin }) {
   const [url, setUrl] = useState('');
   const [selectedModel, setSelectedModel] = useState('gemini-flash-lite-latest');
   const [error, setError] = useState('');
 
+  const isOutOfQuota = !isAdmin && quota && quota.remaining <= 0;
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
+
+    if (isOutOfQuota) {
+      setError('Public generation limit reached (20/20). Please sign in as Admin to generate more courses.');
+      return;
+    }
 
     const trimmed = url.trim();
     if (!trimmed) {
@@ -73,23 +80,39 @@ export default function UrlInputForm({ onSubmit, isLoading }) {
               Paste any documentation URL to convert into actionable steps:
             </label>
             
-            {/* Model Selector */}
-            <div className="flex items-center gap-1.5 self-start sm:self-auto">
-              <span className="text-xs text-slate-400 font-mono">Model:</span>
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                disabled={isLoading}
-                className="bg-slate-900 border border-slate-700/80 rounded-lg text-xs font-mono text-indigo-300 px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                {MODEL_OPTIONS.map((opt) => (
-                  <option key={opt.id} value={opt.id} className="bg-slate-900 text-slate-200">
-                    {opt.label} ({opt.badge})
-                  </option>
-                ))}
-              </select>
+            <div className="flex items-center gap-3 self-start sm:self-auto">
+              {/* Quota / Admin Pill */}
+              {isAdmin ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Admin: Unlimited</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs font-mono text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-lg">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Public: {quota?.remaining ?? 20}/20 Free</span>
+                </span>
+              )}
+
+              {/* Model Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400 font-mono">Model:</span>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  disabled={isLoading}
+                  className="bg-slate-900 border border-slate-700/80 rounded-lg text-xs font-mono text-indigo-300 px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  {MODEL_OPTIONS.map((opt) => (
+                    <option key={opt.id} value={opt.id} className="bg-slate-900 text-slate-200">
+                      {opt.label} ({opt.badge})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
+
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -126,9 +149,18 @@ export default function UrlInputForm({ onSubmit, isLoading }) {
           </div>
 
           {error && (
-            <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-2 rounded-lg">
-              {error}
-            </p>
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center justify-between gap-2">
+              <span>{error}</span>
+              {isOutOfQuota && (
+                <button
+                  type="button"
+                  onClick={onOpenAdmin}
+                  className="underline font-semibold hover:text-white cursor-pointer"
+                >
+                  Admin Login
+                </button>
+              )}
+            </div>
           )}
         </form>
 
@@ -136,7 +168,7 @@ export default function UrlInputForm({ onSubmit, isLoading }) {
         <div className="mt-6 pt-5 border-t border-slate-800/80">
           <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-3">
             <Gamepad2 className="w-4 h-4 text-indigo-400" />
-            <span>Try with Godot 4 Documentation Presets:</span>
+            <span>Try with Godot 4 Documentation Presets (0 extra tokens if already cached):</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {GODOT_PRESETS.map((preset) => {

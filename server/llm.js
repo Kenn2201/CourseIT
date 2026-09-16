@@ -7,17 +7,24 @@ Rules:
 2. Start each step with the concept itself — no scene-setting.
 3. Attach a time estimate to each step (e.g. "~10 min").
 4. No filler language, no encouragement padding.
-5. If source text is thin on a topic, say so in one line.
+5. Provide actionable implementation instructions (exact editor clicks, menu names, or workflow).
+6. Provide concrete, runnable code snippets or syntax examples (e.g. GDScript, CLI command, config) whenever applicable.
+7. If source text is thin on a topic, say so in one line.
 
 Output strictly valid JSON with this exact schema:
 {
   "title": "Concise, descriptive course title based on the documentation topic",
+  "overview": "1-2 sentences summarizing what this guide achieves and any prerequisites",
+  "recommended_next_step": "Specific recommendation on what documentation topic, tutorial, or game mechanic to build next",
   "steps": [
     {
       "step_number": 1,
       "title": "Clear Concept / Action Title",
       "time_estimate": "~10 min",
-      "summary": "Direct, action-oriented explanation of the concept, code mechanics, or exact steps to implement. No fluff."
+      "summary": "Direct explanation of the concept and why it matters. No fluff.",
+      "implementation": "Concrete step-by-step instructions (e.g., '1. In Scene dock click +, 2. Add AudioStreamPlayer, 3. In Inspector set Bus to Master').",
+      "code_snippet": "Runnable code snippet or CLI command with brief comments, or null if purely editor UI",
+      "pro_tip": "Important gotcha, pitfall to avoid, or performance advice"
     }
   ]
 }`;
@@ -154,6 +161,8 @@ function parseAndValidateSteps(rawJsonString, fallbackTitle) {
   }
 
   const title = parsed.title || fallbackTitle;
+  const overview = parsed.overview || '';
+  const recommendedNextStep = parsed.recommended_next_step || '';
   const rawSteps = Array.isArray(parsed.steps) ? parsed.steps : (Array.isArray(parsed) ? parsed : []);
 
   if (!rawSteps.length) {
@@ -164,11 +173,16 @@ function parseAndValidateSteps(rawJsonString, fallbackTitle) {
     step_number: step.step_number || (idx + 1),
     title: step.title || `Step ${idx + 1}`,
     time_estimate: step.time_estimate || '~5 min',
-    summary: step.summary || (typeof step === 'string' ? step : '')
+    summary: step.summary || (typeof step === 'string' ? step : ''),
+    implementation: step.implementation || '',
+    code_snippet: step.code_snippet || null,
+    pro_tip: step.pro_tip || ''
   }));
 
   return {
     title,
+    overview,
+    recommended_next_step: recommendedNextStep,
     steps: formattedSteps
   };
 }

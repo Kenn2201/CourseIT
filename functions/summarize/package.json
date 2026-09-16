@@ -1,0 +1,12 @@
+{
+  "name": "summarize-function",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/main.js",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "@mozilla/readability": "^0.5.0",
+    "jsdom": "^26.0.0",
+    "node-appwrite": "^15.0.0"
+  }
+}

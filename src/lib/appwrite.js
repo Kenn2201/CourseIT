@@ -1,0 +1,160 @@
+import { Client, Databases, Query } from 'appwrite';
+
+const ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1';
+const PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || '';
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '';
+const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_ID || '6aaa6fef000b2b0129c4';
+
+const LOCAL_STORAGE_KEY = 'courseit_saved_courses';
+
+// Pre-seeded starter course for instant showcase
+const SAMPLE_GODOT_COURSE = {
+  $id: 'godot-sample-nodes-scenes',
+  title: 'Nodes and Scenes in Godot 4',
+  source_url: 'https://docs.godotengine.org/en/stable/getting_started/step_by_step/nodes_and_scenes.html',
+  $createdAt: '2026-09-16T10:00:00.000Z',
+  steps: [
+    {
+      step_number: 1,
+      title: 'Understand the Node as Godot\'s Basic Building Block',
+      time_estimate: '~5 min',
+      summary: 'Nodes are the fundamental objects in Godot. Every node has a name, editable properties, can receive callbacks to process each frame, and can be extended with scripts. Nodes only perform specific jobs (e.g. Sprite2D displays an image, Camera2D controls the viewport).'
+    },
+    {
+      step_number: 2,
+      title: 'Organize Nodes into a Hierarchical Scene Tree',
+      time_estimate: '~10 min',
+      summary: 'A scene is a collection of nodes arranged hierarchically in a tree. The tree has one single root node. When a parent node moves or transforms, all child nodes move along with it automatically.'
+    },
+    {
+      step_number: 3,
+      title: 'Create and Save a Scene in the Godot Editor',
+      time_estimate: '~8 min',
+      summary: 'In the Scene dock, click \'+\' to add a root node (such as Node2D or Control). Add child nodes under it. Save the scene file using Ctrl+S as a .tscn file inside your project\'s res:// folder.'
+    },
+    {
+      step_number: 4,
+      title: 'Instance Scenes to Reuse Game Components',
+      time_estimate: '~12 min',
+      summary: 'Scenes can be saved as templates and instanced inside other scenes (like a character or coin inside a game level). Click the link icon in the Scene dock to instance a saved .tscn file. Modifying the original scene updates all instances.'
+    }
+  ]
+};
+
+// Initialize Appwrite Client if project ID exists
+let client = null;
+let databases = null;
+
+export function isAppwriteConfigured() {
+  return Boolean(PROJECT_ID && DATABASE_ID && COLLECTION_ID);
+}
+
+if (isAppwriteConfigured()) {
+  try {
+    client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID);
+    databases = new Databases(client);
+  } catch (err) {
+    console.warn('Appwrite client initialization error:', err);
+  }
+}
+
+/**
+ * Normalizes course document format ensuring steps is an array
+ */
+function normalizeCourse(doc) {
+  let steps = doc.steps;
+  if (typeof steps === 'string') {
+    try {
+      steps = JSON.parse(steps);
+    } catch {
+      steps = [];
+    }
+  }
+  return {
+    ...doc,
+    steps: Array.isArray(steps) ? steps : []
+  };
+}
+
+/**
+ * Get courses from local storage
+ */
+export function getLocalCourses() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) {
+      // Seed with sample course on first visit
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([SAMPLE_GODOT_COURSE]));
+      return [SAMPLE_GODOT_COURSE];
+    }
+    return JSON.parse(raw);
+  } catch {
+    return [SAMPLE_GODOT_COURSE];
+  }
+}
+
+/**
+ * Save course to local storage
+ */
+export function saveLocalCourse(course) {
+  try {
+    const current = getLocalCourses();
+    const existingIndex = current.findIndex(c => c.$id === course.$id);
+    let updated;
+    if (existingIndex >= 0) {
+      updated = [...current];
+      updated[existingIndex] = course;
+    } else {
+      updated = [course, ...current];
+    }
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.error('Failed to save course to localStorage:', err);
+  }
+}
+
+/**
+ * Fetch list of courses: tries Appwrite first, falls back to local storage
+ */
+export async function listCourses() {
+  if (databases && isAppwriteConfigured()) {
+    try {
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTION_ID,
+        [Query.orderDesc('$createdAt')]
+      );
+
+      const liveCourses = response.documents.map(normalizeCourse);
+      
+      // Also cache to local storage
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(liveCourses));
+      return liveCourses;
+    } catch (err) {
+      console.warn('Appwrite live fetch failed, falling back to local cache:', err.message);
+      return getLocalCourses();
+    }
+  }
+
+  return getLocalCourses();
+}
+
+/**
+ * Get a specific course by ID
+ */
+export async function getCourse(id) {
+  if (databases && isAppwriteConfigured()) {
+    try {
+      const doc = await databases.getDocument(DATABASE_ID, COLLECTION_ID, id);
+      return normalizeCourse(doc);
+    } catch (err) {
+      console.warn(`Appwrite fetch for ${id} failed, checking local storage:`, err.message);
+    }
+  }
+
+  const local = getLocalCourses();
+  const found = local.find(c => c.$id === id);
+  if (found) return found;
+
+  throw new Error(`Course with ID ${id} not found.`);
+}

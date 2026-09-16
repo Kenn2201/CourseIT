@@ -1,0 +1,65 @@
+{
+  "projectId": "",
+  "projectName": "courseit",
+  "databases": [
+    {
+      "$id": "courseit",
+      "name": "courseit",
+      "enabled": true
+    }
+  ],
+  "collections": [
+    {
+      "$id": "6aaa6fef000b2b0129c4",
+      "$permissions": [
+        "read(\"any\")"
+      ],
+      "databaseId": "courseit",
+      "name": "courses",
+      "enabled": true,
+      "documentSecurity": false,
+      "attributes": [
+        {
+          "key": "source_url",
+          "type": "url",
+          "status": "available",
+          "required": true,
+          "array": false
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "status": "available",
+          "required": true,
+          "array": false,
+          "size": 255
+        },
+        {
+          "key": "steps",
+          "type": "string",
+          "status": "available",
+          "required": true,
+          "array": false,
+          "size": 1000000
+        }
+      ],
+      "indexes": []
+    }
+  ],
+  "functions": [
+    {
+      "$id": "summarize",
+      "name": "summarize",
+      "runtime": "node-22",
+      "path": "functions/summarize",
+      "entrypoint": "src/main.js",
+      "ignore": ["node_modules", ".env"],
+      "execute": ["any"],
+      "events": [],
+      "schedule": "",
+      "timeout": 60,
+      "enabled": true,
+      "logging": true
+    }
+  ]
+}

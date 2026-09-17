@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-09-18 — Persistent Global Maintenance Mode, UI Restoration & Admin Stability (LIVE Beta)
+
+### Added
+- **Appwrite-Backed Global Maintenance Mode**:
+  - Maintenance mode flag is now stored as a system document in Appwrite Cloud (`system_maintenance_flag`) instead of browser-local `localStorage`.
+  - Every browser polls Appwrite every 30 seconds — toggling maintenance from Admin Panel locks **all users globally** within ~30 seconds.
+  - Same-browser toggle remains instant via local `CustomEvent` dispatch.
+  - Offline / Appwrite-unavailable fallback gracefully reads from `localStorage` (stays in sync with last known Appwrite state).
+  - `setMaintenanceMode()` creates the system document automatically on first use if it does not exist in the collection.
+
+### Fixed & Hardened
+- **Admin Panel Infinite Re-fetch Loop**:
+  - Resolved root-cause of the Admin dashboard infinitely refreshing by replacing the `user` object (new reference every render) in `useEffect` dependencies with stable primitives `user?.id` and `user?.email`.
+- **UI Restoration — Chatbot, Theme Toggle & Partner Badges**:
+  - Restored `CourseTutor` chatbot launcher to the lower-left corner (`fixed bottom-6 left-6`) across all application routes.
+  - Relocated the Light/Dark theme toggle into the Navbar header — always accessible regardless of scroll position.
+  - Restored `Powered By` partner badges to the landing page footer via correct `showPoweredBy` prop.
+- **Security Sanitization**:
+  - Audited and scrubbed public-facing changelog, server handler, and documentation of internal API route paths, collection IDs, and personal emails.
+  - Established `.agents/rules/versioning.md` as mandatory AI versioning protocol for all future commits.
+- **Auth Diagnostics**:
+  - Added `formatAuthError` diagnostic helper surfacing actionable Appwrite Web Platform CORS setup instructions when hostname is unregistered.
+
 ## [1.11.2] - 2026-09-17 — Serverless Evaluation Hotfix & Quota Engine Stabilization (LIVE Beta)
 
 ### Fixed & Hardened

@@ -88,6 +88,8 @@ function normalizeCourse(doc) {
   let steps = doc.steps;
   let overview = doc.overview || '';
   let recommendedNext = doc.recommended_next_step || '';
+  let creatorId = doc.creator_id || null;
+  let creatorEmail = doc.creator_email || null;
 
   if (typeof steps === 'string') {
     try {
@@ -98,6 +100,8 @@ function normalizeCourse(doc) {
         steps = parsed.items || parsed.steps || [];
         overview = parsed.overview || overview;
         recommendedNext = parsed.recommended_next_step || recommendedNext;
+        creatorId = parsed.creator_id || creatorId;
+        creatorEmail = parsed.creator_email || creatorEmail;
       }
     } catch {
       steps = [];
@@ -108,7 +112,9 @@ function normalizeCourse(doc) {
     ...doc,
     overview,
     recommended_next_step: recommendedNext,
-    steps: Array.isArray(steps) ? steps : []
+    steps: Array.isArray(steps) ? steps : [],
+    creator_id: creatorId,
+    creator_email: creatorEmail
   };
 }
 

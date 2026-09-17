@@ -4,13 +4,28 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseit.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.5.0--beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.6.0--beta-indigo.svg)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
 ![Vite](https://img.shields.io/badge/Vite-6.4.3-646CFF.svg?logo=vite)
 ![Tailwind](https://img.shields.io/badge/TailwindCSS-v4-38b2ac.svg?logo=tailwind-css)
 ![Appwrite](https://img.shields.io/badge/Appwrite-Cloud%20Sydney-FD366E.svg?logo=appwrite)
 ![Gemini](https://img.shields.io/badge/Google%20Gemini-Flash%20Lite%20%7C%203.5%20%7C%203.6%20%7C%203.7-4285F4.svg?logo=google)
 ![Resend](https://img.shields.io/badge/Resend-Verified%20Domain-black.svg?logo=resend)
+
+---
+
+## 📜 Recent Changelog & Release Notes
+
+All notable changes are tracked in detail in [**CHANGELOG.md**](file:///g:/files%20for%20transfers%20iidkkk/project%20web%20app/portfolio-kenn/project-3-CourseIT/CHANGELOG.md).
+
+* **v1.6.0-beta (September 17, 2026)**:
+  * **Critical Security Fix**: Server-side & client-side course deletion ACL restricting delete permissions strictly to author or admin (`403 Forbidden` on unauthorized attempts).
+  * **OAuth 401 Fix**: Removed destructive session teardown on pending status; Google OAuth users stay signed in.
+  * **OAuth Pending Queue**: Google OAuth signups land in the same pending approval queue as email signups with auto-acknowledgement emails via Resend.
+  * **Model Resilience Notice**: Informs users when Gemini 3.7 hits high upstream demand and seamlessly falls back to Flash Lite, charging only for the lighter tier.
+  * **Mobile Changelog Fix**: Responsive date wrapping preventing text overflow at narrow viewport widths.
+* **v1.5.0-beta (September 17, 2026)**:
+  * StrictMode execution guard for OAuth token exchange, real-time Appwrite credit sync, shared 3/3 guest sandbox with struck-through locked tiers, embedded technical companion, PDF/DOCX/MD exports, profile customizer, and Gemini token monitor.
 
 ---
 

@@ -3,10 +3,14 @@ import { Link } from 'react-router-dom';
 import { Clock, Layers, ArrowUpRight, CheckCircle, Trash2 } from 'lucide-react';
 import { getCompletedSteps } from '../lib/storage';
 
-export default function CourseCard({ course, onDelete }) {
+export default function CourseCard({ course, onDelete, currentUser = null, isAdmin = false }) {
   const steps = course.steps || [];
   const completedSteps = getCompletedSteps(course.$id);
   const isComplete = steps.length > 0 && completedSteps.length >= steps.length;
+
+  const isStarter = Boolean(course.is_curated || course.$id?.startsWith('starter-'));
+  const isOwner = Boolean(currentUser?.id && course.creator_id && course.creator_id === currentUser.id);
+  const canDelete = isAdmin || (isOwner && !isStarter);
 
   let hostname = 'docs';
   try {
@@ -26,7 +30,7 @@ export default function CourseCard({ course, onDelete }) {
   const handleDelete = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (onDelete) {
+    if (onDelete && canDelete) {
       onDelete(course);
     }
   };
@@ -51,7 +55,7 @@ export default function CourseCard({ course, onDelete }) {
               <span className="text-xs text-slate-500">{formattedDate}</span>
             )}
 
-            {onDelete && (
+            {onDelete && canDelete && (
               <button
                 type="button"
                 onClick={handleDelete}

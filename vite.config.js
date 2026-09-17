@@ -176,7 +176,7 @@ export default defineConfig(({ mode }) => {
             }
           });
 
-          // 7. Admin / User: delete course
+          // 7. Admin / User: delete course with strict ACL verification
           server.middlewares.use('/api/courses/delete', async (req, res) => {
             if (req.method !== 'POST') {
               res.statusCode = 405;
@@ -186,13 +186,14 @@ export default defineConfig(({ mode }) => {
 
             try {
               const data = await parseBody(req);
-              const { courseId } = data;
-              const result = await deleteCourse(courseId);
+              const { courseId, userId, userEmail } = data;
+              const result = await deleteCourse(courseId, userId, userEmail);
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(result));
             } catch (err) {
-              res.statusCode = 500;
+              const isForbidden = err.message && err.message.includes('Forbidden');
+              res.statusCode = isForbidden ? 403 : 500;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ success: false, error: err.message }));
             }
@@ -230,7 +231,7 @@ export default defineConfig(({ mode }) => {
 
             try {
               const data = await parseBody(req);
-              const { title, text, model, userId } = data;
+              const { title, text, model, userId, userEmail } = data;
               const isAdmin = Boolean(data.isAdmin || req.headers['x-admin-mode'] === 'true');
 
               if (!text || !text.trim()) {
@@ -245,7 +246,8 @@ export default defineConfig(({ mode }) => {
                 text,
                 customModel: model || 'gemini-flash-lite-latest',
                 isAdmin,
-                userId
+                userId,
+                userEmail
               });
 
               res.statusCode = 200;
@@ -273,7 +275,7 @@ export default defineConfig(({ mode }) => {
 
             try {
               const data = await parseBody(req);
-              const { url, model, userId } = data;
+              const { url, model, userId, userEmail } = data;
               const isAdmin = Boolean(data.isAdmin || req.headers['x-admin-mode'] === 'true');
 
               if (!url) {
@@ -283,7 +285,7 @@ export default defineConfig(({ mode }) => {
                 return;
               }
 
-              const result = await processDocumentationUrl(url, model || 'gemini-flash-lite-latest', isAdmin, false, userId);
+              const result = await processDocumentationUrl(url, model || 'gemini-flash-lite-latest', isAdmin, false, userId, userEmail);
 
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');

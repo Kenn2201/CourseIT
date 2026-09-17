@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0-beta] - 2026-09-17 — Course Deletion Security ACL, Google OAuth Persistence & Visible Model Fallbacks
+
+### Fixed & Secured
+- **Critical Security: Public Course Deletion ACL**:
+  - The delete action is strictly restricted to the course author or the admin (`kenn.nacario12@gmail.com`).
+  - Public visitors and non-author users will not see the delete button in the UI (`CourseCard.jsx`, `Profile.jsx`).
+  - Server-side route `/api/courses/delete` independently validates credentials against document ownership and returns `403 Forbidden` on unauthorized requests.
+  - Starter catalog templates (`starter-godot-signals`, `starter-react19-rsc`, `starter-rust-ownership`, `starter-docker-prod`) are permanently protected from deletion by non-admin visitors.
+- **Google OAuth 401 Session Teardown Fix**:
+  - Identified and removed the destructive `account.deleteSession('current')` call inside `checkAppwriteSession()` in `src/lib/auth.js`.
+  - Pending accounts remain fully authenticated (`account.get()` returns 200 OK) without having their active session terminated.
+- **Changelog Date Text Layout & Overflow Fix**:
+  - Redesigned `ChangelogModal.jsx` header and entry rows to use responsive wrapping (`flex-wrap`, `break-words`, `shrink-0`) so dates like "September 17, 2026" never overflow or clip across any mobile viewport width.
+
+### Added
+- **Unified Pending-Approval Flow for Google OAuth**:
+  - Google OAuth signups land in the identical `pending` approval status (with 0 credits) as email signups.
+  - Newly registered Google OAuth users automatically receive a Beta Access Request acknowledgement email via Resend.
+  - Users in pending status see a helpful amber notice on `/dashboard`, while generation is disabled until admin approval grants 250 free credits.
+- **User-Visible Model Resilience Notices**:
+  - When a higher-tier model (e.g. Gemini 3.7 Flash) encounters temporary upstream 503 load and falls back to Flash Lite, the response includes `fallbackNotice`.
+  - Displayed via an amber alert card in the generation success modal and on the dashboard, informing users why a lighter model was used.
+  - Charges only the credit cost of the actual model used.
+- **Single Source of Truth Synchronization**:
+  - Both `CHANGELOG.md` and in-app `src/data/changelog.js` now contain identical, synchronized release entries.
+
+## [1.5.0-beta] - 2026-09-17 — OAuth Token Resilience, Shared Guest Trials, Course Exports & Token Monitor
+
+### Added
+- **Google OAuth Double-Invocation Fix**:
+  - Implemented `useRef(false)` execution lock in `AuthCallback.jsx` to prevent React 19 `StrictMode` from burning one-time OAuth secrets twice.
+- **Real-Time Appwrite Credit Writeback**:
+  - Quota deduction is strictly enforced per model and synced to the Appwrite `users_quota` collection.
+- **Shared 3/3 Public Guest Trial Sandbox**:
+  - URL generation and OCR document extraction share a single pool of 3 free runs per 24 hours.
+  - Locked tiers (`gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`) display struck-through text and `🔒 Beta` badges.
+  - Informative trial exhaustion modal with 24-hour notice and beta access request trigger.
+- **Scripted Technical Companion (`CourseTutor.jsx`)**:
+  - Embedded CourseTutor on the public landing page and inside CourseDetail with zero conversational AI fluff.
+- **Course Content Export (PDF, DOCX, Markdown)**:
+  - 1-click export to `@media print` high-contrast PDF, formatted Word `.doc`, and clean Markdown `.md`.
+- **Profile Customizer & Active Session Status**:
+  - Gradient avatar selector, Appwrite Cloud Sydney active session indicator, and processed tokens metrics.
+- **Admin Tester Emailer & Feedback Export**:
+  - Direct email composer with dark-mode HTML templates dispatched from `hello@courseit.kenncode.me`.
+  - Bulk and single-card Markdown feedback export.
+- **Gemini Token & Cost Monitor**:
+  - Real-time token usage and blended USD cost tracking in the Admin dashboard.
+
 ## [1.4.1-beta] - 2026-09-17 — ADHD Anti-Fluff Engine, User Feedback, ThemeToggle & Security Hardening
 
 ### Added

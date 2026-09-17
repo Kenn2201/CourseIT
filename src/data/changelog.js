@@ -1,9 +1,45 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.6.0 BETA',
+    date: 'September 17, 2026',
+    title: 'Course Deletion Security ACL, Google OAuth Persistence & Visible Model Fallbacks',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Critical Security: Course Deletion ACL',
+        desc: 'Enforced author and admin verification on server and client. Starter templates and other users\' courses cannot be deleted by unauthorized visitors.'
+      },
+      {
+        title: 'Google OAuth 401 Session Persistence',
+        desc: 'Removed destructive session teardown on pending accounts. Google OAuth signups remain signed in with active Appwrite sessions.'
+      },
+      {
+        title: 'Google OAuth Pending Queue Integration',
+        desc: 'New Google users land in the same pending approval queue as email signups, receiving acknowledgement emails and waiting for admin approval.'
+      },
+      {
+        title: 'User-Visible Model Resilience Notices',
+        desc: 'When a model hits temporary provider load and falls back to Flash Lite, users see a clear notification and are only charged for the actual model used.'
+      },
+      {
+        title: 'Changelog Mobile Responsive Layout',
+        desc: 'Fixed date badge wrapping and card layout so version dates never overflow or clip on mobile viewports.'
+      }
+    ],
+    notes: [
+      'Enforced ownership & admin check for course deletion in /api/courses/delete (403 Forbidden)',
+      'Protected starter catalog templates from unauthorized client and server deletion',
+      'Fixed Google OAuth session 401 bug by removing deleteSession on pending status',
+      'Unified pending-approval flow for Google OAuth and email signups with auto-acknowledgement emails',
+      'Added user-visible model fallback notifications in Dashboard and Success modal',
+      'Optimized ChangelogModal date text wrapping for all mobile and desktop screen sizes',
+      'Synchronized CHANGELOG.md and in-app changelog.js as single source of truth'
+    ]
+  },
+  {
     version: 'v1.5.0 BETA',
     date: 'September 17, 2026',
     title: 'ADHD Anti-Fluff Engine, Public Companion, Shared Trials & Token Monitor',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'Google OAuth Double-Invocation Fix',

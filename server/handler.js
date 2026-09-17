@@ -280,13 +280,14 @@ export async function getUserQuota(userId, email = '', name = '') {
     } catch {}
   }
 
-  // 3. Initialize new quota record (250 credits)
+  // 3. Initialize new quota record (250 credits for admin, 0 for pending non-admin)
   const initialStatus = isAdmin ? 'approved' : 'pending';
+  const initialQuota = isAdmin ? DEFAULT_CREDITS : 0;
   const newRecord = {
     user_id: userId,
     name: name || (isAdmin ? 'Kenn Nacario' : 'User'),
     email: email || '',
-    quota_remaining: DEFAULT_CREDITS,
+    quota_remaining: initialQuota,
     status: initialStatus,
     $createdAt: new Date().toISOString()
   };
@@ -307,6 +308,38 @@ export async function getUserQuota(userId, email = '', name = '') {
 
   localData[userId] = newRecord;
   saveLocalUsersQuota(localData);
+
+  // Send signup request received confirmation via Resend for newly registered pending users
+  if (!isAdmin && email && !email.endsWith('@example.com')) {
+    try {
+      sendEmail({
+        to: email,
+        subject: 'CourseIT - Beta Access Request Received',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background: #0b0f19; color: #f1f5f9; border-radius: 16px; border: 1px solid #1e293b;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <span style="font-size: 32px;">⚡</span>
+              <h1 style="color: #6366f1; font-size: 24px; margin: 8px 0 0;">CourseIT</h1>
+              <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Zero AI Fluff &bull; Action-First Learning</p>
+            </div>
+            <div style="background: #131c2e; padding: 20px; border-radius: 12px; border: 1px solid #1e293b;">
+              <h2 style="color: #e2e8f0; font-size: 18px; margin-top: 0;">Beta Access Request Submitted!</h2>
+              <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+                Hi <strong>${name || 'there'}</strong>, your request for <strong>250 CourseIT credits</strong> has been received by our administrator.
+              </p>
+              <p style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                Your account is currently in the approval queue. You will receive an approval email shortly once your account has been approved by the administrator.
+              </p>
+            </div>
+            <p style="color: #64748b; font-size: 12px; text-align: center; margin-top: 20px;">
+              CourseIT &bull; Built with ❤️ by Kenn Nacario
+            </p>
+          </div>
+        `
+      }).catch(mailErr => console.warn('Could not dispatch signup email:', mailErr.message));
+    } catch {}
+  }
+
   return newRecord;
 }
 
@@ -554,17 +587,75 @@ export async function topUpUserCredits(userId, amount = DEFAULT_CREDITS) {
 /**
  * Delete a course document from Appwrite & local fallback
  */
-export async function deleteCourse(courseId) {
+/**
+ * Delete a course document from Appwrite & local fallback
+ * Enforces ownership or admin ACL: starter templates and non-owned courses are rejected with 403 Forbidden.
+ */
+export async function deleteCourse(courseId, requestingUserId = null, requestingUserEmail = '') {
+  if (!courseId) {
+    throw new Error('Course ID is required.');
+  }
+
+  const isAdmin = Boolean(requestingUserEmail && requestingUserEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+
+  // 1. Starter catalog courses are protected public templates - only admin can delete
+  const isStarter = courseId.startsWith('starter-') || [
+    'starter-godot-signals',
+    'starter-react19-rsc',
+    'starter-rust-ownership',
+    'starter-docker-prod',
+    'starter-godot-2d-game'
+  ].includes(courseId);
+
+  if (isStarter && !isAdmin) {
+    throw new Error('Forbidden: Starter catalog courses are shared public templates and can only be deleted by the administrator.');
+  }
+
   const db = getAppwriteDb();
   const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
   const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '6aaa6fef000b2b0129c4';
 
   let deleted = false;
   if (db && databaseId && collectionId) {
+    // 2. If not admin, check document ownership in Appwrite
+    if (!isAdmin) {
+      if (!requestingUserId) {
+        throw new Error('Forbidden: Authentication required. You must be signed in as the course author or administrator to delete this course.');
+      }
+      try {
+        const doc = await db.getDocument(databaseId, collectionId, courseId);
+        if (doc) {
+          let authorId = doc.creator_id || null;
+          let authorEmail = doc.creator_email || null;
+          if (typeof doc.steps === 'string') {
+            try {
+              const parsed = JSON.parse(doc.steps);
+              authorId = parsed.creator_id || authorId;
+              authorEmail = parsed.creator_email || authorEmail;
+            } catch {}
+          }
+
+          const isOwner = (authorId && authorId === requestingUserId) ||
+                          (authorEmail && requestingUserEmail && authorEmail.toLowerCase() === requestingUserEmail.toLowerCase());
+
+          if (!isOwner) {
+            throw new Error('Forbidden: You do not have permission to delete this course. Only the course creator or administrator may delete it.');
+          }
+        }
+      } catch (checkErr) {
+        if (checkErr.message && checkErr.message.includes('Forbidden:')) {
+          throw checkErr;
+        }
+        // Document might only exist in client local storage
+      }
+    }
+
     try {
       await db.deleteDocument(databaseId, collectionId, courseId);
       deleted = true;
-    } catch {}
+    } catch (delErr) {
+      console.warn('Appwrite course delete note:', delErr.message);
+    }
   }
 
   return { success: true, deleted, courseId };
@@ -998,7 +1089,7 @@ export async function deductCredit(userId = null, isAdmin = false, model = 'gemi
 /**
  * Process Documentation URL
  */
-export async function processDocumentationUrl(url, customModel = 'gemini-flash-lite-latest', isAdmin = false, forceRefresh = false, userId = null) {
+export async function processDocumentationUrl(url, customModel = 'gemini-flash-lite-latest', isAdmin = false, forceRefresh = false, userId = null, userEmail = '') {
   if (!url) {
     throw new Error('URL is required');
   }
@@ -1035,6 +1126,8 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
           let steps = doc.steps;
           let overview = '';
           let recommended_next_step = '';
+          let creator_id = doc.creator_id || null;
+          let creator_email = doc.creator_email || null;
 
           try {
             const parsed = JSON.parse(doc.steps);
@@ -1044,6 +1137,8 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
               steps = parsed.items || parsed.steps || [];
               overview = parsed.overview || '';
               recommended_next_step = parsed.recommended_next_step || '';
+              creator_id = parsed.creator_id || creator_id;
+              creator_email = parsed.creator_email || creator_email;
             }
           } catch {
             steps = [];
@@ -1057,6 +1152,8 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
               overview,
               recommended_next_step,
               steps,
+              creator_id,
+              creator_email,
               $createdAt: doc.$createdAt
             },
             savedToAppwrite: true,
@@ -1070,19 +1167,20 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
     }
   }
 
-  // 2. Quota Check & Deduction (tiered)
-  const quotaResult = await deductCredit(userId, isAdmin, customModel, false);
-
-  // 3. Extract content from URL
+  // 2. Extract content from URL
   const extracted = await extractDocumentation(url);
 
-  // 4. Summarize with LLM
+  // 3. Summarize with LLM (with fallback tracking)
   const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel);
+
+  // 4. Quota Check & Deduction based on actual model used (cheaper if fell back)
+  const effectiveModel = summarized.actualModel || customModel;
+  const quotaResult = await deductCredit(userId, isAdmin, effectiveModel, false);
 
   if (summarized.usage) {
     recordTokenUsage({
       userId,
-      model: customModel,
+      model: effectiveModel,
       usage: summarized.usage,
       courseTitle: summarized.title
     });
@@ -1091,7 +1189,11 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
   const payloadToStore = JSON.stringify({
     overview: summarized.overview || '',
     recommended_next_step: summarized.recommended_next_step || '',
-    items: summarized.steps
+    items: summarized.steps,
+    creator_id: userId || null,
+    creator_email: userEmail || null,
+    actual_model: effectiveModel,
+    createdAt: new Date().toISOString()
   });
 
   const now = new Date().toISOString();
@@ -1130,32 +1232,36 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
       overview: summarized.overview || '',
       recommended_next_step: summarized.recommended_next_step || '',
       steps: summarized.steps,
+      creator_id: userId || null,
+      creator_email: userEmail || null,
       $createdAt: now
     },
     savedToAppwrite,
     cached: false,
-    quota: quotaResult
+    quota: quotaResult,
+    fallbackNotice: summarized.fallbackNotice || null
   };
 }
 
 /**
  * Summarize text extracted from document / OCR
  */
-export async function processDocumentText({ title, text, customModel = 'gemini-flash-lite-latest', isAdmin = false, userId = null }) {
+export async function processDocumentText({ title, text, customModel = 'gemini-flash-lite-latest', isAdmin = false, userId = null, userEmail = '' }) {
   if (!text || !text.trim()) {
     throw new Error('Document text content is empty.');
   }
 
-  // 1. Quota Check & Deduction (tiered)
-  const quotaResult = await deductCredit(userId, isAdmin, customModel, true);
-
-  // 2. Summarize with LLM
+  // 1. Summarize with LLM (with fallback tracking)
   const summarized = await summarizeWithLLM(text, title || 'Uploaded Document', customModel);
+
+  // 2. Quota Check & Deduction based on actual model used
+  const effectiveModel = summarized.actualModel || customModel;
+  const quotaResult = await deductCredit(userId, isAdmin, effectiveModel, true);
 
   if (summarized.usage) {
     recordTokenUsage({
       userId,
-      model: customModel,
+      model: effectiveModel,
       usage: summarized.usage,
       courseTitle: summarized.title || title
     });
@@ -1164,7 +1270,11 @@ export async function processDocumentText({ title, text, customModel = 'gemini-f
   const payloadToStore = JSON.stringify({
     overview: summarized.overview || '',
     recommended_next_step: summarized.recommended_next_step || '',
-    items: summarized.steps
+    items: summarized.steps,
+    creator_id: userId || null,
+    creator_email: userEmail || null,
+    actual_model: effectiveModel,
+    createdAt: new Date().toISOString()
   });
 
   const now = new Date().toISOString();
@@ -1199,10 +1309,13 @@ export async function processDocumentText({ title, text, customModel = 'gemini-f
       overview: summarized.overview || '',
       recommended_next_step: summarized.recommended_next_step || '',
       steps: summarized.steps,
+      creator_id: userId || null,
+      creator_email: userEmail || null,
       $createdAt: now
     },
     savedToAppwrite,
     cached: false,
-    quota: quotaResult
+    quota: quotaResult,
+    fallbackNotice: summarized.fallbackNotice || null
   };
 }

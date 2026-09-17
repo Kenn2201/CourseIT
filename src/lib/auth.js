@@ -101,12 +101,7 @@ export async function loginWithEmail(email, password) {
       console.warn('Could not fetch user quota:', qErr.message);
     }
 
-    // 3. Block if user is not admin and not yet approved
-    if (!isAdmin && quota && quota.status === 'pending') {
-      try { await account.deleteSession('current'); } catch {}
-      throw new Error('Your account is pending admin approval. You will receive an email once approved!');
-    }
-
+    // 3. Keep user authenticated with pending status (0 credits until approved)
     const authState = {
       isAuthenticated: true,
       isAdmin,
@@ -115,7 +110,7 @@ export async function loginWithEmail(email, password) {
         email: user.email,
         name: user.name || user.email.split('@')[0]
       },
-      quota: quota || { quota_remaining: 250, status: isAdmin ? 'approved' : 'pending' }
+      quota: quota || { quota_remaining: isAdmin ? 250 : 0, status: isAdmin ? 'approved' : 'pending' }
     };
 
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
@@ -201,7 +196,7 @@ export async function handleOAuthSuccess(userId, secret) {
       email: user.email,
       name: user.name || user.email.split('@')[0]
     },
-    quota: quota || { quota_remaining: 250, status: isAdmin ? 'approved' : 'pending' }
+    quota: quota || { quota_remaining: isAdmin ? 250 : 0, status: isAdmin ? 'approved' : 'pending' }
   };
 
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
@@ -245,12 +240,7 @@ export async function checkAppwriteSession() {
         }
       } catch {}
 
-      if (!isAdmin && quota && quota.status === 'pending') {
-        try { await account.deleteSession('current'); } catch {}
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-        return { isAuthenticated: false, isAdmin: false, user: null, quota: null };
-      }
-
+      // Keep user authenticated even if pending; pending state is handled via quota.status
       const authState = {
         isAuthenticated: true,
         isAdmin,
@@ -259,7 +249,7 @@ export async function checkAppwriteSession() {
           email: user.email,
           name: user.name || user.email.split('@')[0]
         },
-        quota: quota || { quota_remaining: 250, status: isAdmin ? 'approved' : 'pending' }
+        quota: quota || { quota_remaining: isAdmin ? 250 : 0, status: isAdmin ? 'approved' : 'pending' }
       };
 
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));

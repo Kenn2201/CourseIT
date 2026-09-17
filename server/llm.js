@@ -101,7 +101,18 @@ async function callGemini(rawText, fallbackTitle, apiKey, customModel = null) {
           model: modelName
         };
         const parsed = parseAndValidateSteps(responseText, fallbackTitle);
-        return { ...parsed, usage };
+        const isFallback = Boolean(customModel && modelName !== customModel);
+        const fallbackNotice = isFallback
+          ? `${customModel} was temporarily busy — used ${modelName} for this result instead.`
+          : null;
+        return {
+          ...parsed,
+          usage,
+          actualModel: modelName,
+          requestedModel: customModel || modelName,
+          isFallback,
+          fallbackNotice
+        };
       } catch (err) {
         lastError = err;
         const msg = err.message || '';

@@ -37,7 +37,7 @@ const MODEL_OPTIONS = [
   { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', badge: '5.0 credits', publicAllowed: false }
 ];
 
-export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAuthenticated, onOpenAdmin }) {
+export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAuthenticated, onOpenAdmin, isPending = false }) {
   const [inputMode, setInputMode] = useState('url'); // 'url' | 'document'
   const [url, setUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -88,6 +88,11 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
     e.preventDefault();
     setError('');
 
+    if (isPending) {
+      setError('Your account is pending admin approval. You will receive an email once approved!');
+      return;
+    }
+
     if (isGuestExhausted) {
       setShowTrialModal(true);
       return;
@@ -135,6 +140,11 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
   const handleDocumentSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (isPending) {
+      setError('Your account is pending admin approval. You will receive an email once approved!');
+      return;
+    }
 
     if (isGuestExhausted) {
       setShowTrialModal(true);
@@ -328,13 +338,18 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
 
               <button
                 type="submit"
-                disabled={isLoading || isOutOfQuota}
+                disabled={isLoading || isOutOfQuota || isPending}
                 className="btn-primary py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 text-sm sm:text-base font-semibold shadow-lg shadow-indigo-600/25 shrink-0 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
                 {isLoading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     <span>Processing...</span>
+                  </>
+                ) : isPending ? (
+                  <>
+                    <Lock className="w-4 h-4 text-amber-400" />
+                    <span>Pending Approval</span>
                   </>
                 ) : (
                   <>
@@ -444,13 +459,18 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
 
               <button
                 type="submit"
-                disabled={isLoading || isOutOfQuota || !selectedFile || Boolean(ocrProgress)}
+                disabled={isLoading || isOutOfQuota || !selectedFile || Boolean(ocrProgress) || isPending}
                 className="btn-primary py-3 px-6 rounded-2xl flex items-center justify-center gap-2 text-sm sm:text-base font-semibold shadow-lg shadow-indigo-600/25 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
                 {isLoading || ocrProgress ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     <span>Extracting & Generating...</span>
+                  </>
+                ) : isPending ? (
+                  <>
+                    <Lock className="w-4 h-4 text-amber-400" />
+                    <span>Pending Approval</span>
                   </>
                 ) : (
                   <>

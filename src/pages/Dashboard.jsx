@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [successCourse, setSuccessCourse] = useState(null);
   const [successQuota, setSuccessQuota] = useState(null);
+  const [successFallback, setSuccessFallback] = useState(null);
   const [courseToDelete, setCourseToDelete] = useState(null);
   const [isDeletingCourse, setIsDeletingCourse] = useState(false);
 
@@ -74,11 +75,13 @@ export default function Dashboard() {
   const handleGenerate = async (inputPayload, legacyModel) => {
     setIsGenerating(true);
     setGenerateError('');
+    setSuccessFallback(null);
 
     try {
       const currentAuth = getAuthState();
       const isAdmin = currentAuth.isAdmin;
       const userId = currentAuth.user?.id || null;
+      const userEmail = currentAuth.user?.email || '';
 
       let response;
       if (inputPayload && typeof inputPayload === 'object' && inputPayload.type === 'document') {
@@ -94,6 +97,7 @@ export default function Dashboard() {
             text: inputPayload.text,
             model: inputPayload.model,
             userId,
+            userEmail,
             isAdmin
           })
         });
@@ -112,6 +116,7 @@ export default function Dashboard() {
             url: targetUrl,
             model: targetModel,
             userId,
+            userEmail,
             isAdmin
           })
         });
@@ -134,6 +139,7 @@ export default function Dashboard() {
 
       setIsGenerating(false);
       setSuccessQuota(data.quota);
+      setSuccessFallback(data.fallbackNotice || null);
       setSuccessCourse(newCourse);
     } catch (err) {
       console.error('Generation failed:', err);
@@ -146,11 +152,20 @@ export default function Dashboard() {
     if (!course) return;
     setIsDeletingCourse(true);
     try {
-      await fetch('/api/courses/delete', {
+      const res = await fetch('/api/courses/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId: course.$id })
+        body: JSON.stringify({
+          courseId: course.$id,
+          userId: authState?.user?.id,
+          userEmail: authState?.user?.email
+        })
       });
+
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to delete course');
+      }
 
       const updated = courses.filter((c) => c.$id !== course.$id);
       setCourses(updated);
@@ -160,6 +175,7 @@ export default function Dashboard() {
       setCourseToDelete(null);
     } catch (err) {
       console.error('Failed to delete course:', err);
+      alert(err.message || 'Failed to delete course.');
     } finally {
       setIsDeletingCourse(false);
     }
@@ -182,7 +198,7 @@ export default function Dashboard() {
             <div className="text-center max-w-3xl mx-auto">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-mono mb-6">
                 <BrainCircuit className="w-3.5 h-3.5 text-indigo-400" />
-                <span>SaaS v1.4.1 BETA &bull; ADHD Anti-Fluff Action Engine &bull; Multi-Framework</span>
+                <span>SaaS v1.6.0 BETA &bull; ADHD Anti-Fluff Action Engine &bull; Multi-Framework</span>
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.1] mb-6">
@@ -197,6 +213,21 @@ export default function Dashboard() {
               </p>
             </div>
 
+            {/* Pending Admin Approval Banner */}
+            {authState.isAuthenticated && authState.quota?.status === 'pending' && (
+              <div className="max-w-2xl mx-auto mb-8 p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm flex items-start gap-3.5 shadow-lg shadow-amber-950/20 animate-in fade-in">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 shrink-0">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-bold text-white text-base">Account Pending Admin Approval</p>
+                  <p className="text-xs text-amber-200/90 leading-relaxed">
+                    Your account ({authState.user?.email}) is in the queue for approval. You will receive an email once approved with <strong>250 free credits</strong>! In the meantime, you can explore the curated starter tutorials below.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Form / URL & Document Dropzone */}
             <UrlInputForm
               onSubmit={handleGenerate}
@@ -204,6 +235,7 @@ export default function Dashboard() {
               quota={quota}
               isAdmin={authState.isAdmin}
               isAuthenticated={authState.isAuthenticated}
+              isPending={Boolean(authState.isAuthenticated && authState.quota?.status === 'pending')}
               onOpenAdmin={() => setIsAuthModalOpen(true)}
             />
 
@@ -275,6 +307,8 @@ export default function Dashboard() {
                 <CourseCard
                   key={course.$id}
                   course={course}
+                  currentUser={authState.user}
+                  isAdmin={authState.isAdmin}
                   onDelete={(c) => setCourseToDelete(c)}
                 />
               ))}
@@ -306,7 +340,11 @@ export default function Dashboard() {
         isOpen={Boolean(successCourse)}
         course={successCourse}
         quotaResult={successQuota}
-        onClose={() => setSuccessCourse(null)}
+        fallbackNotice={successFallback}
+        onClose={() => {
+          setSuccessCourse(null);
+          setSuccessFallback(null);
+        }}
       />
 
       <DeleteConfirmModal

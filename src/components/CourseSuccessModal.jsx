@@ -1,8 +1,8 @@
 import React from 'react';
-import { X, Sparkles, CheckCircle2, ArrowRight, Clock, Layers, Zap } from 'lucide-react';
+import { X, Sparkles, CheckCircle2, ArrowRight, Clock, Layers, Zap, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export default function CourseSuccessModal({ isOpen, onClose, course, quotaResult }) {
+export default function CourseSuccessModal({ isOpen, onClose, course, quotaResult, fallbackNotice = null }) {
   const navigate = useNavigate();
 
   if (!isOpen || !course) return null;
@@ -37,6 +37,16 @@ export default function CourseSuccessModal({ isOpen, onClose, course, quotaResul
               {course.title || 'Course Synthesized Successfully'}
             </h2>
           </div>
+
+          {fallbackNotice && (
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs text-left flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+              <div>
+                <span className="font-semibold block text-amber-200">Model Resilience Active</span>
+                <span className="text-amber-300/90">{fallbackNotice}</span>
+              </div>
+            </div>
+          )}
 
           {/* Quick Metrics */}
           <div className="grid grid-cols-3 gap-2 py-2">

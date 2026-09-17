@@ -109,11 +109,20 @@ export default function Profile() {
     if (!course) return;
     setIsDeleting(true);
     try {
-      await fetch('/api/courses/delete', {
+      const res = await fetch('/api/courses/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId: course.$id })
+        body: JSON.stringify({
+          courseId: course.$id,
+          userId: authState?.user?.id,
+          userEmail: authState?.user?.email
+        })
       });
+
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to delete course');
+      }
 
       const updated = courses.filter(c => c.$id !== course.$id);
       setCourses(updated);
@@ -129,7 +138,7 @@ export default function Profile() {
     } catch (err) {
       setNotification({
         type: 'error',
-        message: 'Failed to delete course.'
+        message: err.message || 'Failed to delete course.'
       });
     } finally {
       setIsDeleting(false);
@@ -413,13 +422,23 @@ export default function Profile() {
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Link>
 
-                  <button
-                    onClick={() => setCourseToDelete(c)}
-                    className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                    title="Delete prompt & course"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {(() => {
+                    const isStarter = Boolean(c.is_curated || c.$id?.startsWith('starter-'));
+                    const isOwner = Boolean(authState?.user?.id && c.creator_id && c.creator_id === authState.user.id);
+                    const canDelete = authState?.isAdmin || (isOwner && !isStarter);
+
+                    if (!canDelete) return null;
+
+                    return (
+                      <button
+                        onClick={() => setCourseToDelete(c)}
+                        className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        title="Delete prompt & course"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             ))}

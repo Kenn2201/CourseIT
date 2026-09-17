@@ -5,13 +5,19 @@ const AUTH_STORAGE_KEY = 'courseit_auth_session';
 export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || '';
 
 export let account = null;
-if (client && isAppwriteConfigured()) {
-  try {
-    account = new Account(client);
-  } catch (err) {
-    console.warn('Appwrite Account init error:', err);
+
+export function ensureAccount() {
+  if (!account && client) {
+    try {
+      account = new Account(client);
+    } catch (err) {
+      console.warn('Appwrite Account init error:', err);
+    }
   }
+  return account;
 }
+
+ensureAccount();
 
 /**
  * Checks current stored auth state
@@ -38,8 +44,9 @@ export function getAuthState() {
  * Registers the user, creates quota with status 'pending', and DOES NOT log in.
  */
 export async function signupWithEmail(name, email, password) {
-  if (!account) {
-    throw new Error('Appwrite Account service is not configured.');
+  const acc = ensureAccount();
+  if (!acc) {
+    throw new Error('Appwrite Account service is not initialized. Please ensure VITE_APPWRITE_PROJECT_ID is set in your Netlify Environment Variables and re-deploy your site.');
   }
 
   const userId = ID.unique();
@@ -47,7 +54,7 @@ export async function signupWithEmail(name, email, password) {
   // 1. Create Appwrite Auth user
   let newUser;
   try {
-    newUser = await account.create(userId, email, password, name);
+    newUser = await acc.create(userId, email, password, name);
   } catch (err) {
     throw new Error(`Signup failed: ${err.message}`);
   }
@@ -79,19 +86,20 @@ export async function signupWithEmail(name, email, password) {
  * Log in via Appwrite Email and Password
  */
 export async function loginWithEmail(email, password) {
-  if (!account) {
-    throw new Error('Appwrite Account service is not initialized.');
+  const acc = ensureAccount();
+  if (!acc) {
+    throw new Error('Appwrite Account service is not initialized. Please ensure VITE_APPWRITE_PROJECT_ID is set in your Netlify Environment Variables and re-deploy your site.');
   }
 
   try {
     // Clear any lingering active session to prevent session collision
     try {
-      await account.deleteSession('current');
+      await acc.deleteSession('current');
     } catch (_) {}
 
     // 1. Create email password session
-    await account.createEmailPasswordSession(email, password);
-    const user = await account.get();
+    await acc.createEmailPasswordSession(email, password);
+    const user = await acc.get();
     const isAdmin = user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
     // 2. Check quota & approval status
@@ -129,11 +137,12 @@ export async function loginWithEmail(email, password) {
  * OAuth2 Token Flow for Google
  */
 export async function signInWithGoogle() {
-  if (!account) throw new Error('Appwrite client is not configured.');
+  const acc = ensureAccount();
+  if (!acc) throw new Error('Appwrite client is not configured. Please check VITE_APPWRITE_PROJECT_ID.');
   const success = `${window.location.origin}/auth/success`;
   const failure = `${window.location.origin}/auth/failure`;
 
-  await account.createOAuth2Token(
+  await acc.createOAuth2Token(
     OAuthProvider.Google,
     success,
     failure
@@ -144,11 +153,12 @@ export async function signInWithGoogle() {
  * OAuth2 Token Flow for GitHub
  */
 export async function signInWithGithub() {
-  if (!account) throw new Error('Appwrite client is not configured.');
+  const acc = ensureAccount();
+  if (!acc) throw new Error('Appwrite client is not configured. Please check VITE_APPWRITE_PROJECT_ID.');
   const success = `${window.location.origin}/auth/success`;
   const failure = `${window.location.origin}/auth/failure`;
 
-  await account.createOAuth2Token(
+  await acc.createOAuth2Token(
     OAuthProvider.Github,
     success,
     failure
@@ -159,21 +169,22 @@ export async function signInWithGithub() {
  * Handles OAuth2 Success Callback (/auth/success)
  */
 export async function handleOAuthSuccess(userId, secret) {
-  if (!account) throw new Error('Appwrite client is not configured.');
+  const acc = ensureAccount();
+  if (!acc) throw new Error('Appwrite client is not configured. Please check VITE_APPWRITE_PROJECT_ID.');
 
   let user = null;
   // 1. Check if session already exists
   try {
-    user = await account.get();
+    user = await acc.get();
   } catch {
     // 2. No session yet, create session using token secret
     if (!userId || !secret) throw new Error('Missing OAuth credentials');
     try {
-      await account.createSession(userId, secret);
-      user = await account.get();
+      await acc.createSession(userId, secret);
+      user = await acc.get();
     } catch (err) {
       try {
-        user = await account.get();
+        user = await acc.get();
       } catch {
         throw err;
       }
@@ -228,10 +239,11 @@ export async function requestPasswordReset(email) {
  * Check active Appwrite session upon redirect / page reload
  */
 export async function checkAppwriteSession() {
-  if (!account) return getAuthState();
+  const acc = ensureAccount();
+  if (!acc) return getAuthState();
 
   try {
-    const user = await account.get();
+    const user = await acc.get();
     if (user) {
       const isAdmin = user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
@@ -283,7 +295,8 @@ let jwtExpiry = 0;
  */
 export async function getAuthJwt() {
   const authState = getAuthState();
-  if (!authState.isAuthenticated || !authState.user?.id || !account || !isAppwriteConfigured()) {
+  const acc = ensureAccount();
+  if (!authState.isAuthenticated || !authState.user?.id || !acc || !isAppwriteConfigured()) {
     return null;
   }
 
@@ -294,7 +307,7 @@ export async function getAuthJwt() {
   }
 
   try {
-    const res = await account.createJWT();
+    const res = await acc.createJWT();
     if (res && res.jwt) {
       cachedJwt = res.jwt;
       jwtExpiry = now + 10 * 60 * 1000;
@@ -339,9 +352,10 @@ export async function logoutUser() {
   cachedJwt = null;
   jwtExpiry = 0;
 
-  if (account) {
+  const acc = ensureAccount();
+  if (acc) {
     try {
-      await account.deleteSession('current');
+      await acc.deleteSession('current');
     } catch (err) {
       console.warn('Session delete warning:', err.message);
     }

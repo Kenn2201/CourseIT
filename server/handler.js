@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import { Client, Databases, ID, Query, Account as ServerAccount } from 'node-appwrite';
 import { Resend } from 'resend';
@@ -8,15 +9,32 @@ import { summarizeWithLLM } from './llm.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, 'data');
+
+// In serverless / AWS Lambda / Netlify environments, root is read-only.
+// Use os.tmpdir() for runtime fallback files.
+const isServerless = Boolean(
+  process.env.NETLIFY ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.VERCEL
+);
+
+const DATA_DIR = isServerless
+  ? path.join(os.tmpdir(), 'courseit_data')
+  : path.join(__dirname, 'data');
+
 const USERS_QUOTA_FILE = path.join(DATA_DIR, 'users_quota.json');
 const PUBLIC_SANDBOX_FILE = path.join(DATA_DIR, 'public_sandbox.json');
 const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
 const TOKEN_USAGE_FILE = path.join(DATA_DIR, 'token_usage.json');
 
-// Ensure persistent local fallback data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Ensure persistent local fallback data directory exists safely
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('[Storage Notice] Could not create local data directory:', e.message);
 }
 
 // 250 credits default trial quota

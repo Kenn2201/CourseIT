@@ -29,6 +29,13 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
+    define: {
+      'import.meta.env.VITE_APPWRITE_ENDPOINT': JSON.stringify(env.VITE_APPWRITE_ENDPOINT || env.APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1'),
+      'import.meta.env.VITE_APPWRITE_PROJECT_ID': JSON.stringify(env.VITE_APPWRITE_PROJECT_ID || env.APPWRITE_PROJECT_ID || ''),
+      'import.meta.env.VITE_APPWRITE_DATABASE_ID': JSON.stringify(env.VITE_APPWRITE_DATABASE_ID || env.APPWRITE_DATABASE_ID || ''),
+      'import.meta.env.VITE_APPWRITE_COLLECTION_ID': JSON.stringify(env.VITE_APPWRITE_COLLECTION_ID || env.APPWRITE_COLLECTION_ID || ''),
+      'import.meta.env.VITE_ADMIN_EMAIL': JSON.stringify(env.VITE_ADMIN_EMAIL || env.ADMIN_EMAIL || '')
+    },
     plugins: [
       react(),
       tailwindcss(),

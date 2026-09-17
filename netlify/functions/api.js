@@ -21,7 +21,7 @@ import {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Appwrite-JWT',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Appwrite-JWT, x-appwrite-jwt, x-admin-mode',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Content-Type': 'application/json'
 };
@@ -105,23 +105,57 @@ export async function handler(event) {
       return jsonResponse(200, result);
     }
 
-    // 5. Documentation summarization
+    // 5. Documentation summarization (URL)
     if (subpath === '/summarize') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
-      const { url, userId, customModel, clientTokens, antiFluffLevel } = body;
+      const { url, model } = body;
       if (!url) return jsonResponse(400, { error: 'URL is required' });
 
-      const result = await processDocumentationUrl(url, userId, customModel, clientTokens, antiFluffLevel);
+      const session = await authenticate(headers);
+      const effectiveUserId = session ? session.userId : (body.userId || 'public_guest');
+      const effectiveUserEmail = session ? session.userEmail : (body.userEmail || '');
+      const effectiveIsAdmin = session ? session.isAdmin : (headers['x-admin-mode'] === 'true' && Boolean(body.isAdmin));
+
+      let targetModel = model || 'gemini-flash-lite-latest';
+      if (!session && !effectiveIsAdmin && targetModel !== 'gemini-flash-lite-latest') {
+        targetModel = 'gemini-flash-lite-latest';
+      }
+
+      const result = await processDocumentationUrl(
+        url,
+        targetModel,
+        effectiveIsAdmin,
+        false,
+        effectiveUserId,
+        effectiveUserEmail
+      );
       return jsonResponse(200, { success: true, ...result });
     }
 
-    // 6. Document text extraction
-    if (subpath === '/document') {
+    // 6. Summarize document / OCR text (/summarize-text and /document)
+    if (subpath === '/summarize-text' || subpath === '/document') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
-      const { text, title, userId, customModel, antiFluffLevel } = body;
-      if (!text) return jsonResponse(400, { error: 'Document text is required' });
+      const { title, text, model } = body;
+      if (!text || !text.trim()) return jsonResponse(400, { error: 'Text content is required' });
 
-      const result = await processDocumentText(text, title, userId, customModel, antiFluffLevel);
+      const session = await authenticate(headers);
+      const effectiveUserId = session ? session.userId : (body.userId || 'public_guest');
+      const effectiveUserEmail = session ? session.userEmail : (body.userEmail || '');
+      const effectiveIsAdmin = session ? session.isAdmin : (headers['x-admin-mode'] === 'true' && Boolean(body.isAdmin));
+
+      let targetModel = model || 'gemini-flash-lite-latest';
+      if (!session && !effectiveIsAdmin && targetModel !== 'gemini-flash-lite-latest') {
+        targetModel = 'gemini-flash-lite-latest';
+      }
+
+      const result = await processDocumentText({
+        title,
+        text,
+        customModel: targetModel,
+        isAdmin: effectiveIsAdmin,
+        userId: effectiveUserId,
+        userEmail: effectiveUserEmail
+      });
       return jsonResponse(200, { success: true, ...result });
     }
 
@@ -140,7 +174,22 @@ export async function handler(event) {
       return jsonResponse(200, result);
     }
 
-    // 8. Feedback endpoints
+    // 8. User archive account
+    if (subpath === '/user/archive') {
+      if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
+      const { reason, feedback, userId } = body;
+      const session = await authenticate(headers);
+      const effectiveUserId = session ? session.userId : userId;
+
+      if (!effectiveUserId) {
+        return jsonResponse(401, { error: 'Active user session or userId required.' });
+      }
+
+      const result = await archiveUserAccount(effectiveUserId, reason, feedback);
+      return jsonResponse(200, result);
+    }
+
+    // 9. Feedback endpoints
     if (subpath === '/feedback') {
       if (event.httpMethod === 'POST') {
         const { userId, userEmail, userName, category, rating, comments } = body;
@@ -163,7 +212,7 @@ export async function handler(event) {
       }
     }
 
-    // 9. Admin users
+    // 10. Admin users
     if (subpath === '/admin/users') {
       const session = await authenticate(headers);
       if (!session || !session.isAdmin) {
@@ -173,7 +222,7 @@ export async function handler(event) {
       return jsonResponse(200, { success: true, count: users.length, users });
     }
 
-    // 10. Admin approve
+    // 11. Admin approve
     if (subpath === '/admin/approve') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
       const session = await authenticate(headers);
@@ -185,19 +234,19 @@ export async function handler(event) {
       return jsonResponse(200, result);
     }
 
-    // 11. Admin topup
+    // 12. Admin topup
     if (subpath === '/admin/topup') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
       const session = await authenticate(headers);
       if (!session || !session.isAdmin) {
         return jsonResponse(403, { error: 'Forbidden: Admin access required.' });
       }
-      const { userId, email, credits } = body;
-      const result = await topUpUserCredits(userId, email, credits || 50);
-      return jsonResponse(200, result);
+      const { userId, amount, credits } = body;
+      const result = await topUpUserCredits(userId, amount || credits || 250);
+      return jsonResponse(200, { success: true, user: result });
     }
 
-    // 12. Admin feedback status
+    // 13. Admin feedback status
     if (subpath === '/admin/feedbacks/status') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
       const session = await authenticate(headers);
@@ -209,7 +258,7 @@ export async function handler(event) {
       return jsonResponse(200, result);
     }
 
-    // 13. Admin test emails
+    // 14. Admin test emails
     if (subpath === '/admin/test-all-emails') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
       const session = await authenticate(headers);
@@ -221,7 +270,7 @@ export async function handler(event) {
       return jsonResponse(200, result);
     }
 
-    // 14. Admin custom email
+    // 15. Admin custom email
     if (subpath === '/admin/send-custom-email') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
       const session = await authenticate(headers);
@@ -233,7 +282,7 @@ export async function handler(event) {
       return jsonResponse(200, result);
     }
 
-    // 15. Admin token metrics
+    // 16. Admin token metrics
     if (subpath === '/admin/token-metrics') {
       const session = await authenticate(headers);
       if (!session || !session.isAdmin) {
@@ -241,14 +290,6 @@ export async function handler(event) {
       }
       const metrics = getTokenMetrics();
       return jsonResponse(200, { success: true, metrics });
-    }
-
-    // 16. User archive
-    if (subpath === '/user/archive') {
-      if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
-      const { userEmail } = body;
-      const result = await archiveUserAccount(userEmail);
-      return jsonResponse(200, result);
     }
 
     return jsonResponse(404, { error: `Endpoint not found: ${subpath}` });

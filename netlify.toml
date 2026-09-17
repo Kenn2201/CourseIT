@@ -3,6 +3,11 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["jsdom"]
+  timeout = 30
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"

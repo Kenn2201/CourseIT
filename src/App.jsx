@@ -59,7 +59,7 @@ function AppContent() {
         <button
           type="button"
           onClick={() => setIsFeedbackOpen(true)}
-          className="fixed bottom-6 right-24 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xl shadow-emerald-900/40 border border-emerald-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          className="fixed bottom-20 right-6 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xl shadow-emerald-900/40 border border-emerald-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer"
           title="Submit Beta Feedback"
         >
           <MessageSquarePlus className="w-4 h-4" />

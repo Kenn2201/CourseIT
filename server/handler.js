@@ -21,7 +21,7 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // 250 credits default trial quota
 export const DEFAULT_CREDITS = 250;
-export const ADMIN_EMAIL = 'kenn.nacario12@gmail.com';
+export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '';
 
 /**
  * Universally re-verifies the requester's session identity server-side via Appwrite JWT.
@@ -45,7 +45,7 @@ export async function verifyAppwriteSession(jwt) {
 
     if (!user || !user.$id) return null;
 
-    const isAdmin = Boolean(user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+    const isAdmin = Boolean(ADMIN_EMAIL && user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
 
     return {
       userId: user.$id,
@@ -54,7 +54,10 @@ export async function verifyAppwriteSession(jwt) {
       isAdmin
     };
   } catch (err) {
-    console.warn('Appwrite JWT session verification failed:', err.message);
+    const isGuest = err.message && (err.message.includes('guests') || err.message.includes('missing scopes'));
+    if (!isGuest) {
+      console.warn('Appwrite JWT session verification notice:', err.message);
+    }
     return null;
   }
 }
@@ -979,7 +982,7 @@ export async function testAllEmailsToAdmin(adminEmail = ADMIN_EMAIL) {
           <h2 style="color: #ffffff; font-size: 22px; margin: 0;">Beta Tester Feedback</h2>
         </div>
         <div style="background: #0f172a; padding: 22px; border-radius: 14px; border: 1px solid #1e293b; margin-bottom: 20px;">
-          <p style="font-size: 13px; color: #94a3b8; margin: 0 0 8px;">From: <strong style="color: #f1f5f9;">Kenn Beta Tester</strong> (kenn.nacario12@gmail.com)</p>
+          <p style="font-size: 13px; color: #94a3b8; margin: 0 0 8px;">From: <strong style="color: #f1f5f9;">Verified Beta Tester</strong> (${target || 'beta@courseit.kenncode.me'})</p>
           <p style="font-size: 13px; color: #a5b4fc; margin: 0 0 12px;"><strong>Category:</strong> Feature Request &bull; <strong>Rating:</strong> ★★★★★ (5/5)</p>
           <div style="background: #020617; padding: 14px; border-radius: 10px; font-size: 14px; color: #e2e8f0; line-height: 1.6;">
             "The action-first breakdown saves so much time! Would love to see an export to markdown button for offline notes."
@@ -1261,6 +1264,7 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
     }
   }
 
+  const isGuest = !userId || userId === 'public_guest';
   return {
     course: {
       $id: documentId,
@@ -1269,8 +1273,9 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
       overview: summarized.overview || '',
       recommended_next_step: summarized.recommended_next_step || '',
       steps: summarized.steps,
-      creator_id: userId || null,
+      creator_id: userId || (isGuest ? 'public_guest' : null),
       creator_email: userEmail || null,
+      is_guest: isGuest,
       $createdAt: now
     },
     savedToAppwrite,
@@ -1338,6 +1343,7 @@ export async function processDocumentText({ title, text, customModel = 'gemini-f
     }
   }
 
+  const isGuest = !userId || userId === 'public_guest';
   return {
     course: {
       $id: documentId,
@@ -1346,8 +1352,9 @@ export async function processDocumentText({ title, text, customModel = 'gemini-f
       overview: summarized.overview || '',
       recommended_next_step: summarized.recommended_next_step || '',
       steps: summarized.steps,
-      creator_id: userId || null,
+      creator_id: userId || (isGuest ? 'public_guest' : null),
       creator_email: userEmail || null,
+      is_guest: isGuest,
       $createdAt: now
     },
     savedToAppwrite,

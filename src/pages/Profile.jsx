@@ -447,7 +447,7 @@ export default function Profile() {
                     {c.title || 'Untitled Course'}
                   </Link>
                   <p className="text-[11px] text-slate-500 truncate font-mono mt-0.5">
-                    {c.source_url || 'Uploaded document'} &bull; {c.steps?.length || 0} action steps
+                    {c.source_url || 'Uploaded document'} &bull; {c.steps?.length || 0} action steps &bull; Created by: <strong className="text-slate-400 font-semibold">{c.creator_email || c.creator_name || (c.is_curated ? 'CourseIT Team' : 'Guest User (24h)')}</strong>
                   </p>
                 </div>
 

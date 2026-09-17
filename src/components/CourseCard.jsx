@@ -16,8 +16,8 @@ export default function CourseCard({ course, onDelete, currentUser = null, isAdm
   const creatorLabel = isStarter
     ? 'CourseIT Team'
     : isGuest
-    ? 'Guest (24h)'
-    : (course.creator_name || course.creator_email?.split('@')[0] || 'User');
+    ? 'Guest User (24h)'
+    : (course.creator_name || course.creator_email || 'User');
 
   let hostname = 'docs';
   try {
@@ -80,8 +80,8 @@ export default function CourseCard({ course, onDelete, currentUser = null, isAdm
         {/* Creator Attribution Badge */}
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[11px] font-medium text-slate-400 bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 rounded-md inline-flex items-center gap-1.5">
-            <span className="text-slate-500">By</span>
-            <span className="text-slate-200 font-semibold truncate max-w-[130px]">{creatorLabel}</span>
+            <span className="text-slate-500">Created by</span>
+            <span className="text-slate-200 font-semibold truncate max-w-[150px]">{creatorLabel}</span>
             {isGuest && (
               <span className="text-[9px] font-mono text-amber-300 bg-amber-500/20 px-1 py-0.2 rounded border border-amber-500/30">
                 24h Expire

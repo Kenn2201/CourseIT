@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, Mail, Lock, User, LogOut, CheckCircle2, AlertCircle, ArrowRight, KeyRound, Sparkles, RefreshCw } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, ShieldCheck, Mail, Lock, User, LogOut, CheckCircle2, AlertCircle, ArrowRight, KeyRound, Sparkles, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import {
   loginWithEmail,
   signupWithEmail,
@@ -14,6 +15,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [signupSuccess, setSignupSuccess] = useState(false);
@@ -277,7 +279,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5">Email Address</label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                     <input
                       type="email"
                       required
@@ -302,16 +304,24 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                     </button>
                   </div>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={loading}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700/60 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-white placeholder-slate-500 outline-none transition-all disabled:opacity-60"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700/60 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-white placeholder-slate-500 outline-none transition-all disabled:opacity-60"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -335,7 +345,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5">Full Name</label>
                   <div className="relative">
-                    <User className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                     <input
                       type="text"
                       required
@@ -351,7 +361,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5">Email Address</label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                     <input
                       type="email"
                       required
@@ -367,17 +377,25 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5">Create Password</label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
                       minLength={8}
                       placeholder="Min 8 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={loading}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700/60 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-white placeholder-slate-500 outline-none transition-all disabled:opacity-60"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700/60 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-white placeholder-slate-500 outline-none transition-all disabled:opacity-60"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -401,7 +419,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5">Account Email</label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                     <input
                       type="email"
                       required
@@ -473,6 +491,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

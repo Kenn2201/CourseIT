@@ -114,10 +114,15 @@ export default function CourseTutor({ course, activeStepIndex = 0, mode = 'cours
         addMessage('user', `💻 Show runnable code snippet for "${stepTitle}"`);
         if (stepCode) {
           addMessage('tutor', `Here is the verified syntax for **${stepTitle}**:`, stepCode);
+        } else if (stepImpl) {
+          addMessage(
+            'tutor',
+            `**Actionable Implementation Instructions for ${stepTitle}:**\n\n${stepImpl}\n\n\`\`\`bash\n# Follow numbered steps above to configure this component\n\`\`\``
+          );
         } else {
           addMessage(
             'tutor',
-            `This step is focused on workspace configuration and inspector properties. Ensure your layout matches:\n\`\`\`text\n${stepTitle}\n  └── Parameters configured per implementation notes\n\`\`\``
+            `**${stepTitle}**\n\n${stepSummary || 'Follow the step checklist in the course viewer to complete this action.'}`
           );
         }
       } else if (actionType === 'gotcha') {

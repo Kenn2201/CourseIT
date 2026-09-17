@@ -52,6 +52,36 @@ function formatInstructionText(content) {
   });
 }
 
+/**
+ * Detects programming language or format from snippet syntax
+ */
+function detectSnippetLanguage(code) {
+  if (!code) return 'Code Snippet';
+  const trimmed = code.trim();
+  if (/\b(FROM\s|RUN\s|COPY\s|WORKDIR\s|ENTRYPOINT\s|CMD\s|EXPOSE\s)/i.test(trimmed)) {
+    return 'Dockerfile';
+  }
+  if (/^(docker\s|npm\s|npx\s|cargo\s|git\s|curl\s|yarn\s|pnpm\s|go\s|rustup\s|\$)/m.test(trimmed) || /^(bash|sh)$/i.test(trimmed)) {
+    return 'Terminal / Bash';
+  }
+  if (/\b(extends\s|func\s|_ready|_process|emit_signal|@export|@onready)\b/.test(trimmed)) {
+    return 'GDScript';
+  }
+  if (/\b(fn\s|let\s+mut\s|impl\s|pub\s+fn|println!|match\s|struct\s)/.test(trimmed)) {
+    return 'Rust';
+  }
+  if (/\b(import\s|export\s|const\s|interface\s|type\s|useState|useEffect|<[A-Z]\w+)/.test(trimmed)) {
+    return 'TypeScript / React';
+  }
+  if (/^\s*[\{\[]/.test(trimmed) && /[\}\]]\s*$/.test(trimmed)) {
+    return 'JSON';
+  }
+  if (/\b(def\s|class\s|print\(|self\.)/.test(trimmed)) {
+    return 'Python';
+  }
+  return 'Code Snippet';
+}
+
 export default function StepItem({ step, isCompleted, onToggle }) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedAll, setCopiedAll] = useState(false);
@@ -186,36 +216,46 @@ export default function StepItem({ step, isCompleted, onToggle }) {
                 </div>
               )}
 
-              {/* Code Snippet Box */}
+              {/* Code Snippet Box with Modern IDE Header */}
               {step.code_snippet && (
-                <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner">
-                  <div className="flex items-center justify-between px-3.5 py-2 bg-slate-900/90 border-b border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-[11px] font-mono text-slate-300 font-semibold">GDScript / Syntax Example</span>
+                <div className="rounded-xl overflow-hidden border border-slate-800/90 bg-[#0d1117] shadow-xl">
+                  <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-900/90 border-b border-slate-800/80">
+                    {/* IDE Window Controls + Language Badge */}
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-1.5 mr-1" aria-hidden="true">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block"></span>
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/70 border border-slate-700/50">
+                        <Terminal className="w-3 h-3 text-indigo-400" />
+                        <span className="text-[11px] font-mono text-slate-300 font-semibold tracking-wide">
+                          {detectSnippetLanguage(step.code_snippet)}
+                        </span>
+                      </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={handleCopyCodeOnly}
-                      className="flex items-center gap-1 text-[11px] font-mono text-slate-400 hover:text-white px-2 py-0.5 rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 hover:text-white px-2.5 py-1 rounded-md hover:bg-slate-800 transition-colors cursor-pointer border border-transparent hover:border-slate-700"
                     >
                       {copiedCode ? (
                         <>
-                          <Check className="w-3 h-3 text-emerald-400" />
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
                           <span className="text-emerald-400 font-semibold">Copied!</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3 h-3" />
-                          <span>Copy Code</span>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy</span>
                         </>
                       )}
                     </button>
                   </div>
 
-                  <div className="p-3.5 overflow-x-auto bg-slate-950/80">
-                    <pre className="text-xs font-mono text-emerald-300 leading-relaxed">
+                  <div className="p-4 overflow-x-auto bg-[#090d13]">
+                    <pre className="text-xs font-mono text-emerald-300/95 leading-relaxed selection:bg-emerald-900/40">
                       <code>{step.code_snippet}</code>
                     </pre>
                   </div>

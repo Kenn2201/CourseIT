@@ -979,7 +979,7 @@ export default function Admin() {
                 {filteredCourseList.map((c) => {
                   const isDoc = Boolean(c.source_url?.startsWith('upload://') || c.source_url?.includes('ocr'));
                   const isStarter = Boolean(c.is_curated || c.$id?.startsWith('starter-'));
-                  const author = c.creator_email || c.creator_name || (isStarter ? 'CourseIT Team' : 'Guest User');
+                  const author = c.creator_email || c.creator_name || (isStarter ? 'CourseIT Team' : 'Guest User (24h)');
 
                   return (
                     <div key={c.$id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group hover:bg-slate-850/40 rounded-xl px-2 transition-colors">
@@ -1003,7 +1003,7 @@ export default function Admin() {
                             </span>
 
                             <span className="text-[11px] font-mono text-slate-400">
-                              By: <strong className="text-slate-300">{author}</strong>
+                              Created by: <strong className="text-slate-300">{author}</strong>
                             </span>
 
                             {c.$createdAt && (
@@ -1219,7 +1219,7 @@ export default function Admin() {
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
               >
                 <Send className={`w-3.5 h-3.5 ${isTestingEmails ? 'animate-spin' : ''}`} />
-                <span>{isTestingEmails ? 'Dispatching Batch...' : 'Send Test Batch (kenn.nacario12@gmail.com)'}</span>
+                <span>{isTestingEmails ? 'Dispatching Batch...' : `Send Test Batch (${authState?.user?.email || ADMIN_EMAIL || 'Admin'})`}</span>
               </button>
             </div>
 

@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [generateError, setGenerateError] = useState('');
+  const [lastInputPayload, setLastInputPayload] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [successCourse, setSuccessCourse] = useState(null);
@@ -82,6 +83,7 @@ export default function Dashboard() {
     setIsGenerating(true);
     setGenerateError('');
     setSuccessFallback(null);
+    setLastInputPayload(inputPayload);
 
     try {
       const userId = user?.id || null;
@@ -147,7 +149,16 @@ export default function Dashboard() {
       setSuccessCourse(newCourse);
     } catch (err) {
       console.error('Generation failed:', err);
-      setGenerateError(err.message || 'An unexpected error occurred while processing.');
+      const raw = err.message || '';
+      let friendly = raw;
+      if (raw.includes('extract') || raw.includes('CORS') || raw.includes('scrape') || raw.includes('paywall') || raw.includes('HTML') || raw.includes('empty')) {
+        friendly = "Couldn't read that page — check the URL or try a different one";
+      } else if (raw.includes('Gemini') || raw.includes('All Gemini API attempts failed') || raw.includes('503') || raw.includes('429')) {
+        friendly = "Generation failed — please try again";
+      } else if (raw.includes('save') || raw.includes('Appwrite')) {
+        friendly = "Could not save course — please try again";
+      }
+      setGenerateError(friendly);
       setIsGenerating(false);
     }
   };
@@ -156,19 +167,22 @@ export default function Dashboard() {
     if (!course) return;
     setIsDeletingCourse(true);
     try {
-      const res = await authenticatedFetch('/api/courses/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          courseId: course.$id,
-          userId: authState?.user?.id,
-          userEmail: authState?.user?.email
-        })
-      });
+      const isLocal = Boolean(course.is_guest || course.creator_id === 'public_guest' || course.$id?.startsWith('course_') || course.$id?.startsWith('doc_'));
+      if (!isLocal && authState.isAuthenticated) {
+        const res = await authenticatedFetch('/api/courses/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            courseId: course.$id,
+            userId: authState?.user?.id,
+            userEmail: authState?.user?.email
+          })
+        });
 
-      const data = await res.json();
-      if (!res.ok || data.success === false) {
-        throw new Error(data.error || 'Failed to delete course');
+        const data = await res.json();
+        if (!res.ok || data.success === false) {
+          throw new Error(data.error || 'Failed to delete course');
+        }
       }
 
       const updated = courses.filter((c) => c.$id !== course.$id);
@@ -198,13 +212,15 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex flex-col justify-between animate-page-load transition-colors duration-200">
       <div className="flex flex-col md:flex-row flex-1">
-        {/* Application Shell Sidebar */}
-        <DashboardSidebar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          authState={authState}
-          historyCount={userGenerationsCount}
-        />
+        {/* Application Shell Sidebar - Only rendered for authenticated users */}
+        {authState.isAuthenticated && (
+          <DashboardSidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            authState={authState}
+            historyCount={userGenerationsCount}
+          />
+        )}
 
         {/* Main Content Workspace */}
         <main className="flex-1 min-w-0 flex flex-col justify-between">
@@ -266,14 +282,27 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Error Message */}
+              {/* Error Message with Retry */}
               {generateError && (
-                <div className="mt-8 max-w-2xl mx-auto p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start gap-3 animate-in fade-in">
-                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-semibold">Generation Failed</p>
-                    <p className="text-xs text-rose-300/90 leading-relaxed">{generateError}</p>
+                <div className="mt-8 max-w-2xl mx-auto p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start justify-between gap-3 animate-in fade-in">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-semibold text-white">Generation Failed</p>
+                      <p className="text-xs text-rose-300/90 leading-relaxed">{generateError}</p>
+                    </div>
                   </div>
+
+                  {lastInputPayload && (
+                    <button
+                      type="button"
+                      onClick={() => handleGenerate(lastInputPayload)}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Try Again</span>
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -319,19 +348,83 @@ export default function Dashboard() {
                       </p>
                     </div>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {filteredCourses.map((course) => (
-                      <CourseCard
-                        key={course.$id}
-                        course={course}
-                        currentUser={authState.user}
-                        isAdmin={authState.isAdmin}
-                        onDelete={(c) => setCourseToDelete(c)}
-                      />
-                    ))}
-                  </div>
-                )}
+                ) : (() => {
+                  const curatedCourses = filteredCourses.filter(c => c.is_curated || c.$id?.startsWith('starter-'));
+                  const communityCourses = filteredCourses.filter(c => !c.is_curated && !c.$id?.startsWith('starter-'));
+
+                  return (
+                    <div className="space-y-10">
+                      {/* SECTION 1: CURATED STARTERS */}
+                      {curatedCourses.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-xs font-mono font-bold uppercase tracking-wider text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-1 rounded-lg">
+                                Curated Starters
+                              </span>
+                              <span className="text-xs text-slate-400 hidden sm:inline">
+                                Official hand-crafted blueprints
+                              </span>
+                            </div>
+                            <span className="text-xs font-mono text-slate-500">
+                              {curatedCourses.length} templates
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {curatedCourses.map((course) => (
+                              <CourseCard
+                                key={course.$id}
+                                course={course}
+                                currentUser={authState.user}
+                                isAdmin={authState.isAdmin}
+                                onDelete={(c) => setCourseToDelete(c)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SECTION 2: COMMUNITY & GENERATED COURSES */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+                              Community & Custom Generations
+                            </span>
+                            <span className="text-xs text-slate-400 hidden sm:inline">
+                              Live courses distilled from developer docs & scans
+                            </span>
+                          </div>
+                          <span className="text-xs font-mono text-slate-500">
+                            {communityCourses.length} courses
+                          </span>
+                        </div>
+
+                        {communityCourses.length === 0 ? (
+                          <div className="glass-panel p-8 rounded-2xl border border-dashed border-slate-800 text-center space-y-2">
+                            <p className="text-sm font-semibold text-slate-300">No custom courses generated yet</p>
+                            <p className="text-xs text-slate-500 max-w-md mx-auto">
+                              Paste any developer documentation URL or drop a tutorial scan above to synthesize your first action-first course!
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {communityCourses.map((course) => (
+                              <CourseCard
+                                key={course.$id}
+                                course={course}
+                                currentUser={authState.user}
+                                isAdmin={authState.isAdmin}
+                                onDelete={(c) => setCourseToDelete(c)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </section>
             </div>
           )}

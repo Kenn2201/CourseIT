@@ -2,7 +2,7 @@ import { Account, ID, OAuthProvider } from 'appwrite';
 import { client, isAppwriteConfigured } from './appwrite';
 
 const AUTH_STORAGE_KEY = 'courseit_auth_session';
-export const ADMIN_EMAIL = 'kenn.nacario12@gmail.com';
+export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || '';
 
 export let account = null;
 if (client && isAppwriteConfigured()) {
@@ -21,7 +21,7 @@ export function getAuthState() {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw) return { isAuthenticated: false, isAdmin: false, user: null, quota: null };
     const parsed = JSON.parse(raw);
-    const isAdmin = parsed?.user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isAdmin = Boolean(ADMIN_EMAIL && parsed?.user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
     return {
       isAuthenticated: Boolean(parsed?.isAuthenticated),
       isAdmin,
@@ -278,7 +278,7 @@ let jwtExpiry = 0;
  */
 export async function getAuthJwt() {
   const authState = getAuthState();
-  if (!authState.isAuthenticated || !account || !isAppwriteConfigured()) {
+  if (!authState.isAuthenticated || !authState.user?.id || !account || !isAppwriteConfigured()) {
     return null;
   }
 
@@ -296,23 +296,29 @@ export async function getAuthJwt() {
       return cachedJwt;
     }
   } catch (err) {
-    console.warn('Could not generate Appwrite JWT session token:', err.message);
+    // Unauthenticated/guest session: clear cached JWT silently
+    cachedJwt = null;
+    jwtExpiry = 0;
   }
   return null;
 }
 
 /**
- * Universal authenticated fetch helper: automatically attaches verified session JWT
+ * Universal authenticated fetch helper: automatically attaches verified session JWT only when authenticated
  */
 export async function authenticatedFetch(url, options = {}) {
-  const jwt = await getAuthJwt();
+  const authState = getAuthState();
   const headers = {
     ...(options.headers || {})
   };
 
-  if (jwt) {
-    headers['x-appwrite-jwt'] = jwt;
-    headers['authorization'] = `Bearer ${jwt}`;
+  // Strictly skip JWT creation for guests and unauthenticated visitors
+  if (authState.isAuthenticated && authState.user?.id) {
+    const jwt = await getAuthJwt();
+    if (jwt) {
+      headers['x-appwrite-jwt'] = jwt;
+      headers['authorization'] = `Bearer ${jwt}`;
+    }
   }
 
   return fetch(url, {

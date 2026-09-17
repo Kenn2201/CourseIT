@@ -134,6 +134,10 @@ APPWRITE_API_KEY=your_appwrite_server_key
 # Resend Transactional Emailer
 RESEND_API_KEY=re_your_resend_api_key
 RESEND_FROM_EMAIL=CourseIT <hello@courseit.kenncode.me>
+
+# Platform Administrator Email
+ADMIN_EMAIL=your_admin_email@example.com
+VITE_ADMIN_EMAIL=your_admin_email@example.com
 ```
 
 > **💡 Doppler Users**: If you use [Doppler](https://www.doppler.com/) for secret management, you can run `doppler setup` and launch via `doppler run -- npm run dev`.

@@ -27,7 +27,7 @@ import FeedbackModal from './FeedbackModal';
 export default function Navbar() {
   const isLive = isAppwriteConfigured();
   const location = useLocation();
-  const { user, isAuthenticated, isAdmin, isPending, quota, credits, formatCredits, logout, loading: isCheckingSession } = useAuth();
+  const { user, isAuthenticated, isAdmin, isPending, quota, credits, formatCredits, logout, refreshAuth, loading: isCheckingSession } = useAuth();
   const authState = { user, isAuthenticated, isAdmin, isPending, quota };
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutNotice, setSignOutNotice] = useState(false);
@@ -317,7 +317,9 @@ export default function Navbar() {
         onClose={() => setIsAuthOpen(false)}
         authState={authState}
         initialMode={authMode}
-        onAuthChange={(newState) => setAuthState(newState)}
+        onAuthChange={async () => {
+          if (refreshAuth) await refreshAuth();
+        }}
       />
 
       <FeedbackModal

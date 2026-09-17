@@ -160,14 +160,20 @@ export function getLocalCourses() {
  */
 export function saveLocalCourse(course) {
   try {
+    const isGuest = Boolean(course.is_guest || course.creator_id === 'public_guest' || !course.creator_id);
+    const enriched = {
+      ...course,
+      is_guest: isGuest,
+      creator_id: course.creator_id || (isGuest ? 'public_guest' : null)
+    };
     const current = getLocalCourses();
-    const existingIndex = current.findIndex(c => c.$id === course.$id);
+    const existingIndex = current.findIndex(c => c.$id === enriched.$id);
     let updated;
     if (existingIndex >= 0) {
       updated = [...current];
-      updated[existingIndex] = course;
+      updated[existingIndex] = enriched;
     } else {
-      updated = [course, ...current];
+      updated = [enriched, ...current];
     }
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
   } catch (err) {
@@ -184,7 +190,7 @@ import { STARTER_COURSES } from '../data/starterCourses';
 export async function listCourses(userId = null, isAdmin = false) {
   // Guests and unauthenticated visitors ONLY see public starter templates + current session guest courses
   if (!userId || userId === 'public_guest') {
-    const local = getLocalCourses().filter(c => c.is_guest);
+    const local = getLocalCourses().filter(c => c.is_guest || c.creator_id === 'public_guest');
     const allMap = new Map();
     STARTER_COURSES.forEach(c => allMap.set(c.$id, c));
     local.forEach(c => allMap.set(c.$id, c));
@@ -225,26 +231,36 @@ export async function listCourses(userId = null, isAdmin = false) {
 }
 
 /**
- * Get a specific course by ID: checks STARTER_COURSES first, then Appwrite, then local storage.
- * Enforces strict ACL: non-starter custom courses require authenticated ownership or admin privileges.
+ * Get a specific course by ID: checks STARTER_COURSES first, then local storage / Appwrite.
+ * Guest and starter courses are publicly viewable. Private user courses enforce author / admin ACL.
  */
 export async function getCourse(id, user = null, isAdmin = false) {
   // 1. Curated starter templates are always public
   const starter = STARTER_COURSES.find(c => c.$id === id);
   if (starter) return starter;
 
-  // 2. Fetch from Appwrite
   let found = null;
-  if (databases && isAppwriteConfigured()) {
+  const isLocalId = id?.startsWith('course_') || id?.startsWith('doc_');
+
+  // 2. Check local storage first for local guest courses (avoids unnecessary Appwrite 404s)
+  if (isLocalId) {
+    const local = getLocalCourses();
+    found = local.find(c => c.$id === id);
+  }
+
+  // 3. If not found locally, fetch from Appwrite Sydney database
+  if (!found && databases && isAppwriteConfigured()) {
     try {
       const doc = await databases.getDocument(DATABASE_ID, COLLECTION_ID, id);
       if (doc) found = normalizeCourse(doc);
     } catch (err) {
-      console.warn(`Appwrite fetch for ${id} failed, checking local storage:`, err.message);
+      // Fallback to local storage
+      const local = getLocalCourses();
+      found = local.find(c => c.$id === id);
     }
   }
 
-  // 3. Fallback to local storage
+  // 4. Final local storage check if still not found
   if (!found) {
     const local = getLocalCourses();
     found = local.find(c => c.$id === id);
@@ -254,12 +270,15 @@ export async function getCourse(id, user = null, isAdmin = false) {
     throw new Error(`Course with ID "${id}" was not found.`);
   }
 
-  // 4. Strict Access Control Verification
-  if (found.is_curated || found.$id?.startsWith('starter-')) {
+  // 5. Permitted Public Courses: Starter templates and Guest trial courses
+  const isStarter = Boolean(found.is_curated || found.$id?.startsWith('starter-'));
+  const isGuestCourse = Boolean(found.is_guest || found.creator_id === 'public_guest' || !found.creator_id || isLocalId);
+
+  if (isStarter || isGuestCourse) {
     return found;
   }
 
-  // Non-starter courses require authentication
+  // 6. Private user-generated courses require authentication
   if (!user || !user.id) {
     const err = new Error('Authentication Required: You must be signed in to view this private course.');
     err.code = 'UNAUTHORIZED';

@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0-beta] - 2026-09-17 — Guest Flow Restoration, Anti-Fluff Enforcement & Platform Polish
+
+### Fixed & Restored
+- **Guest Flow Regression**:
+  - Fixed `authenticatedFetch()` and `getAuthJwt()` in `src/lib/auth.js` to strictly skip JWT creation for unauthenticated guest sessions, preventing Appwrite `User (role: guests) missing scopes (["account"])` session verification failures.
+  - Resolved guest courses directly from `localStorage` in `getCourse()` (`src/lib/appwrite.js`), preventing failing 404 Appwrite database requests and eliminating the "Private Course — Authentication Required" block for guest visitors.
+  - Allowed guest course deletion directly from local storage in `src/pages/Dashboard.jsx` without attempting unauthorized server-side calls to `/api/courses/delete`.
+  - Fixed `Navbar.jsx:320` `setAuthState is not defined` crash on sign-in by switching to `refreshAuth()` from `useAuth()`.
+  - Hid `DashboardSidebar` for unauthenticated visitors (`authState.isAuthenticated && <DashboardSidebar />`).
+
+### Added & Improved
+- **Anti-Fluff System Instruction**:
+  - Strengthened `SYSTEM_INSTRUCTION` in `server/llm.js` with negative constraints banning conversational padding ("In this section", "Let's explore", "Welcome to", "It is important to understand").
+  - Mandated imperative action verbs for every step title (e.g., Configure, Build, Define, Connect, Export, Run, Install).
+  - Enforced mandatory runnable code snippets or CLI commands whenever source documentation contains syntax.
+- **Modern IDE Code Block UI**:
+  - Replaced hardcoded "GDScript / Syntax Example" badge in `StepItem.jsx` with dynamic language detection (Dockerfile, Terminal / Bash, GDScript, Rust, TypeScript / React, JSON, Python).
+  - Designed macOS-style IDE window controls (colored red/yellow/green dots), syntax badge, and quick copy button.
+- **Rich Starter Course Code Snippets & Live Scripted Companion**:
+  - Added runnable code snippets, concrete implementation steps, and verified pro-tips for all 4 starter courses in `src/data/starterCourses.js` (Docker Multi-Stage, React 19, Rust Ownership, Godot Signals).
+  - Upgraded `CourseTutor.jsx` scripted action ("Show Code") to present verified code snippets instead of generic Godot layout text.
+- **Catalog Structural Separation & Attribution Consistency**:
+  - Split dashboard catalog into two distinct visual sections: "Curated Starters" and "Community & Custom Generated Courses".
+  - Standardized author attribution across Course Cards (`CourseCard.jsx`), Generation History (`GenerationHistory.jsx`), Admin Management (`Admin.jsx`), and Profile (`Profile.jsx`) with "Created by [user]" and "Guest User (24h)".
+- **Actionable Generation Pipeline Error Handling**:
+  - Replaced hanging or silent errors with actionable diagnostic messages (scraping, LLM generation, or save issues) and a one-click [Try Again] button.
+- **Login/Signup Modal Polish**:
+  - Portaled `AdminModal.jsx` to `document.body` via `createPortal`.
+  - Centered input icons with `top-1/2 -translate-y-1/2`.
+  - Added interactive password visibility toggle (`Eye` / `EyeOff`).
+- **Environment & Layout Cleanup**:
+  - Repositioned floating Beta Feedback button in `App.jsx` to `bottom-20 right-6` to eliminate overlap with the docked `CourseTutor` assistant at `bottom-6 right-6`.
+  - Moved `ADMIN_EMAIL` to environment variables (`VITE_ADMIN_EMAIL` / `ADMIN_EMAIL`) across frontend and server, updating `.env`, `.env.example`, `README.md`, and `Footer.jsx`.
+
 ## [1.9.0-beta] - 2026-09-17 — Security Audit & Auth Hardening: Live Session Source of Truth, Backend JWT Verification, ACL Route Guards & Settings Engine
 
 ### Added

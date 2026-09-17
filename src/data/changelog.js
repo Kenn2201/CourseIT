@@ -1,9 +1,48 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.10.0 BETA',
+    date: 'September 17, 2026',
+    title: 'Guest Flow Restoration, Anti-Fluff Enforcement & Platform Polish',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Guest Flow Regression Fix',
+        desc: 'Prevented unauthenticated guest requests from triggering Appwrite JWT session errors, fixed 404s on locally-stored guest courses, and eliminated the Private Course authentication block for guest visitors.'
+      },
+      {
+        title: 'Zero-Fluff System Instruction & Imperative Steps',
+        desc: 'Hardened LLM system prompt with strict negative constraints (banning conversational padding like "In this section") and mandating imperative verbs and runnable code snippets.'
+      },
+      {
+        title: 'Modern IDE Code Block UI & Dynamic Language Detection',
+        desc: 'Upgraded code snippet blocks with macOS-style window controls, dynamic language syntax badges (Bash, Dockerfile, GDScript, Rust, TypeScript, Python), and one-click copy functionality.'
+      },
+      {
+        title: 'Rich Starter Course Snippets & Live Scripted Companion',
+        desc: 'Completely populated runnable code snippets and implementation guides for Docker, React 19, Rust, and Godot starter courses; updated CourseTutor "Show Code" to display real verified syntax.'
+      },
+      {
+        title: 'Structured Catalog & Attribution Consistency',
+        desc: 'Separated the dashboard into Curated Starters and Community & Custom Courses with clear, consistent author attribution across all catalog views, admin tables, and user profiles.'
+      },
+      {
+        title: 'Actionable Generation Error Pipeline',
+        desc: 'Replaced hanging states and silent failures with helpful diagnostic messages and a one-click [Try Again] button.'
+      }
+    ],
+    notes: [
+      'Fixed Navbar.jsx ReferenceError on login by calling refreshAuth()',
+      'Portaled AdminModal.jsx to document.body, centered input icons, and added password visibility toggle',
+      'Hid Dashboard sidebar for unauthenticated guest visitors',
+      'Repositioned floating Beta Feedback button to prevent overlap with docked CourseTutor',
+      'Moved ADMIN_EMAIL to environment variables (.env, .env.example, README.md, Footer.jsx, server/handler.js)',
+      'Allowed guest course deletion directly from localStorage without throwing 401 API errors'
+    ]
+  },
+  {
     version: 'v1.9.0 BETA',
     date: 'September 17, 2026',
     title: 'Security Audit & Auth Hardening: Live Session Source of Truth, Backend JWT Verification, ACL Route Guards & Settings Engine',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'Unified Live AuthContext & Purged Fallbacks',

@@ -129,13 +129,18 @@ export default function Footer({ onOpenChangelog }) {
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="mailto:kenn.nacario12@gmail.com"
-                    className="hover:text-indigo-400 transition-colors flex items-center gap-1.5"
-                  >
-                    <Mail className="w-3.5 h-3.5 text-amber-400" />
-                    <span>kenn.nacario12@gmail.com</span>
-                  </a>
+                  {(() => {
+                    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'hello@courseit.kenncode.me';
+                    return (
+                      <a
+                        href={`mailto:${adminEmail}`}
+                        className="hover:text-indigo-400 transition-colors flex items-center gap-1.5"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{adminEmail}</span>
+                      </a>
+                    );
+                  })()}
                 </li>
               </ul>
             </div>

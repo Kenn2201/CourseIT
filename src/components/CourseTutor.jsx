@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Sparkles, X, Send, Code, Lightbulb, AlertTriangle, CheckCircle, HelpCircle, Terminal, RefreshCw, ChevronRight, Zap, FileText, Cpu, Clock } from 'lucide-react';
+import FormattedChatText from './FormattedChatText';
 
 export default function CourseTutor({ course, activeStepIndex = 0, mode = 'course' }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -380,7 +381,9 @@ export default function CourseTutor({ course, activeStepIndex = 0, mode = 'cours
                       : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none shadow-sm'
                   }`}
                 >
-                  <p className="whitespace-pre-line">{m.text}</p>
+                  <div className="text-xs sm:text-[13px] leading-relaxed">
+                    <FormattedChatText text={m.text} />
+                  </div>
 
                   {/* Code snippet in message */}
                   {m.code && (

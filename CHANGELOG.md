@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0-beta] - 2026-09-17 — Consistency & Polish: Single Source of Truth for Version & Credits, Portalized Modals & Header Redesign
+
+### Added
+- **Single Source of Truth for Versioning**:
+  - Created centralized constants authority (`src/constants/version.js`) exporting `CURRENT_VERSION`, `CURRENT_VERSION_LABEL`, and `RELEASE_DATE`.
+  - Added repository-level `VERSIONING.md` maintenance guide for consistent release tagging.
+  - Eliminated hardcoded version drift across logo pills, hero banners, footers, and modal headers.
+- **Single Source of Truth for Credit Balance (`CreditContext`)**:
+  - Implemented `CreditProvider` and `useUserCredits()` hook subscribed to live Appwrite quota updates and `courseit_quota_updated` events.
+  - Formatted credits dynamically without artificial `/ 250` display caps.
+  - Fixed backend `Math.floor` rounding bug in `server/handler.js`, preserving exact decimal deductions for Gemini Flash Lite (0.5 credits) and aligning database values with memory state.
+- **Mandatory First-Login Legal Consent Flow & Audit Trail**:
+  - Introduced non-dismissible `LegalConsentModal` requiring explicit agreement to Terms of Service, Privacy Policy, and Cookies.
+  - Stored consent timestamp (`terms_consented_at`, `terms_version`) directly on Appwrite account preferences (`account.updatePrefs`), establishing a durable, cross-device legal audit trail.
+  - Automatically launches the Changelog "What's New" modal immediately upon consent acceptance for seamless onboarding.
+- **Formatted Chatbot Typography Engine (`FormattedChatText`)**:
+  - Engineered zero-dependency Markdown parser in `src/components/FormattedChatText.jsx`.
+  - Renders `**bold**`, `*italic*`, `` `inline code` ``, and bullet points into styled typography, replacing raw markdown syntax.
+
+### Fixed & Hardened
+- **Viewport-Centered Modal Portals**:
+  - Wrapped `ChangelogModal`, `LegalConsentModal`, `TermsPrivacyModal`, and `FeedbackModal` in React `createPortal(..., document.body)`.
+  - Resolved deep-scroll offset bug on long landing pages and prevented CSS transform ancestor clipping (`animate-page-load`).
+- **Sidebar & Footer Layout Separation**:
+  - Relocated `<Footer />` inside the main workspace column in `Dashboard.jsx`, preventing it from overlapping or spanning underneath `DashboardSidebar`.
+- **Softened Light Mode & Relocated Controls**:
+  - Replaced glaring white tones with soft `#f1f5f9` slate backgrounds and `#ffffff` card surfaces.
+  - Audited and updated WCAG AAA/AA text contrast tokens for secondary (`.text-slate-400` -> `#475569`, `.text-slate-500` -> `#64748b`) and colored accent elements (`.text-indigo-400`, `.text-emerald-400`, `.text-amber-400`).
+  - Relocated theme toggles out of the header into `DashboardSidebar` and an accessible floating widget on the landing page with clear text labels.
+- **Header Redesign & Infrastructure De-identification**:
+  - Consolidated separate credits badge and sign-out button into a unified user profile dropdown menu (avatar, name, live balance, studio/profile/admin links, sign out).
+  - Added prominent "Dashboard →" navigation button on the public landing page when authenticated.
+  - Completely removed internal infrastructure labels ("Sydney") from user-facing views.
+
 ## [1.7.0-beta] - 2026-09-17 — Dashboard Application Shell, Appwrite Serverless History, Light Mode Theming & Auth Hardening
 
 ### Fixed & Hardened

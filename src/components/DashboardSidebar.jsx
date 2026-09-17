@@ -1,8 +1,51 @@
-import React from 'react';
-import { LayoutDashboard, History, User, Settings, HelpCircle, Sparkles, LogOut, ExternalLink, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, History, User, Settings, HelpCircle, Sparkles, LogOut, ExternalLink, ShieldCheck, Sun, Moon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useUserCredits } from '../context/CreditContext';
 
 export default function DashboardSidebar({ activeTab, onTabChange, authState, historyCount = 0 }) {
+  const [theme, setTheme] = useState('dark');
+  const { credits, formatCredits } = useUserCredits();
+
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem('courseit_theme') || 'dark';
+      setTheme(savedTheme);
+    } catch {}
+
+    const handleThemeChange = () => {
+      const current = localStorage.getItem('courseit_theme') || 'dark';
+      setTheme(current);
+    };
+
+    window.addEventListener('courseit_theme_changed', handleThemeChange);
+    return () => window.removeEventListener('courseit_theme_changed', handleThemeChange);
+  }, []);
+
+  const handleToggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    const updateDom = () => {
+      if (newTheme === 'light') {
+        document.documentElement.classList.add('light');
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.classList.remove('light');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+      setTheme(newTheme);
+      try {
+        localStorage.setItem('courseit_theme', newTheme);
+        window.dispatchEvent(new Event('courseit_theme_changed'));
+      } catch {}
+    };
+
+    if (typeof document !== 'undefined' && document.startViewTransition) {
+      document.startViewTransition(() => updateDom());
+    } else {
+      updateDom();
+    }
+  };
+
   const navItems = [
     { id: 'dashboard', label: 'Studio & Courses', icon: LayoutDashboard },
     { id: 'history', label: 'History & Uploads', icon: History, badge: historyCount > 0 ? historyCount : null },
@@ -51,8 +94,28 @@ export default function DashboardSidebar({ activeTab, onTabChange, authState, hi
         </nav>
       </div>
 
-      {/* Bottom Sidebar User Summary & Admin Link */}
-      <div className="hidden md:block pt-6 border-t border-slate-800/80 space-y-3">
+      {/* Bottom Sidebar User Summary, Theme Switch & Admin Link */}
+      <div className="pt-4 border-t border-slate-800/80 space-y-3">
+        {/* Theme Switch Control */}
+        <button
+          type="button"
+          onClick={handleToggleTheme}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900/80 border border-slate-800 hover:border-indigo-500/40 transition-all cursor-pointer"
+          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+        >
+          <div className="flex items-center gap-2">
+            {theme === 'light' ? (
+              <Sun className="w-4 h-4 text-amber-500" />
+            ) : (
+              <Moon className="w-4 h-4 text-indigo-400" />
+            )}
+            <span>Theme: {theme === 'light' ? 'Light Mode' : 'Dark Mode'}</span>
+          </div>
+          <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+            {theme === 'light' ? 'Light' : 'Dark'}
+          </span>
+        </button>
+
         {authState?.isAdmin && (
           <Link
             to="/admin"
@@ -77,7 +140,7 @@ export default function DashboardSidebar({ activeTab, onTabChange, authState, hi
               </p>
               <p className="text-[11px] font-mono text-indigo-400">
                 {authState?.isAuthenticated
-                  ? `${(authState?.quota?.quota_remaining ?? 250).toFixed(0)} Credits`
+                  ? `${formatCredits(credits)} Credits`
                   : `${authState?.quota?.remaining ?? 3}/3 Trial`}
               </p>
             </div>

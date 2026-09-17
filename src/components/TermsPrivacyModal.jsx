@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Shield, FileText, CheckCircle2, Lock, Eye, BookOpen } from 'lucide-react';
+import { CURRENT_VERSION_LABEL, RELEASE_DATE } from '../constants/version';
 
 export default function TermsPrivacyModal({ isOpen, onClose, initialTab = 'terms' }) {
   const [tab, setTab] = useState(initialTab); // 'terms' | 'privacy'
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
       <div className="glass-panel w-full max-w-2xl rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-4 mb-4 relative z-10">
           <div>
@@ -19,7 +21,7 @@ export default function TermsPrivacyModal({ isOpen, onClose, initialTab = 'terms
               {tab === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Last updated: September 17, 2026 &bull; CourseIT Beta Release
+              Last updated: {RELEASE_DATE} &bull; CourseIT {CURRENT_VERSION_LABEL}
             </p>
           </div>
 
@@ -70,7 +72,7 @@ export default function TermsPrivacyModal({ isOpen, onClose, initialTab = 'terms
                   1. Beta Testing & Fair Use
                 </h4>
                 <p className="text-slate-400">
-                  CourseIT is currently in active Beta (v1.5.0). By using the service, you agree to fair use of API reasoning resources. Each verified tester receives 250 free credits upon admin approval for educational, personal, and professional learning synthesis.
+                  CourseIT is currently in active Beta ({CURRENT_VERSION_LABEL}). By using the service, you agree to fair use of API reasoning resources. Each verified tester receives 250 free credits upon admin approval for educational, personal, and professional learning synthesis.
                 </p>
               </section>
 
@@ -112,7 +114,7 @@ export default function TermsPrivacyModal({ isOpen, onClose, initialTab = 'terms
                   2. Authentication & Quota Data
                 </h4>
                 <p className="text-slate-400">
-                  Authentication is managed securely via Appwrite Cloud (Sydney region). We store only your email, name, avatar preference, and credit balance. We do not store plain-text passwords or financial payment information.
+                  Authentication is managed securely via Appwrite Cloud. We store only your email, name, avatar preference, and credit balance. We do not store plain-text passwords or financial payment information.
                 </p>
               </section>
 
@@ -141,6 +143,7 @@ export default function TermsPrivacyModal({ isOpen, onClose, initialTab = 'terms
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

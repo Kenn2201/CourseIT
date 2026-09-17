@@ -247,7 +247,8 @@ export async function checkAppwriteSession() {
         user: {
           id: user.$id,
           email: user.email,
-          name: user.name || user.email.split('@')[0]
+          name: user.name || user.email.split('@')[0],
+          prefs: user.prefs || {}
         },
         quota: quota || { quota_remaining: isAdmin ? 250 : 0, status: isAdmin ? 'approved' : 'pending' }
       };
@@ -370,3 +371,42 @@ export const loginWithGoogle = signInWithGoogle;
 export const loginWithGithub = signInWithGithub;
 export const getAdminState = getAuthState;
 export const logoutAdmin = logoutUser;
+
+/**
+ * Record user consent for Terms & Privacy directly on Appwrite account preferences
+ */
+export async function recordUserConsent(termsVersion = '1.8.0') {
+  const timestamp = new Date().toISOString();
+  if (account) {
+    try {
+      const current = await account.getPrefs();
+      await account.updatePrefs({
+        ...current,
+        terms_consented_at: timestamp,
+        terms_version: termsVersion
+      });
+    } catch (err) {
+      console.warn('Could not update Appwrite account prefs for consent:', err.message);
+    }
+  }
+  const auth = getAuthState();
+  if (auth.user?.id) {
+    localStorage.setItem(`courseit_consent_${auth.user.id}`, timestamp);
+    if (!auth.user.prefs) auth.user.prefs = {};
+    auth.user.prefs.terms_consented_at = timestamp;
+    auth.user.prefs.terms_version = termsVersion;
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
+  }
+  window.dispatchEvent(new Event('courseit_consent_updated'));
+  return { success: true, timestamp };
+}
+
+/**
+ * Check if the authenticated user has already consented to Terms & Privacy
+ */
+export function hasUserConsented(user) {
+  if (!user || !user.id) return true; // Only applies to authenticated accounts
+  if (user.prefs?.terms_consented_at) return true;
+  if (localStorage.getItem(`courseit_consent_${user.id}`)) return true;
+  return false;
+}

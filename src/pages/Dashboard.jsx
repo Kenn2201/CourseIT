@@ -12,6 +12,7 @@ import ChangelogModal from '../components/ChangelogModal';
 import DashboardSidebar from '../components/DashboardSidebar';
 import GenerationHistory from '../components/GenerationHistory';
 import ThemeToggle from '../components/ThemeToggle';
+import { CURRENT_VERSION_LABEL } from '../constants/version';
 import { listCourses, saveLocalCourse } from '../lib/appwrite';
 import { getAuthState, checkAppwriteSession, authenticatedFetch } from '../lib/auth';
 
@@ -207,16 +208,17 @@ export default function Dashboard() {
         />
 
         {/* Main Content Workspace */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto">
-          {/* TAB 1: STUDIO & COURSES GENERATOR */}
-          {activeTab === 'dashboard' && (
-            <div className="space-y-10">
-              {/* Studio Header Banner */}
-              <div className="text-center max-w-3xl mx-auto pt-4">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-mono mb-4">
-                  <BrainCircuit className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>SaaS v1.7.0 &bull; ADHD Anti-Fluff Action Engine &bull; Multi-Framework</span>
-                </div>
+        <main className="flex-1 min-w-0 flex flex-col justify-between">
+          <div className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto flex-1">
+            {/* TAB 1: STUDIO & COURSES GENERATOR */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-10">
+                {/* Studio Header Banner */}
+                <div className="text-center max-w-3xl mx-auto pt-4">
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-mono mb-4">
+                    <BrainCircuit className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>SaaS {CURRENT_VERSION_LABEL} &bull; ADHD Anti-Fluff Action Engine &bull; Multi-Framework</span>
+                  </div>
 
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.15] mb-4">
                   Turn dense docs & scans into{' '}
@@ -503,11 +505,12 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+          </div>
+
+          {/* Developer Portfolio Footer inside main content column */}
+          <Footer onOpenChangelog={() => setIsChangelogOpen(true)} />
         </main>
       </div>
-
-      {/* Developer Portfolio Footer */}
-      <Footer onOpenChangelog={() => setIsChangelogOpen(true)} />
 
       {/* Modals */}
       <AdminModal

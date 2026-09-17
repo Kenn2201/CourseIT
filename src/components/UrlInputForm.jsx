@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Sparkles, ArrowRight, Link2, Gamepad2, Layers, Radio, Code2, UploadCloud, FileText, CheckCircle, AlertCircle, RefreshCw, Lock, Boxes, Flame, Container } from 'lucide-react';
 import { extractTextFromFile } from '../lib/ocr';
 import { uploadFileToAppwrite } from '../lib/appwrite';
+import { useUserCredits } from '../context/CreditContext';
 
 const CROSS_DOC_PRESETS = [
   {
@@ -38,6 +40,7 @@ const MODEL_OPTIONS = [
 ];
 
 export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAuthenticated, onOpenAdmin, isPending = false }) {
+  const { credits, formatCredits } = useUserCredits();
   const [inputMode, setInputMode] = useState('url'); // 'url' | 'document'
   const [url, setUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -67,12 +70,11 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
     }
   }, [isAuthenticated, selectedModel]);
 
-  const remainingCredits = quota?.quota_remaining ?? (quota?.remaining ?? 250);
   const guestRemaining = typeof quota?.remaining === 'number'
     ? quota.remaining
     : (quota?.quota_remaining ?? 3);
   const isGuestExhausted = !isAuthenticated && guestRemaining <= 0;
-  const isOutOfQuota = isAuthenticated ? (!isAdmin && remainingCredits <= 0) : isGuestExhausted;
+  const isOutOfQuota = isAuthenticated ? (!isAdmin && credits <= 0) : isGuestExhausted;
 
   const handleSelectModel = (model) => {
     if (!isAuthenticated && !model.publicAllowed) {
@@ -497,7 +499,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
             <span className={`w-2 h-2 rounded-full ${isOutOfQuota ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'}`} />
             <span>
               {isAuthenticated ? (
-                <>Account Credits: <strong className="text-slate-200">{typeof remainingCredits === 'number' ? remainingCredits.toFixed(1) : remainingCredits}/250 Remaining</strong></>
+                <>Account Credits: <strong className="text-slate-200">{formatCredits(credits)} Cr Remaining</strong></>
               ) : (
                 <>Shared Guest Trial: <strong className="text-indigo-400">{guestRemaining}/3 remaining</strong> (URL + OCR shared • 24h Window)</>
               )}
@@ -517,7 +519,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
       </div>
 
       {/* 3/3 Trial Limit Exhausted / Beta Access Modal */}
-      {showTrialModal && (
+      {showTrialModal && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative overflow-hidden text-center">
             <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -549,7 +551,8 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Preset Multi-Framework Quick Links */}

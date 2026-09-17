@@ -4,11 +4,11 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseit.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.6.0--beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.8.0--beta-indigo.svg)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
 ![Vite](https://img.shields.io/badge/Vite-6.4.3-646CFF.svg?logo=vite)
 ![Tailwind](https://img.shields.io/badge/TailwindCSS-v4-38b2ac.svg?logo=tailwind-css)
-![Appwrite](https://img.shields.io/badge/Appwrite-Cloud%20Sydney-FD366E.svg?logo=appwrite)
+![Appwrite](https://img.shields.io/badge/Appwrite-Cloud-FD366E.svg?logo=appwrite)
 ![Gemini](https://img.shields.io/badge/Google%20Gemini-Flash%20Lite%20%7C%203.5%20%7C%203.6%20%7C%203.7-4285F4.svg?logo=google)
 ![Resend](https://img.shields.io/badge/Resend-Verified%20Domain-black.svg?logo=resend)
 
@@ -18,8 +18,15 @@
 
 All notable changes are tracked in detail in [**CHANGELOG.md**](file:///g:/files%20for%20transfers%20iidkkk/project%20web%20app/portfolio-kenn/project-3-CourseIT/CHANGELOG.md).
 
-* **v1.6.0-beta (September 17, 2026)**:
-  * **Critical Security Fix**: Server-side & client-side course deletion ACL restricting delete permissions strictly to author or admin (`403 Forbidden` on unauthorized attempts).
+* **v1.8.0-beta (September 17, 2026)**:
+  * **Single Source of Truth**: Unified versioning via `src/constants/version.js` and credits via `CreditContext`; eliminated backend `Math.floor` rounding bug.
+  * **Mandatory First-Login Legal Consent**: Added durable Terms/Privacy consent stored on Appwrite user records for a persistent audit trail, with automatic onboarding notes.
+  * **Portalized Viewport Modals**: Mounted all modals via React Portals to guarantee center alignment on deep scroll.
+  * **Sidebar & Footer Separation**: Embedded footer inside workspace column, eliminating sidebar overlap.
+  * **Softened Light Mode**: Soft `#f1f5f9` slate background with WCAG AAA/AA text contrast and relocated toggles.
+  * **Consolidated Header & Anti-Fluff Chatbot**: User menu dropdown, prominent landing "Dashboard →" link, and Markdown typography parsing.
+* **v1.7.0-beta (September 17, 2026)**:
+  * Dashboard application shell with responsive sidebar, Appwrite serverless history collections, universal JWT re-verification, root-cause light mode fix, and author attributions.
   * **OAuth 401 Fix**: Removed destructive session teardown on pending status; Google OAuth users stay signed in.
   * **OAuth Pending Queue**: Google OAuth signups land in the same pending approval queue as email signups with auto-acknowledgement emails via Resend.
   * **Model Resilience Notice**: Informs users when Gemini 3.7 hits high upstream demand and seamlessly falls back to Flash Lite, charging only for the lighter tier.

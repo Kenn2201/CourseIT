@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Sparkles,
@@ -23,7 +23,9 @@ import {
   Boxes,
   Container,
   Flame,
-  BrainCircuit
+  BrainCircuit,
+  Sun,
+  Moon
 } from 'lucide-react';
 import ShapeGrid from '../components/reactbits/ShapeGrid';
 import SpotlightCard from '../components/reactbits/SpotlightCard';
@@ -34,6 +36,7 @@ import AdminModal from '../components/AdminModal';
 import CourseTutor from '../components/CourseTutor';
 import { STARTER_COURSES } from '../data/starterCourses';
 import { getAuthState } from '../lib/auth';
+import { CURRENT_VERSION_LABEL } from '../constants/version';
 
 const CURATED_DEMOS = [
   {
@@ -122,7 +125,47 @@ export default function Landing({ onLaunchApp }) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState('signup');
+  const [theme, setTheme] = useState('dark');
   const authState = getAuthState();
+
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem('courseit_theme') || 'dark';
+      setTheme(savedTheme);
+    } catch {}
+
+    const handleThemeChange = () => {
+      const current = localStorage.getItem('courseit_theme') || 'dark';
+      setTheme(current);
+    };
+
+    window.addEventListener('courseit_theme_changed', handleThemeChange);
+    return () => window.removeEventListener('courseit_theme_changed', handleThemeChange);
+  }, []);
+
+  const handleToggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    const updateDom = () => {
+      if (newTheme === 'light') {
+        document.documentElement.classList.add('light');
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.classList.remove('light');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+      setTheme(newTheme);
+      try {
+        localStorage.setItem('courseit_theme', newTheme);
+        window.dispatchEvent(new Event('courseit_theme_changed'));
+      } catch {}
+    };
+
+    if (typeof document !== 'undefined' && document.startViewTransition) {
+      document.startViewTransition(() => updateDom());
+    } else {
+      updateDom();
+    }
+  };
 
   const handleOpenAuth = (mode = 'signup') => {
     setAuthInitialMode(mode);
@@ -150,7 +193,7 @@ export default function Landing({ onLaunchApp }) {
           {/* Release & ADHD Focus Pill */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-mono shadow-lg shadow-indigo-500/10">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>CourseIT v1.4.1 BETA • Zero-AI-Fluff Action Engine</span>
+            <span>CourseIT {CURRENT_VERSION_LABEL} • Zero-AI-Fluff Action Engine</span>
           </div>
 
           {/* Main Headline */}
@@ -173,26 +216,43 @@ export default function Landing({ onLaunchApp }) {
 
           {/* CTA Buttons */}
           <div className="flex flex-wrap items-center justify-center gap-3.5 pt-4">
-            <button
-              type="button"
-              onClick={() => handleOpenAuth('signup')}
-              className="flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-semibold bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-xl shadow-indigo-600/30 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-indigo-400/30"
-            >
-              <span>Get Started Free (250 Credits)</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {authState?.isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onLaunchApp) onLaunchApp();
+                  else navigate('/app');
+                }}
+                className="flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-semibold bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-xl shadow-indigo-600/30 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-indigo-400/30"
+              >
+                <Terminal className="w-4 h-4" />
+                <span>Go to Studio / Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAuth('signup')}
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-semibold bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-xl shadow-indigo-600/30 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-indigo-400/30"
+                >
+                  <span>Get Started Free (250 Credits)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (onLaunchApp) onLaunchApp();
-                else navigate('/app');
-              }}
-              className="flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-semibold bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 text-slate-200 hover:text-white transition-all cursor-pointer shadow-lg"
-            >
-              <Terminal className="w-4 h-4 text-indigo-400" />
-              <span>Launch App Generator</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onLaunchApp) onLaunchApp();
+                    else navigate('/app');
+                  }}
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-semibold bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 text-slate-200 hover:text-white transition-all cursor-pointer shadow-lg"
+                >
+                  <Terminal className="w-4 h-4 text-indigo-400" />
+                  <span>Launch App Generator</span>
+                </button>
+              </>
+            )}
           </div>
 
           {/* Guarantee / Value Badges */}
@@ -510,6 +570,21 @@ export default function Landing({ onLaunchApp }) {
 
       {/* Interactive Companion Tutor for Public Landing Page */}
       <CourseTutor course={STARTER_COURSES[0]} mode="landing" />
+
+      {/* Accessible Landing Theme Toggle Widget */}
+      <button
+        type="button"
+        onClick={handleToggleTheme}
+        className="fixed bottom-6 left-6 z-40 flex items-center gap-2 px-3.5 py-2 rounded-full bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 shadow-xl backdrop-blur-md text-xs font-semibold transition-all cursor-pointer group"
+        title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+      >
+        {theme === 'light' ? (
+          <Sun className="w-4 h-4 text-amber-500" />
+        ) : (
+          <Moon className="w-4 h-4 text-indigo-400" />
+        )}
+        <span>Theme: {theme === 'light' ? 'Light' : 'Dark'}</span>
+      </button>
     </div>
   );
 }

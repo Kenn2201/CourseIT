@@ -1,9 +1,58 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.8.0 BETA',
+    date: 'September 17, 2026',
+    title: 'Consistency & Polish: Single Source of Truth for Version & Credits, Portalized Modals & Header Redesign',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Single Source of Truth for Versioning',
+        desc: 'Eliminated all version drift across UI surfaces, modals, badges, and documentation by routing through a centralized constants authority and VERSIONING.md guide.'
+      },
+      {
+        title: 'Single Source of Truth for Credit Balance',
+        desc: 'Created centralized CreditContext (useUserCredits) with live Appwrite sync; eliminated backend Math.floor precision loss and arbitrary / 250 display ceilings.'
+      },
+      {
+        title: 'Viewport-Centered Portals for All Modals',
+        desc: 'Mounted Changelog, Legal Consent, and Beta Feedback modals directly to document.body via React Portals, fixing scroll-position bugs on long pages.'
+      },
+      {
+        title: 'Mandatory First-Login Legal Consent Flow & Audit Trail',
+        desc: 'Added account-level Terms & Privacy consent verification stored in Appwrite user records for a persistent legal audit trail across devices, immediately followed by release notes onboarding.'
+      },
+      {
+        title: 'Sidebar & Footer Layout Separation',
+        desc: 'Embedded the footer inside the main content workspace column on dashboard routes, eliminating overlap and layout clipping with the sidebar.'
+      },
+      {
+        title: 'Softened Light Mode & Relocated Controls',
+        desc: 'Toned down glare with soft #f1f5f9 slate backgrounds, audited WCAG AAA/AA text contrast tokens, and added clearly labeled theme switches in the sidebar and landing page.'
+      },
+      {
+        title: 'Formatted Chatbot Typography Engine',
+        desc: 'Integrated FormattedChatText parser to render bold, italic, code tags, and bulleted lists cleanly without raw markdown asterisks.'
+      },
+      {
+        title: 'Consolidated Header & Internal Details Removal',
+        desc: 'Replaced separate credits pill and logout button with an elegant user menu dropdown, added prominent Dashboard link on landing page, and removed internal infrastructure labels ("Sydney").'
+      }
+    ],
+    notes: [
+      'Created src/constants/version.js and root maintenance documentation VERSIONING.md',
+      'Created src/context/CreditContext.jsx with dynamic formatting and live quota event synchronization',
+      'Replaced Math.floor with exact decimal precision in server/handler.js for accurate credit accounting',
+      'Stored consent timestamp and terms version directly on Appwrite account preferences for audit trail persistence',
+      'Engineered FormattedChatText.jsx for zero-dependency safe Markdown rendering in CourseTutor',
+      'Wrapped ChangelogModal, LegalConsentModal, TermsPrivacyModal, and FeedbackModal in createPortal',
+      'Moved Footer inside main container in Dashboard.jsx so it never wraps underneath DashboardSidebar'
+    ]
+  },
+  {
     version: 'v1.7.0 BETA',
     date: 'September 17, 2026',
     title: 'Dashboard Application Shell, Appwrite Serverless History, Light Mode Theming & Auth Hardening',
-    badge: 'Latest Release',
+    badge: 'Previous',
     highlights: [
       {
         title: 'Dashboard Application Shell & Sidebar',

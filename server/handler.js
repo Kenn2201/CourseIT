@@ -1072,21 +1072,22 @@ export async function deductCredit(userId = null, isAdmin = false, model = 'gemi
     const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
     if (db && databaseId) {
       try {
-        if (user.$id) {
-          await db.updateDocument(databaseId, 'users_quota', user.$id, {
-            quota_remaining: Math.floor(user.quota_remaining)
-          });
-        } else {
-          const existing = await db.listDocuments(databaseId, 'users_quota', [
-            Query.equal('user_id', userId)
-          ]);
-          if (existing.documents && existing.documents.length > 0) {
-            user.$id = existing.documents[0].$id;
+          const exactRemaining = Number(user.quota_remaining.toFixed(1));
+          if (user.$id) {
             await db.updateDocument(databaseId, 'users_quota', user.$id, {
-              quota_remaining: Math.floor(user.quota_remaining)
+              quota_remaining: exactRemaining
             });
+          } else {
+            const existing = await db.listDocuments(databaseId, 'users_quota', [
+              Query.equal('user_id', userId)
+            ]);
+            if (existing.documents && existing.documents.length > 0) {
+              user.$id = existing.documents[0].$id;
+              await db.updateDocument(databaseId, 'users_quota', user.$id, {
+                quota_remaining: exactRemaining
+              });
+            }
           }
-        }
       } catch (appwriteSyncErr) {
         console.warn('Appwrite quota sync note:', appwriteSyncErr.message);
       }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BookOpen, Sparkles, ExternalLink, Mail, Shield, FileText, Heart } from 'lucide-react';
 import TermsPrivacyModal from './TermsPrivacyModal';
+import { CURRENT_VERSION_LABEL } from '../constants/version';
 
 export default function Footer({ onOpenChangelog }) {
   const [legalModalOpen, setLegalModalOpen] = useState(false);
@@ -37,14 +38,14 @@ export default function Footer({ onOpenChangelog }) {
                   onClick={triggerChangelog}
                   className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors cursor-pointer"
                 >
-                  v1.7.0 BETA
+                  {CURRENT_VERSION_LABEL}
                 </button>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed">
                 The anti-fluff documentation synthesizer designed for developers with ADHD, documentation fatigue, and low attention spans. Turns 40-page API manuals into progressive action steps.
               </p>
               <div className="flex items-center gap-3 text-xs font-mono text-slate-500 pt-1">
-                <span>Appwrite Sydney</span>
+                <span>Appwrite Cloud Sync</span>
                 <span>•</span>
                 <span>Gemini Flash Engine</span>
                 <span>•</span>
@@ -168,7 +169,7 @@ export default function Footer({ onOpenChangelog }) {
                 onClick={triggerChangelog}
                 className="hover:text-indigo-400 transition-colors cursor-pointer"
               >
-                v1.7.0 Release Notes
+                {CURRENT_VERSION_LABEL} Release Notes
               </button>
             </div>
           </div>

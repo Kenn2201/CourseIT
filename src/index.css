@@ -16,6 +16,7 @@ body {
 
 /* =========================================================
    Universal Light Mode Overrides (Dashboard, Detail, Shell, Modals)
+   Softened #f1f5f9 background to eliminate glare with audited WCAG contrast
    ========================================================= */
 html.light {
   color-scheme: light;
@@ -26,46 +27,47 @@ html.light #root > div,
 html.light .landing-root,
 html.light [class*="bg-[#070913]"],
 html.light [class*="bg-[#030712]"] {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
   color: #0f172a !important;
 }
 
 html.light header {
-  background-color: rgba(255, 255, 255, 0.92) !important;
-  border-bottom-color: rgba(226, 232, 240, 0.9) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: #e2e8f0 !important;
 }
 
 html.light .glass-panel {
-  background: rgba(255, 255, 255, 0.92) !important;
-  border-color: rgba(226, 232, 240, 0.95) !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02) !important;
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02) !important;
 }
 
 html.light .glass-card {
   background: #ffffff !important;
   border-color: #e2e8f0 !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
 }
 
 html.light .glass-card:hover {
   background: #ffffff !important;
   border-color: rgba(99, 102, 241, 0.5) !important;
-  box-shadow: 0 12px 28px -8px rgba(99, 102, 241, 0.15) !important;
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.12) !important;
 }
 
 html.light .bg-slate-950,
-html.light .bg-slate-950\/80,
 html.light .bg-slate-950\/90,
+html.light .bg-slate-950\/85,
+html.light .bg-slate-950\/80,
 html.light .bg-slate-950\/95,
 html.light .bg-slate-950\/60,
 html.light .bg-slate-950\/40 {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
 }
 
 html.light .bg-slate-900,
+html.light .bg-slate-900\/95,
 html.light .bg-slate-900\/90,
 html.light .bg-slate-900\/80,
-html.light .bg-slate-900\/95,
 html.light .bg-slate-900\/60,
 html.light .bg-slate-900\/40 {
   background-color: #ffffff !important;
@@ -77,17 +79,19 @@ html.light .bg-slate-800,
 html.light .bg-slate-800\/80,
 html.light .bg-slate-800\/60,
 html.light .bg-slate-800\/40 {
-  background-color: #f1f5f9 !important;
+  background-color: #e2e8f0 !important;
 }
 
 html.light .border-slate-800,
 html.light .border-slate-800\/80,
+html.light .border-slate-800\/60,
 html.light .border-slate-800\/90,
 html.light .border-slate-700,
 html.light .border-slate-700\/80 {
   border-color: #e2e8f0 !important;
 }
 
+/* Headings & High-contrast Text */
 html.light h1,
 html.light h2,
 html.light h3,
@@ -98,16 +102,55 @@ html.light .text-slate-100 {
 }
 
 html.light .text-slate-200,
-html.light .text-slate-300 {
-  color: #334155 !important;
+html.light [class*="text-slate-200"],
+html.light .text-slate-300,
+html.light [class*="text-slate-300"] {
+  color: #1e293b !important;
 }
 
-html.light .text-slate-400 {
-  color: #64748b !important;
+/* Audited WCAG High-Contrast Secondary Text */
+html.light .text-slate-400,
+html.light [class*="text-slate-400"] {
+  color: #334155 !important; /* Slate 700 - ultra crisp high contrast on #f1f5f9 */
 }
 
 html.light .text-slate-500 {
-  color: #94a3b8 !important;
+  color: #475569 !important; /* Slate 600 - WCAG AAA compliant */
+}
+
+/* High-Contrast Readable Colored Accents for Light Backgrounds */
+html.light .text-indigo-200,
+html.light .text-indigo-300,
+html.light .text-indigo-400 {
+  color: #4338ca !important; /* Indigo 700 */
+}
+
+html.light .text-emerald-200,
+html.light .text-emerald-300,
+html.light .text-emerald-400 {
+  color: #047857 !important; /* Emerald 700 */
+}
+
+html.light .text-amber-200,
+html.light .text-amber-300,
+html.light .text-amber-400 {
+  color: #b45309 !important; /* Amber 700 */
+}
+
+html.light .text-violet-200,
+html.light .text-violet-300,
+html.light .text-violet-400 {
+  color: #6d28d9 !important; /* Violet 700 */
+}
+
+html.light .text-rose-200,
+html.light .text-rose-300,
+html.light .text-rose-400 {
+  color: #b91c1c !important; /* Rose 700 */
+}
+
+html.light .landing-root .opacity-45 {
+  opacity: 0.12 !important;
 }
 
 html.light input,
@@ -120,7 +163,7 @@ html.light select {
 
 html.light input::placeholder,
 html.light textarea::placeholder {
-  color: #94a3b8 !important;
+  color: #64748b !important;
 }
 
 /* Custom glow and backdrop effects */

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MessageSquarePlus, Star, X, Loader2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { getAuthState } from '../lib/auth';
+import { CURRENT_VERSION_LABEL } from '../constants/version';
 
 const CATEGORIES = [
   'Bug Report',
@@ -65,7 +67,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150">
       <div className="relative w-full max-w-lg rounded-3xl bg-slate-900 border border-indigo-500/30 p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
         <button
@@ -97,7 +99,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-bold text-white">Beta Feedback</h3>
                   <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-mono">
-                    v1.4 BETA
+                    {CURRENT_VERSION_LABEL}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">Help us polish the action-first experience</p>
@@ -209,6 +211,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

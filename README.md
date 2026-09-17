@@ -179,6 +179,15 @@ To connect and deploy the repository to Netlify:
    * **Functions directory**: `netlify/functions` (auto-detected via `netlify.toml`)
 3. **Environment Variables**: Under **Site configuration > Environment variables**, add all environment variables listed above.
 4. **Trigger Clean Deploy**: If environment variables are added or changed, click **Deploys > Trigger deploy > Clear cache and deploy site** to ensure Vite compiles the frontend bundle with the latest values.
+5. **Authorize Appwrite Web Platform (CORS)**:
+   * Open your [Appwrite Cloud Console](https://syd.cloud.appwrite.io) (Sydney `syd1`).
+   * Navigate to your project > **Overview** (or **Settings**) > **Platforms**.
+   * Click **Add Platform** > **Web App**.
+   * Enter:
+     * **Name**: `CourseIT Production`
+     * **Hostname**: `courseitai.kenncode.me`
+   * *(Optional)* Add a secondary platform with Hostname `*.netlify.app` or your preview domain.
+   * *Critical*: Without registering your domain as a Web Platform, Appwrite Cloud will reject client-side authentication and session requests with `403 Forbidden` and block CORS.
 
 ---
 

@@ -40,6 +40,27 @@ export function getAuthState() {
 }
 
 /**
+ * Formats authentication and network errors into clear actionable messages,
+ * specifically identifying Appwrite Web Platform CORS allowlist restrictions.
+ */
+export function formatAuthError(err) {
+  if (!err) return 'An unknown authentication error occurred.';
+  const msg = err.message || String(err);
+  if (
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('Network request failed') ||
+    err?.code === 403 ||
+    msg.includes('CORS') ||
+    msg.includes('blocked by CORS')
+  ) {
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'courseitai.kenncode.me';
+    return `Appwrite CORS Restriction: Hostname "${hostname}" is not registered as an authorized Web Platform in Appwrite Cloud. In your Appwrite Console (syd.cloud.appwrite.io), open your project, go to Overview > Platforms > Add Platform > Web App, and enter "${hostname}".`;
+  }
+  return msg;
+}
+
+/**
  * Signup with Appwrite Email/Password.
  * Registers the user, creates quota with status 'pending', and DOES NOT log in.
  */
@@ -56,7 +77,7 @@ export async function signupWithEmail(name, email, password) {
   try {
     newUser = await acc.create(userId, email, password, name);
   } catch (err) {
-    throw new Error(`Signup failed: ${err.message}`);
+    throw new Error(formatAuthError(err));
   }
 
   // 2. Register user in quota system with status 'pending'
@@ -129,7 +150,7 @@ export async function loginWithEmail(email, password) {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
     return authState;
   } catch (err) {
-    throw new Error(err.message || 'Invalid email or password.');
+    throw new Error(formatAuthError(err));
   }
 }
 

@@ -34,7 +34,7 @@ export default function Footer({ onOpenChangelog }) {
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md">
                   <BookOpen className="w-4 h-4" />
                 </div>
-                <span className="font-bold text-lg text-white tracking-tight">CourseIT</span>
+                <span className="font-bold text-lg text-white tracking-tight">CourseIT Ai</span>
                 <button
                   type="button"
                   onClick={triggerChangelog}
@@ -46,12 +46,29 @@ export default function Footer({ onOpenChangelog }) {
               <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed">
                 The anti-fluff documentation synthesizer designed for developers with ADHD, documentation fatigue, and low attention spans. Turns 40-page API manuals into progressive action steps.
               </p>
-              <div className="flex items-center gap-3 text-xs font-mono text-slate-500 pt-1">
-                <span>Appwrite Cloud Sync</span>
-                <span>•</span>
-                <span>Gemini Flash Engine</span>
-                <span>•</span>
-                <span>Verified Resend Delivery</span>
+              <div className="pt-2">
+                <div className="inline-flex flex-wrap items-center gap-2 p-1.5 px-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-slate-400">
+                  <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Powered by</span>
+                  <span className="text-teal-400 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                    Netlify
+                  </span>
+                  <span className="text-slate-700">&bull;</span>
+                  <span className="text-pink-400 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
+                    Appwrite
+                  </span>
+                  <span className="text-slate-700">&bull;</span>
+                  <span className="text-indigo-400 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                    Google Gemini
+                  </span>
+                  <span className="text-slate-700">&bull;</span>
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Resend
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -149,7 +166,7 @@ export default function Footer({ onOpenChangelog }) {
           {/* Bottom Strip: Copyright & Terms */}
           <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-mono">
             <div className="flex items-center gap-2">
-              <span>&copy; {new Date().getFullYear()} CourseIT. All rights reserved.</span>
+              <span>&copy; {new Date().getFullYear()} CourseIT Ai. All rights reserved.</span>
               <span>•</span>
               <span>Built by Kenn Nacario</span>
             </div>

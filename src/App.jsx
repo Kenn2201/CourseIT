@@ -10,13 +10,32 @@ import Profile from './pages/Profile';
 import AuthCallback from './pages/AuthCallback';
 import FeedbackModal from './components/FeedbackModal';
 import LegalConsentModal from './components/LegalConsentModal';
+import Maintenance from './pages/Maintenance';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { hasUserConsented } from './lib/auth';
 
 function AppContent() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isAdmin } = useAuth();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
+  const [isMaintenance, setIsMaintenance] = useState(() => {
+    return (
+      import.meta.env.VITE_MAINTENANCE_MODE === 'true' ||
+      localStorage.getItem('courseit_maintenance_mode') === 'true'
+    );
+  });
+
+  useEffect(() => {
+    const handleMaintenanceChange = () => {
+      setIsMaintenance(
+        import.meta.env.VITE_MAINTENANCE_MODE === 'true' ||
+        localStorage.getItem('courseit_maintenance_mode') === 'true'
+      );
+    };
+
+    window.addEventListener('courseit_maintenance_changed', handleMaintenanceChange);
+    return () => window.removeEventListener('courseit_maintenance_changed', handleMaintenanceChange);
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated && user && !hasUserConsented(user)) {
@@ -32,6 +51,19 @@ function AppContent() {
       window.dispatchEvent(new CustomEvent('courseit_open_changelog'));
     }, 200);
   };
+
+  // If maintenance mode is active, block non-admin users across the app
+  const hasBypass = sessionStorage.getItem('courseit_maintenance_bypass') === 'true';
+  if (isMaintenance && !isAdmin && !hasBypass) {
+    return (
+      <Maintenance
+        onBypass={() => {
+          sessionStorage.setItem('courseit_maintenance_bypass', 'true');
+          window.location.reload();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-200">

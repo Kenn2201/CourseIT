@@ -1,9 +1,46 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.11.0 LIVE',
+    date: 'September 17, 2026',
+    title: 'Production Live Release, Netlify Serverless Routing & Security Hardening',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Complete Security Audit & Credential Scrubbing',
+        desc: 'Scrubbed all hardcoded project, database, and collection IDs from tracked configuration and source files (appwrite.json, appwrite.js, server/handler.js, functions/summarize), migrating entirely to strict environment variables for public repo readiness.'
+      },
+      {
+        title: 'Universal Netlify Serverless API Routing',
+        desc: 'Deployed netlify/functions/api.js with serverless wildcard redirects, handling all 11 backend endpoints with Appwrite session JWT cryptographic verification.'
+      },
+      {
+        title: 'Platform Maintenance Mode with Admin Bypass',
+        desc: 'Added animated Maintenance.jsx screen with live status pills, Admin Bypass modal, and dynamic administrative toggle in the Admin panel.'
+      },
+      {
+        title: 'Profile Overhaul & Custom Avatar Photo Upload',
+        desc: 'Enabled client-side custom profile picture upload with 256x256 cover crop compression and instant cross-component synchronization, while preserving curated preset icons.'
+      },
+      {
+        title: 'Account Summary & Workspace Metrics',
+        desc: 'Replaced redundant course list in Profile with live telemetry cards (custom syntheses count isolated from starter templates, reasoning credits, tokens consumed, cloud node) and direct link to Studio Dashboard.'
+      },
+      {
+        title: 'Global Rebranding to CourseIT Ai & Tech Badges',
+        desc: 'Standardized brand identity to CourseIT Ai across all page titles, metadata, Navbar, and Footer; added "Powered by Netlify • Appwrite • Google Gemini • Resend" badge strip.'
+      }
+    ],
+    notes: [
+      'Protected AdminModal from unhandled exceptions in onAuthChange with try/catch/finally to prevent freezing',
+      'Added autoComplete attributes and overflow scroll locks to authentication modal',
+      'Pre-emptively cleared stale Appwrite sessions on login to avoid active session conflicts',
+      'Isolated starter templates from custom user queries with includeCurated=false parameter in listCourses()'
+    ]
+  },
+  {
     version: 'v1.10.0 BETA',
     date: 'September 17, 2026',
     title: 'Guest Flow Restoration, Anti-Fluff Enforcement & Platform Polish',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'Guest Flow Regression Fix',

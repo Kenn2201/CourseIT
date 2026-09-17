@@ -23,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import ChangelogModal from './ChangelogModal';
 import AdminModal from './AdminModal';
 import FeedbackModal from './FeedbackModal';
+import { AVATAR_PRESETS } from '../constants/presets';
 
 export default function Navbar() {
   const isLive = isAppwriteConfigured();
@@ -38,6 +39,38 @@ export default function Navbar() {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+
+  const [customPfpImg, setCustomPfpImg] = useState(() => {
+    try {
+      return localStorage.getItem('courseit_custom_pfp_img');
+    } catch {
+      return null;
+    }
+  });
+  const [selectedAvatarId, setSelectedAvatarId] = useState(() => {
+    try {
+      return localStorage.getItem('courseit_custom_pfp') || 'grad-1';
+    } catch {
+      return 'grad-1';
+    }
+  });
+
+  useEffect(() => {
+    const handlePfpSync = () => {
+      try {
+        setCustomPfpImg(localStorage.getItem('courseit_custom_pfp_img'));
+        setSelectedAvatarId(localStorage.getItem('courseit_custom_pfp') || 'grad-1');
+      } catch {}
+    };
+    window.addEventListener('courseit_pfp_updated', handlePfpSync);
+    window.addEventListener('storage', handlePfpSync);
+    return () => {
+      window.removeEventListener('courseit_pfp_updated', handlePfpSync);
+      window.removeEventListener('storage', handlePfpSync);
+    };
+  }, []);
+
+  const activePreset = AVATAR_PRESETS.find(a => a.id === selectedAvatarId) || AVATAR_PRESETS[0];
 
   // Close user menu on outside click or route change
   useEffect(() => {
@@ -113,7 +146,7 @@ export default function Navbar() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-white tracking-tight">CourseIT</span>
+                <span className="font-bold text-lg text-white tracking-tight">CourseIT Ai</span>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -206,8 +239,12 @@ export default function Navbar() {
                   aria-expanded={isUserMenuOpen}
                   aria-haspopup="true"
                 >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-xs text-white font-bold group-hover:scale-105 transition-transform">
-                    {authState?.user?.name?.[0]?.toUpperCase() || 'U'}
+                  <div className={`w-6 h-6 rounded-full overflow-hidden bg-gradient-to-tr ${activePreset.bg} flex items-center justify-center text-xs text-white font-bold group-hover:scale-105 transition-transform border border-white/10 shrink-0`}>
+                    {customPfpImg ? (
+                      <img src={customPfpImg} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{activePreset.icon || authState?.user?.name?.[0]?.toUpperCase() || 'U'}</span>
+                    )}
                   </div>
                   <span className="font-semibold text-white truncate max-w-[90px] sm:max-w-[120px]">
                     {authState?.user?.name || 'User'}
@@ -223,9 +260,20 @@ export default function Navbar() {
                   <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-800 shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95">
                     {/* User Info & Credit Status Header */}
                     <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 mb-2">
-                      <p className="text-xs font-bold text-white truncate">{authState?.user?.name || 'User'}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{authState?.user?.email || ''}</p>
-                      <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className={`w-8 h-8 rounded-xl overflow-hidden bg-gradient-to-tr ${activePreset.bg} flex items-center justify-center text-sm text-white font-bold shrink-0 border border-white/10`}>
+                          {customPfpImg ? (
+                            <img src={customPfpImg} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{activePreset.icon || authState?.user?.name?.[0]?.toUpperCase() || 'U'}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-white truncate">{authState?.user?.name || 'User'}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{authState?.user?.email || ''}</p>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between">
                         <span className="text-[11px] text-slate-400">Credits Available</span>
                         <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
                           {formatCredits(credits)} Cr

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ShieldCheck, Mail, Lock, User, LogOut, CheckCircle2, AlertCircle, ArrowRight, KeyRound, Sparkles, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import {
@@ -10,8 +10,8 @@ import {
   requestPasswordReset
 } from '../lib/auth';
 
-export default function AdminModal({ isOpen, onClose, authState, onAuthChange }) {
-  const [tab, setTab] = useState('login'); // 'login' | 'signup' | 'forgot'
+export default function AdminModal({ isOpen, onClose, authState, onAuthChange, initialMode = 'login' }) {
+  const [tab, setTab] = useState(initialMode || 'login'); // 'login' | 'signup' | 'forgot'
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,6 +21,19 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTab(initialMode || 'login');
+      setError('');
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, initialMode]);
 
   if (!isOpen) return null;
 
@@ -32,10 +45,15 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
     try {
       const state = await loginWithEmail(email, password);
       setLoginSuccess(true);
-      setTimeout(() => {
-        onAuthChange(state);
-        setLoginSuccess(false);
-        onClose();
+      setTimeout(async () => {
+        try {
+          if (onAuthChange) await onAuthChange(state);
+        } catch (callbackErr) {
+          console.warn('onAuthChange error (handled):', callbackErr);
+        } finally {
+          setLoginSuccess(false);
+          onClose();
+        }
       }, 750);
     } catch (err) {
       setError(err.message || 'Login failed. Please check credentials.');
@@ -107,9 +125,9 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-      <div className="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+      <div className="glass-panel w-full max-w-md my-auto rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-hidden">
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-mono mb-2">
@@ -283,6 +301,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                     <input
                       type="email"
                       required
+                      autoComplete="email"
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -308,6 +327,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
+                      autoComplete="current-password"
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -349,6 +369,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                     <input
                       type="text"
                       required
+                      autoComplete="name"
                       placeholder="Alex Mercer"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -365,6 +386,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                     <input
                       type="email"
                       required
+                      autoComplete="email"
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -381,6 +403,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
+                      autoComplete="new-password"
                       minLength={8}
                       placeholder="Min 8 characters"
                       value={password}
@@ -423,6 +446,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange })
                     <input
                       type="email"
                       required
+                      autoComplete="email"
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}

@@ -1,20 +1,20 @@
 {
-  "projectId": "6aaa6efb002017f29b1a",
+  "projectId": "YOUR_APPWRITE_PROJECT_ID",
   "projectName": "courseit",
   "databases": [
     {
-      "$id": "6aaa6f9c0016a0c52d4a",
+      "$id": "YOUR_APPWRITE_DATABASE_ID",
       "name": "courseit",
       "enabled": true
     }
   ],
   "collections": [
     {
-      "$id": "6aaa6fef000b2b0129c4",
+      "$id": "YOUR_APPWRITE_COLLECTION_ID",
       "$permissions": [
         "read(\"any\")"
       ],
-      "databaseId": "6aaa6f9c0016a0c52d4a",
+      "databaseId": "YOUR_APPWRITE_DATABASE_ID",
       "name": "courses",
       "enabled": true,
       "documentSecurity": false,
@@ -52,7 +52,7 @@
         "create(\"any\")",
         "update(\"any\")"
       ],
-      "databaseId": "6aaa6f9c0016a0c52d4a",
+      "databaseId": "YOUR_APPWRITE_DATABASE_ID",
       "name": "users_quota",
       "enabled": true,
       "documentSecurity": false,

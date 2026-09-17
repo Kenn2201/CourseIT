@@ -3,7 +3,7 @@ import { Client, Databases, Storage, ID, Query } from 'appwrite';
 const ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1';
 const PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || '';
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '';
-const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_ID || '6aaa6fef000b2b0129c4';
+const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_ID || '';
 export const BUCKET_DOCS_ID = 'course_docs';
 
 const LOCAL_STORAGE_KEY = 'courseit_saved_courses';
@@ -187,19 +187,21 @@ import { STARTER_COURSES } from '../data/starterCourses';
  * Fetch list of courses: combines curated starter templates visible to all users
  * with user-specific or admin-managed custom courses.
  */
-export async function listCourses(userId = null, isAdmin = false) {
+export async function listCourses(userId = null, isAdmin = false, includeCurated = true) {
   // Guests and unauthenticated visitors ONLY see public starter templates + current session guest courses
   if (!userId || userId === 'public_guest') {
     const local = getLocalCourses().filter(c => c.is_guest || c.creator_id === 'public_guest');
     const allMap = new Map();
-    STARTER_COURSES.forEach(c => allMap.set(c.$id, c));
+    if (includeCurated) {
+      STARTER_COURSES.forEach(c => allMap.set(c.$id, c));
+    }
     local.forEach(c => allMap.set(c.$id, c));
     return Array.from(allMap.values());
   }
 
   let customCourses = [];
 
-  if (databases && isAppwriteConfigured()) {
+  if (databases && isAppwriteConfigured() && DATABASE_ID && COLLECTION_ID) {
     try {
       const queries = [Query.orderDesc('$createdAt')];
       // If regular authenticated user, strictly filter by creator_id
@@ -220,6 +222,11 @@ export async function listCourses(userId = null, isAdmin = false) {
     }
   } else {
     customCourses = getLocalCourses().filter(c => !c.is_curated && (isAdmin || c.creator_id === userId));
+  }
+
+  // If includeCurated is false (e.g., in Profile stats/my courses), return strictly user's custom courses
+  if (!includeCurated) {
+    return customCourses.filter(c => !c.is_curated && !c.$id?.startsWith('starter-'));
   }
 
   // Merge STARTER_COURSES first so catalog templates are always present

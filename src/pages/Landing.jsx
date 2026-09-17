@@ -200,7 +200,7 @@ export default function Landing({ onLaunchApp }) {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-mono shadow-lg shadow-indigo-500/10 hover:bg-indigo-500/20 hover:border-indigo-500/40 transition-all cursor-pointer"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>CourseIT {CURRENT_VERSION_LABEL} • Zero-AI-Fluff Action Engine</span>
+            <span>CourseIT Ai {CURRENT_VERSION_LABEL} • Zero-AI-Fluff Action Engine</span>
           </button>
 
           {/* Main Headline */}
@@ -217,7 +217,7 @@ export default function Landing({ onLaunchApp }) {
               ⚡ Built for developers with ADHD, documentation fatigue, or low attention spans. Zero AI fluff.
             </p>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Developers spend 40% of their time decoding 40-page API documentation. CourseIT distills documentation URLs and tutorial scans into progressive numbered steps with clean code snippets (TypeScript, GDScript, Rust, Python) and zero-fluff pro-tips.
+              Developers spend 40% of their time decoding 40-page API documentation. CourseIT Ai distills documentation URLs and tutorial scans into progressive numbered steps with clean code snippets (TypeScript, GDScript, Rust, Python) and zero-fluff pro-tips.
             </p>
           </div>
 
@@ -297,7 +297,7 @@ export default function Landing({ onLaunchApp }) {
               Why Action-First Learning?
             </h2>
             <p className="text-sm text-slate-400 mt-2 leading-relaxed">
-              Traditional documentation is designed as an exhaustive reference archive, not a learning path. CourseIT flips the model: learn by building.
+              Traditional documentation is designed as an exhaustive reference archive, not a learning path. CourseIT Ai flips the model: learn by building.
             </p>
           </div>
 
@@ -328,7 +328,7 @@ export default function Landing({ onLaunchApp }) {
             <div className="p-6 rounded-3xl bg-indigo-950/20 border border-indigo-500/30 space-y-4 shadow-lg shadow-indigo-950/30">
               <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>CourseIT Action-First Curriculum</span>
+                <span>CourseIT Ai Action-First Curriculum</span>
               </div>
               <ul className="space-y-2.5 text-xs text-slate-300">
                 <li className="flex items-start gap-2">
@@ -357,7 +357,7 @@ export default function Landing({ onLaunchApp }) {
             <span>Workflow Pipeline</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            How CourseIT Synthesizes Learning
+            How CourseIT Ai Synthesizes Learning
           </h2>
         </div>
 
@@ -540,14 +540,20 @@ export default function Landing({ onLaunchApp }) {
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               type="button"
-              onClick={() => handleOpenAuth('signup')}
+              onClick={(e) => {
+                e.preventDefault();
+                handleOpenAuth('signup');
+              }}
               className="px-6 py-3 rounded-2xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
             >
               Request Beta Access (250 Credits) &rarr;
             </button>
             <button
               type="button"
-              onClick={() => handleOpenAuth('login')}
+              onClick={(e) => {
+                e.preventDefault();
+                handleOpenAuth('login');
+              }}
               className="px-6 py-3 rounded-2xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-all cursor-pointer"
             >
               Existing User Sign In
@@ -569,6 +575,7 @@ export default function Landing({ onLaunchApp }) {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         authState={authState}
+        initialMode={authInitialMode}
         onAuthChange={() => {
           setIsAuthModalOpen(false);
           window.location.reload();

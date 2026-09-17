@@ -29,7 +29,8 @@ import {
   CheckCheck,
   Sparkles,
   Link2,
-  UploadCloud
+  UploadCloud,
+  Wrench
 } from 'lucide-react';
 import { getAuthState, checkAppwriteSession, authenticatedFetch, ADMIN_EMAIL } from '../lib/auth';
 import { useAuth } from '../context/AuthContext';
@@ -65,8 +66,23 @@ export default function Admin() {
   const [customRecipientType, setCustomRecipientType] = useState('broadcast'); // 'broadcast' | 'single'
   const [customRecipientEmail, setCustomRecipientEmail] = useState('');
   const [customEmailSubject, setCustomEmailSubject] = useState('Welcome to CourseIT Beta!');
-  const [customEmailBody, setCustomEmailBody] = useState('Hi Beta Tester,\n\nThanks for participating in the CourseIT Beta! You now have access to high-speed documentation synthesis, client-side OCR, and 250 test credits.\n\nEnjoy testing!\n- Kenn & The CourseIT Team');
   const [isSendingCustomEmail, setIsSendingCustomEmail] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState(() => {
+    return localStorage.getItem('courseit_maintenance_mode') === 'true' || import.meta.env.VITE_MAINTENANCE_MODE === 'true';
+  });
+
+  const handleToggleMaintenance = () => {
+    const next = !maintenanceMode;
+    setMaintenanceMode(next);
+    localStorage.setItem('courseit_maintenance_mode', String(next));
+    window.dispatchEvent(new Event('courseit_maintenance_changed'));
+    setNotification({
+      type: 'success',
+      message: next
+        ? 'Platform Maintenance Mode ENABLED. Public access is now locked.'
+        : 'Platform Maintenance Mode DISABLED. Application is now live to the public!'
+    });
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -499,6 +515,49 @@ export default function Admin() {
             <Archive className="w-5 h-5" />
           </div>
         </div>
+      </div>
+
+      {/* Platform Status & Maintenance Mode Banner */}
+      <div className="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${
+            maintenanceMode
+              ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 animate-pulse'
+              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+          }`}>
+            {maintenanceMode ? <Wrench className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white">Platform Public Access</h3>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                maintenanceMode
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+              }`}>
+                {maintenanceMode ? 'MAINTENANCE MODE ACTIVE' : 'LIVE & ACCEPTING TRAFFIC'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {maintenanceMode
+                ? 'Public generation and course views are locked. Visitors see the Scheduled Maintenance screen.'
+                : 'Normal production operations active. All visitors and beta testers can access courses & generate.'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleToggleMaintenance}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
+            maintenanceMode
+              ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25'
+              : 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300'
+          }`}
+        >
+          <Wrench className="w-3.5 h-3.5" />
+          <span>{maintenanceMode ? 'Disable Maintenance (Go Live)' : 'Enable Maintenance Mode'}</span>
+        </button>
       </div>
 
       {/* Main Tabs Switcher */}

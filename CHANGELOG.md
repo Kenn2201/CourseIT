@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-09-17 — Production Live Release, Netlify Serverless Routing & Security Hardening
+
+### Security & Credential Scrubbing
+- **Complete Public Repository Audit**:
+  - Completely scrubbed all hardcoded project IDs, database IDs, and collection IDs (`6aaa6fef000b2b0129c4`, `6aaa6f9c0016a0c52d4a`, `6aaa6efb002017f29b1a`) across `appwrite.json`, `src/lib/appwrite.js`, `server/handler.js`, and `functions/summarize/src/main.js`.
+  - Migrated entire configuration to strict environment variables (`process.env.*` and `import.meta.env.*`) with safe fallbacks ensuring no crash when env variables are absent during build.
+  - Verified with repository-wide automated regex grep scanning — zero hardcoded Appwrite IDs remain in tracked files.
+
+### Backend & Deployment
+- **Universal Netlify Serverless API Routing**:
+  - Deployed `netlify/functions/api.js` routing all 11 backend REST endpoints (`/api/summarize`, `/api/user/*`, `/api/feedback`, `/api/admin/*`, `/api/courses/delete`) in a single serverless function.
+  - Configured `netlify.toml` with `[[redirects]]` routing `/api/*` to `/.netlify/functions/api/:splat`.
+  - Cryptographically verifies Appwrite user session JWTs (`account.get()`) across all protected endpoints, preserving 100% parity with local development.
+
+### Platform Features & UX
+- **Platform Maintenance Mode**:
+  - Implemented `src/pages/Maintenance.jsx` with real-time operational status pills, estimated completion timer, and Admin Bypass modal (`/maintenance?bypass=admin` or secret passcode).
+  - Wired global maintenance route guard in `App.jsx` checking `VITE_MAINTENANCE_MODE` and `localStorage.getItem('courseit_maintenance_mode')`.
+  - Added interactive "Platform Public Access" toggle banner in `src/pages/Admin.jsx` allowing administrators to toggle maintenance mode on/off on demand.
+- **Profile Overhaul & Custom Avatar Photo Upload**:
+  - Built client-side custom profile photo uploader in `src/pages/Profile.jsx` with automatic 256x256 cover cropping and JPEG compression.
+  - Stored optimized image in `localStorage` under `courseit_custom_pfp_img` and wired instant cross-component synchronization via `courseit_pfp_updated` events.
+  - Synced custom avatars to `Navbar.jsx` user status pill and dropdown menu.
+  - Preserved curated preset icons (`AVATAR_PRESETS`) with seamless switching.
+  - Replaced redundant "Your Stored Courses" list in Profile with a comprehensive **Account Summary & Workspace Metrics** dashboard (user-authored courses count isolated from starters, Gemini reasoning credits, processed tokens, cloud sync node) with direct link to the Studio Dashboard.
+- **Authentication Modal Polish & Stability**:
+  - Wrapped `onAuthChange` in `AdminModal.jsx` within `try / catch / finally` blocks to permanently eliminate modal freezing on `"Loading your workspace..."`.
+  - Added `autoComplete` attributes (`email`, `current-password`, `new-password`, `name`) resolving browser DOM warnings.
+  - Enforced body scroll locks (`overflow: hidden`) on modal open and added `my-auto` / `overflow-y-auto` preventing modal clipping on mobile and compact viewports.
+  - Added pre-emptive session deletion in `src/lib/auth.js` (`account.deleteSession('current')`) preventing Appwrite active session collision errors during login.
+- **Global Rebranding & Tech Badges**:
+  - Rebranded platform identity to **CourseIT Ai** across document titles, page headers, Navbar, and Footer.
+  - Added "Powered by Netlify • Appwrite • Google Gemini • Resend" tech badge strip in `Footer.jsx`.
+
 ## [1.10.0-beta] - 2026-09-17 — Guest Flow Restoration, Anti-Fluff Enforcement & Platform Polish
 
 ### Fixed & Restored

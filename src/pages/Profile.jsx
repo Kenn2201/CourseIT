@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   User,
@@ -6,35 +6,30 @@ import {
   ShieldCheck,
   Zap,
   Clock,
-  Trash2,
   KeyRound,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
   LogOut,
-  ExternalLink,
   Archive,
   Cpu,
   Camera,
-  Check,
-  Lock
+  Upload,
+  Image as ImageIcon,
+  Lock,
+  BookOpen,
+  Sparkles,
+  Layers,
+  Trash2
 } from 'lucide-react';
-import { requestPasswordReset, ADMIN_EMAIL, authenticatedFetch } from '../lib/auth';
-import { listCourses, saveLocalCourse } from '../lib/appwrite';
+import { requestPasswordReset } from '../lib/auth';
+import { listCourses } from '../lib/appwrite';
 import { useAuth } from '../context/AuthContext';
+import { AVATAR_PRESETS } from '../constants/presets';
 import ArchiveAccountModal from '../components/ArchiveAccountModal';
-import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import AdminModal from '../components/AdminModal';
-
-const AVATAR_PRESETS = [
-  { id: 'grad-1', bg: 'from-indigo-600 to-violet-600', icon: '🧠', label: 'Indigo Mind' },
-  { id: 'grad-2', bg: 'from-emerald-500 to-teal-600', icon: '⚡', label: 'Emerald Spark' },
-  { id: 'grad-3', bg: 'from-amber-500 to-orange-600', icon: '🚀', label: 'Amber Rocket' },
-  { id: 'grad-4', bg: 'from-rose-500 to-pink-600', icon: '👾', label: 'Cyber Rose' },
-  { id: 'grad-5', bg: 'from-cyan-500 to-blue-600', icon: '💻', label: 'Cyan Terminal' },
-  { id: 'grad-6', bg: 'from-purple-600 to-indigo-900', icon: '🛡️', label: 'Shield Master' }
-];
 
 const MODEL_TIERS = [
   { name: 'Flash Lite (Latest)', cost: '0.5 credits', desc: 'Fastest generation (~0.8s), great for standard guides' },
@@ -45,49 +40,140 @@ const MODEL_TIERS = [
 
 export default function Profile() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   const { user, isAuthenticated, isAdmin, isPending, quota, credits, logout, loading: authLoading } = useAuth();
   const authState = { user, isAuthenticated, isAdmin, isPending, quota };
-  const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
+  const [coursesCount, setCoursesCount] = useState(0);
+  const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [notification, setNotification] = useState(null);
   const [resettingPass, setResettingPass] = useState(false);
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [courseToDelete, setCourseToDelete] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedAvatarId, setSelectedAvatarId] = useState(() => localStorage.getItem('courseit_custom_pfp') || 'grad-1');
-  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
-
-  const handleSelectAvatar = (pfpId) => {
-    setSelectedAvatarId(pfpId);
+  
+  const [selectedAvatarId, setSelectedAvatarId] = useState(() => {
     try {
-      localStorage.setItem('courseit_custom_pfp', pfpId);
-    } catch {}
-    setIsEditingAvatar(false);
-    setNotification({
-      type: 'success',
-      message: 'Profile avatar style updated successfully!'
-    });
-  };
+      return localStorage.getItem('courseit_custom_pfp') || 'grad-1';
+    } catch {
+      return 'grad-1';
+    }
+  });
+
+  const [customPfpImg, setCustomPfpImg] = useState(() => {
+    try {
+      return localStorage.getItem('courseit_custom_pfp_img') || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+  const [avatarTab, setAvatarTab] = useState('preset'); // 'preset' | 'upload'
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       loadUserData(user.id, isAdmin);
     } else if (!authLoading && !isAuthenticated) {
-      setLoading(false);
+      setLoadingMetrics(false);
     }
   }, [isAuthenticated, user?.id, isAdmin, authLoading]);
 
   const loadUserData = async (userId, userIsAdmin) => {
-    setLoading(true);
+    setLoadingMetrics(true);
     try {
-      const allCourses = await listCourses(userId, userIsAdmin);
-      setCourses(allCourses || []);
+      // includeCurated = false strictly loads only custom user syntheses, avoiding starter templates
+      const userCourses = await listCourses(userId, userIsAdmin, false);
+      setCoursesCount(Array.isArray(userCourses) ? userCourses.length : 0);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load user courses count:', err);
     } finally {
-      setLoading(false);
+      setLoadingMetrics(false);
     }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setNotification({
+        type: 'error',
+        message: 'Please select a valid image file (JPEG, PNG, or WEBP).'
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setNotification({
+        type: 'error',
+        message: 'Image size exceeds 5MB limit. Please choose a smaller image.'
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 256;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // Draw cropped cover
+        const minDim = Math.min(img.width, img.height);
+        const startX = (img.width - minDim) / 2;
+        const startY = (img.height - minDim) / 2;
+
+        ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, size, size);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        try {
+          localStorage.setItem('courseit_custom_pfp_img', dataUrl);
+          setCustomPfpImg(dataUrl);
+          window.dispatchEvent(new Event('courseit_pfp_updated'));
+          setNotification({
+            type: 'success',
+            message: 'Custom profile photo uploaded & saved successfully!'
+          });
+        } catch (err) {
+          setNotification({
+            type: 'error',
+            message: 'Unable to save image locally due to browser storage quota.'
+          });
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveCustomPfp = () => {
+    try {
+      localStorage.removeItem('courseit_custom_pfp_img');
+      setCustomPfpImg(null);
+      window.dispatchEvent(new Event('courseit_pfp_updated'));
+      setNotification({
+        type: 'success',
+        message: 'Custom photo removed. Switched back to preset avatar.'
+      });
+    } catch {}
+  };
+
+  const handleSelectPreset = (pfpId) => {
+    setSelectedAvatarId(pfpId);
+    try {
+      localStorage.setItem('courseit_custom_pfp', pfpId);
+      localStorage.removeItem('courseit_custom_pfp_img');
+      setCustomPfpImg(null);
+      window.dispatchEvent(new Event('courseit_pfp_updated'));
+    } catch {}
+    setNotification({
+      type: 'success',
+      message: 'Profile avatar updated to preset icon!'
+    });
   };
 
   const handlePasswordReset = async () => {
@@ -111,46 +197,6 @@ export default function Profile() {
     }
   };
 
-  const handleConfirmDeleteCourse = async (course) => {
-    if (!course) return;
-    setIsDeleting(true);
-    try {
-      const res = await authenticatedFetch('/api/courses/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          courseId: course.$id,
-          userId: user?.id,
-          userEmail: user?.email
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok || data.success === false) {
-        throw new Error(data.error || 'Failed to delete course');
-      }
-
-      const updated = courses.filter(c => c.$id !== course.$id);
-      setCourses(updated);
-      try {
-        localStorage.setItem('courseit_saved_courses', JSON.stringify(updated));
-      } catch {}
-
-      setNotification({
-        type: 'success',
-        message: `Course "${course.title}" removed successfully.`
-      });
-      setCourseToDelete(null);
-    } catch (err) {
-      setNotification({
-        type: 'error',
-        message: err.message || 'Failed to delete course.'
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleSignOut = async () => {
     await logout();
     navigate('/');
@@ -159,6 +205,8 @@ export default function Profile() {
   const remainingCredits = typeof credits === 'number' ? credits : 250;
   const maxCredits = 250;
   const creditsPercentage = Math.min(100, Math.max(0, (remainingCredits / maxCredits) * 100));
+
+  const activePreset = AVATAR_PRESETS.find(a => a.id === selectedAvatarId) || AVATAR_PRESETS[0];
 
   if (!authLoading && !isAuthenticated) {
     return (
@@ -174,7 +222,7 @@ export default function Profile() {
           <div className="pt-2 flex flex-col gap-2.5">
             <button
               onClick={() => setIsAuthModalOpen(true)}
-              className="btn-primary py-2.5 rounded-xl font-semibold text-xs text-white"
+              className="btn-primary py-2.5 rounded-xl font-semibold text-xs text-white cursor-pointer"
             >
               Sign In to Your Account
             </button>
@@ -186,6 +234,7 @@ export default function Profile() {
         <AdminModal
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
+          initialMode="login"
           authState={{ isAuthenticated: false, user: null, isAdmin: false }}
           onAuthChange={() => window.location.reload()}
         />
@@ -199,28 +248,38 @@ export default function Profile() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div>
           <Link
-            to="/"
+            to="/app"
             className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors mb-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Dashboard</span>
+            <span>Back to Studio Dashboard</span>
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-white tracking-tight">Account & Profile</h1>
             <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-mono font-semibold">
-              BETA
+              v1.11.0 LIVE
             </span>
           </div>
-          <p className="text-xs text-slate-400">Manage your course credits, security, and generated prompts.</p>
+          <p className="text-xs text-slate-400">Manage your avatar, Gemini credits, account security, and usage metrics.</p>
         </div>
 
-        <button
-          onClick={handleSignOut}
-          className="self-start sm:self-auto flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 transition-all cursor-pointer"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Sign Out</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/app"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 transition-all cursor-pointer"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Studio Dashboard</span>
+          </Link>
+
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 transition-all cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
+        </div>
       </div>
 
       {/* Notifications */}
@@ -248,19 +307,23 @@ export default function Profile() {
             <div className="flex items-center gap-4">
               <div className="relative group">
                 <div
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${
-                    AVATAR_PRESETS.find(a => a.id === selectedAvatarId)?.bg || 'from-indigo-600 to-violet-500'
-                  } flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-indigo-500/25 cursor-pointer hover:scale-105 transition-transform`}
+                  className={`w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-tr ${
+                    activePreset.bg
+                  } flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-indigo-500/25 cursor-pointer hover:scale-105 transition-transform border border-white/10`}
                   onClick={() => setIsEditingAvatar(!isEditingAvatar)}
-                  title="Click to customize avatar"
+                  title="Click to customize avatar photo or preset"
                 >
-                  <span>{AVATAR_PRESETS.find(a => a.id === selectedAvatarId)?.icon || user?.name?.[0]?.toUpperCase() || 'U'}</span>
+                  {customPfpImg ? (
+                    <img src={customPfpImg} alt="Custom Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{activePreset.icon || user?.name?.[0]?.toUpperCase() || 'U'}</span>
+                  )}
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsEditingAvatar(!isEditingAvatar)}
                   className="absolute -bottom-1 -right-1 p-1 bg-slate-900 border border-slate-700 rounded-lg text-slate-300 hover:text-white cursor-pointer shadow-sm"
-                  title="Edit Avatar"
+                  title="Change avatar photo"
                 >
                   <Camera className="w-3 h-3" />
                 </button>
@@ -290,17 +353,38 @@ export default function Profile() {
             {/* Active Session Status Badge */}
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-mono shrink-0">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Active Session: Appwrite Cloud (Sydney syd1)</span>
+              <span>Appwrite Cloud (Sydney syd1)</span>
             </div>
           </div>
 
           {/* Avatar Customizer Dropdown Drawer */}
           {isEditingAvatar && (
-            <div className="p-4 rounded-2xl bg-slate-950/90 border border-indigo-500/30 space-y-3 animate-in fade-in zoom-in-95">
+            <div className="p-5 rounded-2xl bg-slate-950/90 border border-indigo-500/30 space-y-4 animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                  Select Your Profile Avatar
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAvatarTab('preset')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                      avatarTab === 'preset'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Preset Icons
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvatarTab('upload')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                      avatarTab === 'upload'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Upload Custom Photo
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setIsEditingAvatar(false)}
@@ -309,27 +393,83 @@ export default function Profile() {
                   Done
                 </button>
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                {AVATAR_PRESETS.map((pfp) => (
-                  <button
-                    key={pfp.id}
-                    type="button"
-                    onClick={() => handleSelectAvatar(pfp.id)}
-                    className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
-                      selectedAvatarId === pfp.id
-                        ? 'border-indigo-500 bg-indigo-500/20 ring-2 ring-indigo-500/50 scale-105'
-                        : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${pfp.bg} flex items-center justify-center text-lg`}>
-                      {pfp.icon}
+
+              {avatarTab === 'preset' ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                    {AVATAR_PRESETS.map((pfp) => (
+                      <button
+                        key={pfp.id}
+                        type="button"
+                        onClick={() => handleSelectPreset(pfp.id)}
+                        className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
+                          !customPfpImg && selectedAvatarId === pfp.id
+                            ? 'border-indigo-500 bg-indigo-500/20 ring-2 ring-indigo-500/50 scale-105'
+                            : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${pfp.bg} flex items-center justify-center text-lg`}>
+                          {pfp.icon}
+                        </div>
+                        <span className="text-[10px] text-slate-300 font-medium truncate w-full text-center">
+                          {pfp.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {customPfpImg && (
+                    <p className="text-[11px] text-amber-400/90 font-mono">
+                      Note: You currently have a custom photo active. Selecting a preset will switch back to icon mode.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 space-y-4">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-800 border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-400 shrink-0">
+                      {customPfpImg ? (
+                        <img src={customPfpImg} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-slate-500" />
+                      )}
                     </div>
-                    <span className="text-[10px] text-slate-300 font-medium truncate w-full text-center">
-                      {pfp.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                    <div className="space-y-2 text-center sm:text-left flex-1">
+                      <p className="text-xs font-semibold text-white">Upload from your device</p>
+                      <p className="text-[11px] text-slate-400">
+                        Supports PNG, JPG, or WEBP up to 5MB. Automatically cropped and optimized into a high-res 256x256 profile picture.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 pt-1 justify-center sm:justify-start">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Choose Image</span>
+                        </button>
+                        {customPfpImg && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveCustomPfp}
+                            className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove Photo</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -353,17 +493,6 @@ export default function Profile() {
             <p className="text-[11px] text-slate-500">
               Each URL or document course generation costs between 0.5 and 5.0 credits depending on model choice.
             </p>
-          </div>
-
-          {/* User Processed Tokens Card */}
-          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-indigo-400" />
-              <span className="text-xs text-slate-300 font-medium">Gemini Tokens Processed:</span>
-            </div>
-            <span className="font-mono font-bold text-white text-xs">
-              {authState?.quota?.tokens_used ? authState.quota.tokens_used.toLocaleString() : '14,250'} tokens
-            </span>
           </div>
 
           {/* Actions */}
@@ -407,81 +536,103 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Generated Prompts & Courses Management */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+      {/* Account Summary & Workspace Metrics (Overhaul replacing redundant course list) */}
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
           <div>
-            <h3 className="text-base font-bold text-white">Your Stored Courses & Prompts</h3>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Layers className="w-4 h-4 text-indigo-400" />
+              <span>Account Summary & Workspace Metrics</span>
+            </h3>
             <p className="text-xs text-slate-400">
-              Review or delete previously synthesized courses to keep your database tidy.
+              Live telemetry and synthesis quotas linked to your Appwrite session.
             </p>
           </div>
           <button
-            onClick={loadUserData}
-            disabled={loading}
+            onClick={() => loadUserData(user?.id, isAdmin)}
+            disabled={loadingMetrics}
             className="self-start sm:self-auto p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
-            title="Refresh list"
+            title="Refresh metrics"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loadingMetrics ? 'animate-spin text-indigo-400' : ''}`} />
           </button>
         </div>
 
-        {loading ? (
-          <div className="py-8 text-center text-slate-500 text-xs">
-            <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2 text-indigo-400" />
-            Loading courses...
+        {/* 4 Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400 font-medium">Custom Syntheses</span>
+              <BookOpen className="w-4 h-4 text-indigo-400" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-white">
+              {loadingMetrics ? '...' : coursesCount}
+            </div>
+            <p className="text-[11px] text-slate-500">
+              User-authored learning paths (excluding starter templates).
+            </p>
           </div>
-        ) : courses.length === 0 ? (
-          <div className="py-8 text-center text-slate-500 text-xs">
-            No courses generated yet.
+
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400 font-medium">Reasoning Credits</span>
+              <Zap className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-white">
+              {remainingCredits.toFixed(1)} <span className="text-xs font-normal text-slate-400">/ {maxCredits}</span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Available balance refreshed upon session renewal.
+            </p>
           </div>
-        ) : (
-          <div className="divide-y divide-slate-800/80">
-            {courses.slice(0, 100).map((c) => (
-              <div key={c.$id} className="py-3 flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <Link
-                    to={`/course/${c.$id}`}
-                    className="text-xs font-semibold text-slate-200 hover:text-indigo-400 truncate block transition-colors"
-                  >
-                    {c.title || 'Untitled Course'}
-                  </Link>
-                  <p className="text-[11px] text-slate-500 truncate font-mono mt-0.5">
-                    {c.source_url || 'Uploaded document'} &bull; {c.steps?.length || 0} action steps &bull; Created by: <strong className="text-slate-400 font-semibold">{c.creator_email || c.creator_name || (c.is_curated ? 'CourseIT Team' : 'Guest User (24h)')}</strong>
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <Link
-                    to={`/course/${c.$id}`}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                    title="View Course"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </Link>
-
-                  {(() => {
-                    const isStarter = Boolean(c.is_curated || c.$id?.startsWith('starter-'));
-                    const isOwner = Boolean(authState?.user?.id && c.creator_id && c.creator_id === authState.user.id);
-                    const canDelete = authState?.isAdmin || (isOwner && !isStarter);
-
-                    if (!canDelete) return null;
-
-                    return (
-                      <button
-                        onClick={() => setCourseToDelete(c)}
-                        className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                        title="Delete prompt & course"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    );
-                  })()}
-                </div>
-              </div>
-            ))}
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400 font-medium">Tokens Processed</span>
+              <Cpu className="w-4 h-4 text-violet-400" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-white">
+              {authState?.quota?.tokens_used ? authState.quota.tokens_used.toLocaleString() : '14,250'}
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Gemini LLM context tokens ingested across sessions.
+            </p>
           </div>
-        )}
+
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400 font-medium">Platform Access</span>
+              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className="text-sm font-bold text-white pt-1">
+              {isAdmin ? 'Administrator' : 'Approved Beta User'}
+            </div>
+            <p className="text-[11px] text-slate-500 font-mono">
+              Live Cloud Node: Sydney syd1
+            </p>
+          </div>
+        </div>
+
+        {/* Dashboard Direct Redirection Callout */}
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-slate-900/50 border border-indigo-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <h4 className="text-sm font-bold text-white">Manage & Study Your Learning Paths</h4>
+            </div>
+            <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
+              All your synthesized step-by-step documentation, interactive quizzes, runnable code blocks, and starter templates are managed directly inside the Studio Dashboard.
+            </p>
+          </div>
+
+          <Link
+            to="/app"
+            className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+          >
+            <span>Open Studio Dashboard</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
       </div>
 
       {/* Modals */}
@@ -496,14 +647,6 @@ export default function Profile() {
             message: 'Account archived. Confirmation email dispatched via Resend.'
           });
         }}
-      />
-
-      <DeleteConfirmModal
-        isOpen={Boolean(courseToDelete)}
-        course={courseToDelete}
-        onClose={() => setCourseToDelete(null)}
-        onConfirm={handleConfirmDeleteCourse}
-        isDeleting={isDeleting}
       />
     </div>
   );

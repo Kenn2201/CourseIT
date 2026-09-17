@@ -116,7 +116,7 @@ export default async ({ req, res, log, error }) => {
     const endpoint = process.env.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1';
     const projectId = process.env.APPWRITE_FUNCTION_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
     const databaseId = process.env.APPWRITE_DATABASE_ID;
-    const collectionId = process.env.APPWRITE_COLLECTION_ID || '6aaa6fef000b2b0129c4';
+    const collectionId = process.env.APPWRITE_COLLECTION_ID || '';
     const serverKey = process.env.APPWRITE_API_KEY;
 
     let docId = `course_${Date.now()}`;

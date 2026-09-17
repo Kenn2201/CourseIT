@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [generateError, setGenerateError] = useState('');
   const [lastInputPayload, setLastInputPayload] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState('signup');
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [successCourse, setSuccessCourse] = useState(null);
   const [successQuota, setSuccessQuota] = useState(null);
@@ -719,6 +720,7 @@ export default function Dashboard() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         authState={authState}
+        initialMode={authModalMode}
         onAuthChange={(newState) => {
           setAuthState(newState);
           loadQuota(newState?.user);

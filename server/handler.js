@@ -652,7 +652,7 @@ export async function deleteCourse(courseId, requestingUserId = null, requesting
 
   const db = getAppwriteDb();
   const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-  const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '6aaa6fef000b2b0129c4';
+  const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '';
 
   let deleted = false;
   if (db && databaseId && collectionId) {
@@ -1137,7 +1137,7 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
   const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1';
   const projectId = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT_ID;
   const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-  const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '6aaa6fef000b2b0129c4';
+  const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '';
   const apiKey = process.env.APPWRITE_API_KEY;
 
   let databases = null;
@@ -1326,7 +1326,7 @@ export async function processDocumentText({ title, text, customModel = 'gemini-f
 
   const db = getAppwriteDb();
   const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-  const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '6aaa6fef000b2b0129c4';
+  const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '';
 
   // Only persist to Appwrite for authenticated users to protect database
   if (db && databaseId && collectionId && userId && userId !== 'public_guest') {

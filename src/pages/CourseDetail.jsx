@@ -220,6 +220,7 @@ export default function CourseDetail() {
         <AdminModal
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
+          initialMode="login"
           authState={{ isAuthenticated: false, user: null, isAdmin: false }}
           onAuthChange={() => window.location.reload()}
         />

@@ -84,6 +84,11 @@ export async function loginWithEmail(email, password) {
   }
 
   try {
+    // Clear any lingering active session to prevent session collision
+    try {
+      await account.deleteSession('current');
+    } catch (_) {}
+
     // 1. Create email password session
     await account.createEmailPasswordSession(email, password);
     const user = await account.get();

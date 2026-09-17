@@ -7,6 +7,7 @@ const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_ID || '';
 export const BUCKET_DOCS_ID = 'course_docs';
 
 const LOCAL_STORAGE_KEY = 'courseit_saved_courses';
+const MAINTENANCE_DOC_ID = 'system_maintenance_flag';
 
 // Pre-seeded starter course for instant showcase
 const SAMPLE_GODOT_COURSE = {
@@ -309,4 +310,70 @@ export async function getCourse(id, user = null, isAdmin = false) {
   }
 
   return found;
+}
+
+/**
+ * Reads the global maintenance mode flag from Appwrite.
+ * Returns `true` if maintenance mode is ON, `false` otherwise.
+ * Falls back to localStorage if Appwrite is unavailable.
+ */
+export async function getMaintenanceMode() {
+  // Always honour a hard env override
+  if (import.meta.env.VITE_MAINTENANCE_MODE === 'true') return true;
+
+  if (databases && isDatabaseConfigured()) {
+    try {
+      const doc = await databases.getDocument(DATABASE_ID, COLLECTION_ID, MAINTENANCE_DOC_ID);
+      // We repurpose the `title` field as our boolean string
+      const isOn = doc?.title === 'true';
+      // Keep localStorage in sync so offline / error fallback is accurate
+      localStorage.setItem('courseit_maintenance_mode', String(isOn));
+      return isOn;
+    } catch (err) {
+      // 404 means the document doesn't exist yet → maintenance is OFF
+      if (err?.code === 404 || err?.message?.includes('not found')) {
+        localStorage.setItem('courseit_maintenance_mode', 'false');
+        return false;
+      }
+      console.warn('[CourseIT] Could not read maintenance flag from Appwrite:', err.message);
+    }
+  }
+
+  // Offline fallback: trust localStorage
+  return localStorage.getItem('courseit_maintenance_mode') === 'true';
+}
+
+/**
+ * Writes the global maintenance mode flag to Appwrite (admin only).
+ * Creates the system document if it doesn't exist yet.
+ */
+export async function setMaintenanceMode(enabled) {
+  const val = String(Boolean(enabled));
+  localStorage.setItem('courseit_maintenance_mode', val);
+  window.dispatchEvent(new Event('courseit_maintenance_changed'));
+
+  if (!databases || !isDatabaseConfigured()) return;
+
+  const payload = {
+    title: val,
+    source_url: 'system://maintenance',
+    steps: '[]',
+    creator_id: 'system',
+  };
+
+  try {
+    // Try updating existing document first
+    await databases.updateDocument(DATABASE_ID, COLLECTION_ID, MAINTENANCE_DOC_ID, payload);
+  } catch (updateErr) {
+    if (updateErr?.code === 404 || updateErr?.message?.includes('not found')) {
+      // Document doesn't exist yet — create it with the fixed ID
+      try {
+        await databases.createDocument(DATABASE_ID, COLLECTION_ID, MAINTENANCE_DOC_ID, payload);
+      } catch (createErr) {
+        console.warn('[CourseIT] Could not create maintenance flag document:', createErr.message);
+      }
+    } else {
+      console.warn('[CourseIT] Could not update maintenance flag document:', updateErr.message);
+    }
+  }
 }

@@ -1,9 +1,35 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.12.2 LIVE Beta',
+    date: 'September 18, 2026',
+    title: 'Email Suite Crash, Course Visibility, Admin Dedup & Loop Fixes',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Email Suite Crash Fixed',
+        desc: 'The Email Suite tab crashed with ReferenceError on every click because customEmailBody state was never declared. Now fixed with a pre-filled default template.'
+      },
+      {
+        title: 'Duplicate Admin Rows & System Docs Removed',
+        desc: 'Admin panel no longer shows the same user twice (was deduplicating by user_id, now by email). System documents (maintenance flag) are also filtered out of all user and course lists.'
+      },
+      {
+        title: 'CourseDetail & Dashboard Infinite Loop Fixed',
+        desc: 'Course detail page was looping on every render because user object reference changed each render. Fixed with stable user?.id primitive dependency.'
+      }
+    ],
+    notes: [
+      'customEmailBody useState declaration added in Admin.jsx Email Suite',
+      'listAllUsers now deduplicates by email — same person with 2 user_ids no longer appears twice',
+      'listCourses filters source_url: system:// and creator_id: system documents',
+      'topUpUserCredits now queries Appwrite by user_id before updating (no more cold-start silent fails)',
+      'CourseDetail useEffect now uses user?.id (primitive) not user (object) as dependency'
+    ]
+  },
+  {
     version: 'v1.12.1 LIVE Beta',
     date: 'September 18, 2026',
     title: 'Approval Persistence & Quota Source-of-Truth Fix',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'User Approval Now Persists Across Serverless Cold-Starts',

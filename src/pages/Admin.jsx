@@ -66,6 +66,7 @@ export default function Admin() {
   const [customRecipientType, setCustomRecipientType] = useState('broadcast'); // 'broadcast' | 'single'
   const [customRecipientEmail, setCustomRecipientEmail] = useState('');
   const [customEmailSubject, setCustomEmailSubject] = useState('Welcome to CourseIT Beta!');
+  const [customEmailBody, setCustomEmailBody] = useState('Hi Beta Tester,\n\nThanks for participating in the CourseIT Beta! You now have access to high-speed documentation synthesis, client-side OCR, and 250 test credits.\n\nEnjoy testing!\n- Kenn & The CourseIT Team');
   const [isSendingCustomEmail, setIsSendingCustomEmail] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(
     localStorage.getItem('courseit_maintenance_mode') === 'true' ||

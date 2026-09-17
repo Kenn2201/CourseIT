@@ -4,8 +4,8 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.12.1--LIVE--Beta-indigo.svg)
-[![Last Commit](https://img.shields.io/badge/last%20commit-fadc415-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
+![Version](https://img.shields.io/badge/version-v1.12.2--LIVE--Beta-indigo.svg)
+[![Last Commit](https://img.shields.io/badge/last%20commit-ea2b579-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
@@ -21,12 +21,19 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.12.1 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.12.2 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
-* **Latest Production Commit**: [`fadc415`](https://github.com/Kenn2201/CourseIT/commits/master)
+* **Latest Production Commit**: [`ea2b579`](https://github.com/Kenn2201/CourseIT/commits/master)
 
 ### Recent Release Notes
+
+* **v1.12.2 LIVE Beta (September 18, 2026)** — *Email Suite Crash, Course Visibility, Admin Dedup & Loop Fixes*:
+  * **Email Suite ReferenceError Fixed**: `customEmailBody` state was never declared — clicking Email Suite tab crashed the entire admin panel. Fixed.
+  * **Duplicate Admin Row Fixed**: Admin list now deduplicates by email address instead of `user_id`.
+  * **System Docs Filtered**: Maintenance flag and other `system://` documents no longer appear in course or user lists.
+  * **CourseDetail Infinite Loop Fixed**: `useEffect` dependency changed from `user` object to `user?.id` primitive.
+  * **Top-Up Credits Fixed**: `topUpUserCredits` now queries Appwrite by `user_id` before writing (cold-start safe).
 
 * **v1.12.1 LIVE Beta (September 18, 2026)** — *Approval Persistence & Quota Source-of-Truth Fix*:
   * **Approvals No Longer Revert on Reload**: `approveUserAndSendEmail()` now queries Appwrite by `user_id` before updating — never relies on cached `$id` that is wiped on every serverless cold-start.

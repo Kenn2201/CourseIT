@@ -31,6 +31,8 @@ export default function CourseDetail() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Stable primitive dep to prevent infinite re-fetch when user object reference changes
+  const userId = user?.id;
   useEffect(() => {
     if (authLoading) return;
 
@@ -50,7 +52,8 @@ export default function CourseDetail() {
     }
 
     fetchCourse();
-  }, [id, user, isAdmin, authLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, userId, isAdmin, authLoading]);
 
   const handleToggle = (stepNumber) => {
     const updated = toggleStep(id, stepNumber);

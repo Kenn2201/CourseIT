@@ -5,7 +5,7 @@
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
 ![Version](https://img.shields.io/badge/version-v1.11.0--LIVE-indigo.svg)
-[![Last Commit](https://img.shields.io/badge/last%20commit-e2401e5-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
+[![Last Commit](https://img.shields.io/badge/last%20commit-d94935e-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)

@@ -7,10 +7,10 @@
  * Refer to VERSIONING.md for the full release checklist.
  */
 
-export const CURRENT_VERSION = '1.12.0';
-export const CURRENT_VERSION_LABEL = 'v1.12.0 LIVE Beta';
+export const CURRENT_VERSION = '1.12.1';
+export const CURRENT_VERSION_LABEL = 'v1.12.1 LIVE Beta';
 export const RELEASE_DATE = 'September 18, 2026';
-export const RELEASE_NAME = 'Persistent Global Maintenance Mode, UI Restoration & Admin Stability';
+export const RELEASE_NAME = 'Approval Persistence & Quota Source-of-Truth Fix';
 
 export const APP_NAME = 'CourseIT Ai';
 export const APP_TAGLINE = 'Action-first docs learning paths';

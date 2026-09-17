@@ -1,9 +1,31 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.12.1 LIVE Beta',
+    date: 'September 18, 2026',
+    title: 'Approval Persistence & Quota Source-of-Truth Fix',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'User Approval Now Persists Across Serverless Cold-Starts',
+        desc: 'Fixed the root cause of approvals reverting to "pending" on page reload: the approve function now always queries Appwrite by user_id before updating, instead of relying on a cached $id that vanishes every time the serverless container recycles.'
+      },
+      {
+        title: 'Appwrite is Now the Source of Truth for Quotas',
+        desc: 'getUserQuota now checks Appwrite FIRST on every request instead of trusting the local /tmp file cache. The local file is only used as a fallback when Appwrite is unreachable, keeping it always in sync.'
+      }
+    ],
+    notes: [
+      'approveUserAndSendEmail() now queries Appwrite by user_id to find the correct document ID before writing — no more silent skips',
+      'If no Appwrite record exists at all for the user, one is created during approval',
+      'getUserQuota() now reads Appwrite before local cache to avoid serving stale pending status',
+      'Approval email CTA link updated from localhost to production URL (courseitai.kenncode.me)',
+      'Approval email sender updated to hello@courseit.kenncode.me'
+    ]
+  },
+  {
     version: 'v1.12.0 LIVE Beta',
     date: 'September 18, 2026',
     title: 'Persistent Global Maintenance Mode, UI Restoration & Admin Stability',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'Real-Time Global Maintenance Mode via Appwrite',

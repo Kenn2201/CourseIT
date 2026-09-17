@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { MessageSquarePlus } from 'lucide-react';
 import Navbar from './components/Navbar';
 import Landing from './pages/Landing';
@@ -11,11 +11,15 @@ import AuthCallback from './pages/AuthCallback';
 import FeedbackModal from './components/FeedbackModal';
 import LegalConsentModal from './components/LegalConsentModal';
 import Maintenance from './pages/Maintenance';
+import CourseTutor from './components/CourseTutor';
+import { STARTER_COURSES } from './data/starterCourses';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { hasUserConsented } from './lib/auth';
 
 function AppContent() {
   const { user, isAuthenticated, isAdmin } = useAuth();
+  const location = useLocation();
+  const isCourseDetail = location.pathname.startsWith('/course/');
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
   const [isMaintenance, setIsMaintenance] = useState(() => {
@@ -104,6 +108,11 @@ function AppContent() {
         onClose={() => setIsFeedbackOpen(false)}
         user={user}
       />
+
+      {/* Floating Technical Companion on Lower Left (Available across routes) */}
+      {!isCourseDetail && (
+        <CourseTutor course={STARTER_COURSES[0]} mode="landing" />
+      )}
 
       {/* Mandatory First-Login Legal Consent Modal */}
       <LegalConsentModal

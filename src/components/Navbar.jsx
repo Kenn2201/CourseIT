@@ -14,7 +14,9 @@ import {
   CheckCircle2, 
   ChevronDown, 
   ChevronRight,
-  ArrowRight
+  ArrowRight,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { isAppwriteConfigured } from '../lib/appwrite';
 import { logoutUser } from '../lib/auth';
@@ -39,6 +41,49 @@ export default function Navbar() {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('courseit_theme') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  useEffect(() => {
+    const handleThemeChange = () => {
+      try {
+        const current = localStorage.getItem('courseit_theme') || 'dark';
+        setTheme(current);
+      } catch {}
+    };
+    window.addEventListener('courseit_theme_changed', handleThemeChange);
+    return () => window.removeEventListener('courseit_theme_changed', handleThemeChange);
+  }, []);
+
+  const handleToggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    const updateDom = () => {
+      if (newTheme === 'light') {
+        document.documentElement.classList.add('light');
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.classList.remove('light');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+      setTheme(newTheme);
+      try {
+        localStorage.setItem('courseit_theme', newTheme);
+        window.dispatchEvent(new Event('courseit_theme_changed'));
+      } catch {}
+    };
+
+    if (typeof document !== 'undefined' && document.startViewTransition) {
+      document.startViewTransition(() => updateDom());
+    } else {
+      updateDom();
+    }
+  };
 
   const [customPfpImg, setCustomPfpImg] = useState(() => {
     try {
@@ -220,6 +265,21 @@ export default function Navbar() {
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
               <span>What's New</span>
+            </button>
+
+            {/* Header Theme Toggle (Light / Dark Mode) */}
+            <button
+              type="button"
+              onClick={handleToggleTheme}
+              className="flex items-center justify-center w-8 h-8 rounded-xl text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition-all cursor-pointer shadow-sm"
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+              aria-label="Toggle visual theme"
+            >
+              {theme === 'light' ? (
+                <Sun className="w-4 h-4 text-amber-500 hover:rotate-45 transition-transform" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-400 hover:-rotate-12 transition-transform" />
+              )}
             </button>
 
             {/* AUTH STATE CONTROLS */}

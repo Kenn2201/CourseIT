@@ -206,8 +206,8 @@ export default function CourseTutor({ course, activeStepIndex = 0, mode = 'cours
 
   return (
     <>
-      {/* Launcher Button: Floating or Inline in Lower Stack */}
-      <div className={floating ? "fixed bottom-6 right-6 z-40" : "relative z-20 inline-block"}>
+      {/* Launcher Button: Floating on Lower Left or Inline */}
+      <div className={floating ? "fixed bottom-6 left-6 z-40" : "relative z-20 inline-block"}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -228,9 +228,9 @@ export default function CourseTutor({ course, activeStepIndex = 0, mode = 'cours
         </button>
       </div>
 
-      {/* Drawer / Companion Modal */}
+      {/* Drawer / Companion Modal on Lower Left */}
       {isOpen && (
-        <div className="fixed bottom-6 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[420px] h-[560px] max-h-[85vh] flex flex-col rounded-3xl bg-slate-950/95 border border-indigo-500/30 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-200 overflow-hidden">
+        <div className="fixed bottom-6 left-4 sm:left-6 z-50 w-[calc(100vw-2rem)] sm:w-[420px] h-[560px] max-h-[85vh] flex flex-col rounded-3xl bg-slate-950/95 border border-indigo-500/30 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-200 overflow-hidden">
           {/* Header */}
           <div className="p-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">

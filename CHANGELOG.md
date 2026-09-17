@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1] - 2026-09-18 — Approval Persistence & Quota Source-of-Truth Fix (LIVE Beta)
+
+### Fixed & Hardened
+- **Root Cause: User Approvals Reverting to Pending After Reload**:
+  - `approveUserAndSendEmail()` was silently skipping the Appwrite write whenever the cached `user.$id` was missing (which happens every serverless cold-start that wipes `/tmp`). The function now explicitly queries Appwrite by `user_id` to find the correct document before updating — cold-starts cannot break this anymore.
+  - If no Appwrite record exists for the user at all (edge case), one is created automatically during the approval flow.
+- **Appwrite Promoted to Source of Truth for Quota Reads**:
+  - `getUserQuota()` was reading the local `/tmp` file cache *first*, meaning a stale `pending` record from a cold-start would shadow the approved state in Appwrite. Reversed the priority — Appwrite is now checked first on every request; local file is only a fallback if Appwrite times out or is unreachable.
+- **Email & Link Fixes**:
+  - Approval email CTA link corrected from `http://localhost:5173` to `https://courseitai.kenncode.me`.
+  - Approval email sender corrected to `hello@courseit.kenncode.me`.
+
 ## [1.12.0] - 2026-09-18 — Persistent Global Maintenance Mode, UI Restoration & Admin Stability (LIVE Beta)
 
 ### Added

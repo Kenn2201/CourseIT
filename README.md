@@ -4,8 +4,8 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.12.0--LIVE--Beta-indigo.svg)
-[![Last Commit](https://img.shields.io/badge/last%20commit-cf22bfc-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
+![Version](https://img.shields.io/badge/version-v1.12.1--LIVE--Beta-indigo.svg)
+[![Last Commit](https://img.shields.io/badge/last%20commit-fadc415-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
@@ -21,12 +21,17 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.12.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.12.1 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
-* **Latest Production Commit**: [`cf22bfc`](https://github.com/Kenn2201/CourseIT/commits/master)
+* **Latest Production Commit**: [`fadc415`](https://github.com/Kenn2201/CourseIT/commits/master)
 
 ### Recent Release Notes
+
+* **v1.12.1 LIVE Beta (September 18, 2026)** — *Approval Persistence & Quota Source-of-Truth Fix*:
+  * **Approvals No Longer Revert on Reload**: `approveUserAndSendEmail()` now queries Appwrite by `user_id` before updating — never relies on cached `$id` that is wiped on every serverless cold-start.
+  * **Appwrite is Now Source of Truth**: `getUserQuota()` now reads Appwrite first, local file second. Stale `/tmp` cache can no longer serve an outdated `pending` status.
+  * **Email Fix**: Approval email CTA now links to `courseitai.kenncode.me` instead of localhost.
 
 * **v1.12.0 LIVE Beta (September 18, 2026)** — *Persistent Global Maintenance Mode, UI Restoration & Admin Stability*:
   * **Global Maintenance Mode via Appwrite**: Maintenance flag now stored in Appwrite Cloud as a system document — all browsers worldwide sync state within 30 seconds via background polling. `setMaintenanceMode()` writes to Appwrite and auto-creates the document on first use.

@@ -310,17 +310,7 @@ export async function getUserQuota(userId, email = '', name = '') {
   const tokenStats = loadTokenUsage();
   const tokensUsed = tokenStats.perUser?.[userId]?.totalTokens || 0;
 
-  // 1. Check local file first
-  if (localData[userId]) {
-    if (isAdmin) {
-      localData[userId].status = 'approved';
-      localData[userId].isAdmin = true;
-    }
-    localData[userId].tokens_used = tokensUsed;
-    return localData[userId];
-  }
-
-  // 2. Check Appwrite users_quota collection if available
+  // 1. Check Appwrite FIRST — it is the persistent source of truth
   if (db && databaseId) {
     try {
       const existing = await Promise.race([
@@ -342,13 +332,25 @@ export async function getUserQuota(userId, email = '', name = '') {
           $id: doc.$id,
           $createdAt: doc.$createdAt
         };
+        // Keep local cache fresh so fast reads work between cold-starts
         localData[userId] = record;
         saveLocalUsersQuota(localData);
         return record;
       }
     } catch (err) {
       console.warn('Appwrite user quota fetch notice:', err.message);
+      // Fall through to local cache
     }
+  }
+
+  // 2. Local cache fallback (used when Appwrite is unreachable or times out)
+  if (localData[userId]) {
+    if (isAdmin) {
+      localData[userId].status = 'approved';
+      localData[userId].isAdmin = true;
+    }
+    localData[userId].tokens_used = tokensUsed;
+    return localData[userId];
   }
 
   // 3. Initialize new quota record (250 credits for admin, 0 for pending non-admin)
@@ -559,7 +561,7 @@ export async function listAllUsers() {
 /**
  * Approve a user and send approval email via Resend
  */
-export async function approveUserAndSendEmail(userId, customEmail = null) {
+export async function approveUserAndSendEmail(userId, customEmail = null, credits = DEFAULT_CREDITS) {
   const localData = loadLocalUsersQuota();
   const user = localData[userId] || Object.values(localData).find(u => u.user_id === userId || u.email === customEmail);
 
@@ -570,27 +572,50 @@ export async function approveUserAndSendEmail(userId, customEmail = null) {
     throw new Error('User email not found for approval');
   }
 
-  // 1. Update status to approved and quota to 250
+  // 1. Update local cache immediately (fast path)
   if (user) {
     user.status = 'approved';
-    user.quota_remaining = DEFAULT_CREDITS;
-    localData[user.user_id] = user;
+    user.quota_remaining = credits;
+    localData[user.user_id || userId] = user;
     saveLocalUsersQuota(localData);
   }
 
-  // Try updating in Appwrite
+  // 2. Persist to Appwrite — always query by user_id so cold-starts don't break this
   const db = getAppwriteDb();
   const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-  if (db && databaseId && user?.$id) {
+
+  if (db && databaseId) {
     try {
-      await db.updateDocument(databaseId, 'users_quota', user.$id, {
-        status: 'approved',
-        quota_remaining: DEFAULT_CREDITS
-      });
-    } catch {}
+      // Find the document by user_id (don't rely on cached $id)
+      const existing = await db.listDocuments(databaseId, 'users_quota', [
+        Query.equal('user_id', userId)
+      ]);
+
+      const payload = { status: 'approved', quota_remaining: credits };
+
+      if (existing.documents && existing.documents.length > 0) {
+        // Update existing Appwrite document
+        const docId = existing.documents[0].$id;
+        await db.updateDocument(databaseId, 'users_quota', docId, payload);
+        console.log(`[Approve] Updated Appwrite doc ${docId} for userId ${userId}`);
+      } else {
+        // No Appwrite record yet — create one now
+        const newDoc = await db.createDocument(databaseId, 'users_quota', ID.unique(), {
+          user_id: userId,
+          name: targetName,
+          email: targetEmail,
+          quota_remaining: credits,
+          status: 'approved'
+        });
+        console.log(`[Approve] Created Appwrite doc ${newDoc.$id} for userId ${userId}`);
+      }
+    } catch (appwriteErr) {
+      console.warn('[Approve] Appwrite persist warning:', appwriteErr.message);
+      // Non-fatal: local cache is already updated; log for debugging
+    }
   }
 
-  // 2. Send Resend approval email
+  // 3. Send Resend approval email
   const emailRes = await sendEmail({
     to: targetEmail,
     subject: 'Your CourseIT account is approved!',
@@ -608,7 +633,7 @@ export async function approveUserAndSendEmail(userId, customEmail = null) {
             Hi <strong>${targetName}</strong>,
           </p>
           <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1;">
-            Your CourseIT account is approved! You have <strong>${DEFAULT_CREDITS} course credits</strong> ready to use.
+            Your CourseIT account is approved! You have <strong>${credits} course credits</strong> ready to use.
           </p>
           <p style="font-size: 14px; line-height: 1.6; color: #94a3b8;">
             Turn any complex documentation URL or scanned tutorial image into step-by-step interactive courses with code snippets and pro tips.
@@ -616,13 +641,13 @@ export async function approveUserAndSendEmail(userId, customEmail = null) {
         </div>
 
         <div style="text-align: center; margin-bottom: 28px;">
-          <a href="http://localhost:5173" style="background: #4f46e5; color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px; display: inline-block;">
+          <a href="https://courseitai.kenncode.me" style="background: #4f46e5; color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px; display: inline-block;">
             Launch CourseIT Dashboard &rarr;
           </a>
         </div>
 
         <p style="color: #64748b; font-size: 12px; text-align: center; border-top: 1px solid #1e293b; padding-top: 20px; margin-bottom: 0;">
-          Sent by CourseIT &bull; notifications@kenncode.me
+          Sent by CourseIT &bull; hello@courseit.kenncode.me
         </p>
       </div>
     `
@@ -630,7 +655,7 @@ export async function approveUserAndSendEmail(userId, customEmail = null) {
 
   return {
     success: true,
-    user: localData[user?.user_id || userId] || { email: targetEmail, status: 'approved', quota_remaining: DEFAULT_CREDITS },
+    user: localData[userId] || { email: targetEmail, status: 'approved', quota_remaining: credits },
     emailSent: emailRes.success,
     senderUsed: emailRes.senderUsed,
     emailError: emailRes.error

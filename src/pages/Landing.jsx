@@ -562,8 +562,67 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
+      {/* Lower Screen Control & Guide Stack (Scroll-down view, stacked to eliminate all overlaps) */}
+      <section className="w-full border-t border-slate-800/80 bg-slate-950/60 backdrop-blur-md py-12 px-4 relative z-20">
+        <div className="max-w-xl mx-auto flex flex-col items-center justify-center gap-5 text-center">
+          
+          {/* 1. Top of Stack: Interactive Chatbot Guide */}
+          <div className="space-y-1.5 flex flex-col items-center">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Interactive Technical Companion
+            </span>
+            <CourseTutor course={STARTER_COURSES[0]} mode="landing" floating={false} />
+          </div>
+
+          {/* 2. Middle of Stack: Dark Mode Theme Toggle */}
+          <div>
+            <button
+              type="button"
+              onClick={handleToggleTheme}
+              className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700/80 shadow-md backdrop-blur-md text-xs font-semibold transition-all cursor-pointer group hover:border-slate-600"
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            >
+              {theme === 'light' ? (
+                <Sun className="w-4 h-4 text-amber-500 transition-transform group-hover:rotate-45" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-400 transition-transform group-hover:-rotate-12" />
+              )}
+              <span>Visual Theme: <strong className="text-white font-mono">{theme === 'light' ? 'Light Mode' : 'Dark Mode'}</strong></span>
+            </button>
+          </div>
+
+          {/* 3. Lower / Lowest: Powered by Netlify Strip */}
+          <div>
+            <div className="inline-flex flex-wrap items-center justify-center gap-2 p-2 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 text-[11px] font-mono text-slate-400 shadow-inner">
+              <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Powered by</span>
+              <span className="text-teal-400 font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                Netlify
+              </span>
+              <span className="text-slate-700">&bull;</span>
+              <span className="text-pink-400 font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
+                Appwrite
+              </span>
+              <span className="text-slate-700">&bull;</span>
+              <span className="text-indigo-400 font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                Google Gemini
+              </span>
+              <span className="text-slate-700">&bull;</span>
+              <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Resend
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
       {/* Full Developer Portfolio Footer */}
-      <Footer onOpenChangelog={() => setIsChangelogOpen(true)} />
+      <Footer onOpenChangelog={() => setIsChangelogOpen(true)} showPoweredBy={false} />
 
       {/* Modals */}
       <ChangelogModal
@@ -581,24 +640,6 @@ export default function Landing({ onLaunchApp }) {
           window.location.reload();
         }}
       />
-
-      {/* Interactive Companion Tutor for Public Landing Page */}
-      <CourseTutor course={STARTER_COURSES[0]} mode="landing" />
-
-      {/* Accessible Landing Theme Toggle Widget */}
-      <button
-        type="button"
-        onClick={handleToggleTheme}
-        className="fixed bottom-6 left-6 z-40 flex items-center gap-2 px-3.5 py-2 rounded-full bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 shadow-xl backdrop-blur-md text-xs font-semibold transition-all cursor-pointer group"
-        title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-      >
-        {theme === 'light' ? (
-          <Sun className="w-4 h-4 text-amber-500" />
-        ) : (
-          <Moon className="w-4 h-4 text-indigo-400" />
-        )}
-        <span>Theme: {theme === 'light' ? 'Light' : 'Dark'}</span>
-      </button>
     </div>
   );
 }

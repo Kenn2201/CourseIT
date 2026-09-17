@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Sparkles, X, Send, Code, Lightbulb, AlertTriangle, CheckCircle, HelpCircle, Terminal, RefreshCw, ChevronRight, Zap, FileText, Cpu, Clock } from 'lucide-react';
 import FormattedChatText from './FormattedChatText';
 
-export default function CourseTutor({ course, activeStepIndex = 0, mode = 'course' }) {
+export default function CourseTutor({ course, activeStepIndex = 0, mode = 'course', floating = true }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputQuestion, setInputQuestion] = useState('');
@@ -206,12 +206,12 @@ export default function CourseTutor({ course, activeStepIndex = 0, mode = 'cours
 
   return (
     <>
-      {/* Floating Launcher Button (Docked right side at bottom-6 right-6) */}
-      <div className="fixed bottom-6 right-6 z-40">
+      {/* Launcher Button: Floating or Inline in Lower Stack */}
+      <div className={floating ? "fixed bottom-6 right-6 z-40" : "relative z-20 inline-block"}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-full text-white shadow-xl transition-all transform hover:scale-105 active:scale-95 cursor-pointer border group ${
+          className={`flex items-center gap-2.5 px-5 py-3 rounded-full text-white shadow-xl transition-all transform hover:scale-105 active:scale-95 cursor-pointer border group ${
             isLandingMode
               ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 border-emerald-400/30 shadow-emerald-900/30'
               : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 border-indigo-400/30 shadow-indigo-600/30'
@@ -223,14 +223,14 @@ export default function CourseTutor({ course, activeStepIndex = 0, mode = 'cours
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-900 animate-pulse" />
           </div>
           <span className="font-semibold text-xs tracking-wide">
-            {isLandingMode ? 'CourseIT Guide (Demo)' : 'Course Companion'}
+            {isLandingMode ? 'CourseIT Guide (Demo Tutor)' : 'Course Companion'}
           </span>
         </button>
       </div>
 
       {/* Drawer / Companion Modal */}
       {isOpen && (
-        <div className="fixed bottom-20 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[420px] h-[560px] max-h-[80vh] flex flex-col rounded-3xl bg-slate-950/95 border border-indigo-500/30 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-200 overflow-hidden">
+        <div className="fixed bottom-6 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[420px] h-[560px] max-h-[85vh] flex flex-col rounded-3xl bg-slate-950/95 border border-indigo-500/30 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-200 overflow-hidden">
           {/* Header */}
           <div className="p-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">

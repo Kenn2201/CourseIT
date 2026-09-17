@@ -3,7 +3,7 @@ import { BookOpen, Sparkles, ExternalLink, Mail, Shield, FileText, Heart } from 
 import TermsPrivacyModal from './TermsPrivacyModal';
 import { CURRENT_VERSION_LABEL } from '../constants/version';
 
-export default function Footer({ onOpenChangelog }) {
+export default function Footer({ onOpenChangelog, showPoweredBy = true }) {
   const [legalModalOpen, setLegalModalOpen] = useState(false);
   const [legalInitialTab, setLegalInitialTab] = useState('terms');
 
@@ -46,30 +46,32 @@ export default function Footer({ onOpenChangelog }) {
               <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed">
                 The anti-fluff documentation synthesizer designed for developers with ADHD, documentation fatigue, and low attention spans. Turns 40-page API manuals into progressive action steps.
               </p>
-              <div className="pt-2">
-                <div className="inline-flex flex-wrap items-center gap-2 p-1.5 px-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-slate-400">
-                  <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Powered by</span>
-                  <span className="text-teal-400 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-                    Netlify
-                  </span>
-                  <span className="text-slate-700">&bull;</span>
-                  <span className="text-pink-400 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
-                    Appwrite
-                  </span>
-                  <span className="text-slate-700">&bull;</span>
-                  <span className="text-indigo-400 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                    Google Gemini
-                  </span>
-                  <span className="text-slate-700">&bull;</span>
-                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Resend
-                  </span>
+              {showPoweredBy && (
+                <div className="pt-2">
+                  <div className="inline-flex flex-wrap items-center gap-2 p-1.5 px-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-slate-400">
+                    <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Powered by</span>
+                    <span className="text-teal-400 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                      Netlify
+                    </span>
+                    <span className="text-slate-700">&bull;</span>
+                    <span className="text-pink-400 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
+                      Appwrite
+                    </span>
+                    <span className="text-slate-700">&bull;</span>
+                    <span className="text-indigo-400 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                      Google Gemini
+                    </span>
+                    <span className="text-slate-700">&bull;</span>
+                    <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      Resend
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Col 2: Navigation & Changelog */}

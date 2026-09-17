@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.11.1] - 2026-09-17 — Serverless Production Hotfix & Connected Documentation
+## [1.11.1] - 2026-09-17 — Serverless Production Hotfix & Connected Documentation (LIVE Beta)
 
 ### Fixed & Hardened
 - **Netlify 502 Bad Gateway Serverless Fix**:
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation & Version Synchronization
 - **Connected Documentation**:
-  - Synchronized SemVer across `src/constants/version.js` (`1.11.1` / `v1.11.1 LIVE`), `package.json`, `src/data/changelog.js`, `CHANGELOG.md`, `VERSIONING.md`, and `README.md`.
+  - Synchronized SemVer across `src/constants/version.js` (`1.11.1` / `v1.11.1 LIVE Beta`), `package.json`, `src/data/changelog.js`, `CHANGELOG.md`, `VERSIONING.md`, and `README.md`.
   - Linked GitHub commit references and cross-linked `VERSIONING.md` and `CHANGELOG.md` in repository documentation.
 
 ## [1.11.0] - 2026-09-17 — Production Live Release, Netlify Serverless Routing & Security Hardening

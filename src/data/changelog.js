@@ -1,6 +1,6 @@
 export const CHANGELOG_DATA = [
   {
-    version: 'v1.11.1 LIVE',
+    version: 'v1.11.1 LIVE Beta',
     date: 'September 17, 2026',
     title: 'Serverless Production Hotfix & Connected Documentation',
     badge: 'Latest Release',

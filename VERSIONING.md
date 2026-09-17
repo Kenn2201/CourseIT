@@ -11,7 +11,7 @@ All UI components, user-facing screens, and backend constants must import the ac
 
 ```javascript
 export const CURRENT_VERSION = '1.11.1';
-export const CURRENT_VERSION_LABEL = 'v1.11.1 LIVE';
+export const CURRENT_VERSION_LABEL = 'v1.11.1 LIVE Beta';
 export const RELEASE_DATE = 'September 17, 2026';
 export const RELEASE_NAME = 'Serverless Production Hotfix & Connected Documentation';
 

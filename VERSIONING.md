@@ -44,6 +44,10 @@ Version numbers and release records are synchronized across:
 
 ## 3. Release Checklist for Future Deployments
 
+> [!IMPORTANT]
+> **Mandatory For ALL Pushes (Small Hotfixes or Big Releases)**:  
+> Because there is no automated CI bot to auto-increment versions on GitHub push, this checklist **MUST be executed manually for every single release, hotfix, or push**. Never push code without updating all 6 files. See [**`AGENTS.md`**](AGENTS.md) and [**`.agents/rules/versioning.md`**](.agents/rules/versioning.md) for agent operating instructions.
+
 When preparing and releasing a new version, execute this checklist systematically:
 
 1. [ ] **Update Single Source of Truth**:

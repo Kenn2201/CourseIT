@@ -4,8 +4,8 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.11.2--LIVE--Beta-indigo.svg)
-[![Last Commit](https://img.shields.io/badge/last%20commit-20e56c6-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
+![Version](https://img.shields.io/badge/version-v1.12.0--LIVE--Beta-indigo.svg)
+[![Last Commit](https://img.shields.io/badge/last%20commit-cf22bfc-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
@@ -21,12 +21,18 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.11.2 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.12.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
-* **Latest Production Commit**: [`20e56c6`](https://github.com/Kenn2201/CourseIT/commits/master)
+* **Latest Production Commit**: [`cf22bfc`](https://github.com/Kenn2201/CourseIT/commits/master)
 
 ### Recent Release Notes
+
+* **v1.12.0 LIVE Beta (September 18, 2026)** — *Persistent Global Maintenance Mode, UI Restoration & Admin Stability*:
+  * **Global Maintenance Mode via Appwrite**: Maintenance flag now stored in Appwrite Cloud as a system document — all browsers worldwide sync state within 30 seconds via background polling. `setMaintenanceMode()` writes to Appwrite and auto-creates the document on first use.
+  * **Admin Panel Infinite Refresh Fixed**: Root-cause resolved by replacing the `user` object reference (new object every render) in `useEffect` dependency array with stable `user?.id` / `user?.email` primitives.
+  * **UI Restoration**: `CourseTutor` chatbot restored to lower-left corner globally; Light/Dark theme toggle moved to Navbar header; `Powered By` partner badges restored on landing page footer.
+  * **Security Sanitization**: Scrubbed internal API paths, collection IDs, and emails from public changelog and documentation; established `.agents/rules/versioning.md` mandatory versioning protocol.
 
 * **v1.11.2 LIVE Beta (September 17, 2026)** — *Serverless Evaluation Hotfix & Quota Engine Stabilization*:
   * **AWS Lambda / Netlify Serverless Evaluation Fix**: Eliminated fatal `TypeError: The "path" argument must be of type string or an instance of URL. Received undefined` caused by CommonJS bundler execution of `fileURLToPath(import.meta.url)`. Switched to universal, environment-resilient directory discovery, restoring 100% gateway uptime across all serverless API routes.

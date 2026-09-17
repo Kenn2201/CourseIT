@@ -1,9 +1,36 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.12.0 LIVE Beta',
+    date: 'September 18, 2026',
+    title: 'Persistent Global Maintenance Mode, UI Restoration & Admin Stability',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Real-Time Global Maintenance Mode via Appwrite',
+        desc: 'Maintenance mode is now stored in Appwrite Cloud — toggling it from Admin instantly locks every browser in the world within 30 seconds via background polling. No more localStorage-only flags that only your own browser knew about.'
+      },
+      {
+        title: 'Admin Panel Infinite Refresh Loop Fixed',
+        desc: 'Resolved the root-cause of the Admin dashboard infinite re-fetch loop by replacing unstable object references in useEffect dependencies with stable primitive identifiers.'
+      },
+      {
+        title: 'UI Restoration: Lower-Left Chatbot & Header Theme Toggle',
+        desc: 'Restored the CourseIT Guide chatbot to the lower-left corner globally, relocated the light/dark theme toggle to the navigation header, and properly displayed the Powered By partner badges on the landing page.'
+      }
+    ],
+    notes: [
+      'Maintenance flag now persisted to Appwrite DB document (system_maintenance_flag) — all browsers sync within 30 seconds',
+      'Admin panel no longer infinitely re-fetches after fixing useEffect dependency on user object reference',
+      'setMaintenanceMode() gracefully creates the system document on first use if it does not exist yet',
+      'Offline fallback: localStorage mirrors Appwrite state for instant paint on page reload',
+      'Security audit: sanitized public changelog and server handler of internal paths, IDs, and emails',
+      'Chatbot launcher restored to fixed bottom-left corner (bottom-6 left-6) across all routes',
+      'Theme toggle moved to Navbar header — always accessible regardless of scroll position'
+    ]
+  },
+  {
     version: 'v1.11.2 LIVE Beta',
     date: 'September 17, 2026',
-    title: 'Serverless Evaluation Hotfix & Quota Engine Stabilization',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'Universal CommonJS & ESM Serverless Bundling Fix',

@@ -10,10 +10,10 @@ All UI components, user-facing screens, and backend constants must import the ac
 📁 **[`src/constants/version.js`](src/constants/version.js)**
 
 ```javascript
-export const CURRENT_VERSION = '1.12.1';
-export const CURRENT_VERSION_LABEL = 'v1.12.1 LIVE Beta';
+export const CURRENT_VERSION = '1.12.2';
+export const CURRENT_VERSION_LABEL = 'v1.12.2 LIVE Beta';
 export const RELEASE_DATE = 'September 18, 2026';
-export const RELEASE_NAME = 'Approval Persistence & Quota Source-of-Truth Fix';
+export const RELEASE_NAME = 'Email Suite Crash, Course Visibility, Admin Dedup & Loop Fixes';
 
 export const APP_NAME = 'CourseIT Ai';
 export const APP_TAGLINE = 'Action-first docs learning paths';

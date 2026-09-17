@@ -504,19 +504,25 @@ export async function listAllUsers() {
         Query.orderDesc('$createdAt')
       ]);
       if (list.documents && list.documents.length > 0) {
-        const appwriteUsers = list.documents.map(d => ({
-          user_id: d.user_id,
-          name: d.name,
-          email: d.email,
-          quota_remaining: d.quota_remaining ?? DEFAULT_CREDITS,
-          status: d.status,
-          $id: d.$id,
-          $createdAt: d.$createdAt
-        }));
+        const appwriteUsers = list.documents
+          // Exclude system documents (maintenance flag, etc.)
+          .filter(d => d.user_id && !d.user_id.startsWith('system'))
+          .map(d => ({
+            user_id: d.user_id,
+            name: d.name,
+            email: d.email,
+            quota_remaining: d.quota_remaining ?? DEFAULT_CREDITS,
+            status: d.status,
+            $id: d.$id,
+            $createdAt: d.$createdAt
+          }));
 
+        // Deduplicate by EMAIL (not user_id) — same person may have 2 user_id records
         const mergedMap = new Map();
-        records.forEach(r => mergedMap.set(r.user_id, r));
-        appwriteUsers.forEach(r => mergedMap.set(r.user_id, r));
+        // Local records first (keyed by email)
+        records.forEach(r => { if (r.email) mergedMap.set(r.email.toLowerCase(), r); });
+        // Appwrite wins for any matching email
+        appwriteUsers.forEach(r => { if (r.email) mergedMap.set(r.email.toLowerCase(), r); });
         records = Array.from(mergedMap.values());
       }
     } catch {}
@@ -676,12 +682,20 @@ export async function topUpUserCredits(userId, amount = DEFAULT_CREDITS) {
 
   const db = getAppwriteDb();
   const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-  if (db && databaseId && user.$id) {
+  if (db && databaseId) {
     try {
-      await db.updateDocument(databaseId, 'users_quota', user.$id, {
-        quota_remaining: user.quota_remaining
-      });
-    } catch {}
+      // Always query by user_id — never rely on cached $id
+      const existing = await db.listDocuments(databaseId, 'users_quota', [
+        Query.equal('user_id', userId)
+      ]);
+      if (existing.documents && existing.documents.length > 0) {
+        await db.updateDocument(databaseId, 'users_quota', existing.documents[0].$id, {
+          quota_remaining: user.quota_remaining
+        });
+      }
+    } catch (err) {
+      console.warn('[TopUp] Appwrite sync warning:', err.message);
+    }
   }
 
   return user;

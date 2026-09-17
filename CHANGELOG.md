@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.2] - 2026-09-18 — Email Suite Crash, Course Visibility, Admin Dedup & Loop Fixes (LIVE Beta)
+
+### Fixed & Hardened
+- **Email Suite `ReferenceError` Crash**: `customEmailBody` state variable was never declared — clicking Email Suite caused an immediate `Uncaught ReferenceError`. Added the missing `useState` declaration with a sensible default template.
+- **Duplicate Admin User in Panel**: `listAllUsers()` was deduplicating by `user_id`, but the same admin email can exist under two different `user_id` records in Appwrite. Changed merge key to **email address** so the same person is never shown twice.
+- **System Documents Leaking into Course Catalog**: When admin is logged in, all Appwrite documents were returned including `system://maintenance` flag and courses created by `creator_id: 'system'`. Added explicit filter to exclude all `source_url: 'system://*'` and `creator_id: 'system'` documents from course lists.
+- **Guest Courses Appearing in Community Section**: The community section showed guest-created courses from other sessions. Properly isolated by the existing `creator_id` filter (now that system docs are excluded, the admin view is clean).
+- **CourseDetail Page Infinite Reload Loop**: `useEffect` had `user` (unstable object reference) as a dependency — triggered a re-fetch on every render. Replaced with stable `user?.id` primitive.
+- **Top-Up Credits Not Persisting**: `topUpUserCredits()` had the same `user.$id` cold-start bug as approve. Now queries Appwrite by `user_id` before updating.
+
 ## [1.12.1] - 2026-09-18 — Approval Persistence & Quota Source-of-Truth Fix (LIVE Beta)
 
 ### Fixed & Hardened

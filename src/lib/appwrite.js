@@ -222,7 +222,10 @@ export async function listCourses(userId = null, isAdmin = false, includeCurated
         queries
       );
 
-      customCourses = response.documents.map(normalizeCourse);
+      customCourses = response.documents
+        // Filter out system documents (maintenance flag, etc.)
+        .filter(d => !d.source_url?.startsWith('system://') && d.creator_id !== 'system')
+        .map(normalizeCourse);
     } catch (err) {
       // Fallback: read from local storage with creator filtering
       customCourses = getLocalCourses().filter(c => !c.is_curated && (isAdmin || c.creator_id === userId));
@@ -231,7 +234,6 @@ export async function listCourses(userId = null, isAdmin = false, includeCurated
     customCourses = getLocalCourses().filter(c => !c.is_curated && (isAdmin || c.creator_id === userId));
   }
 
-  // If includeCurated is false (e.g., in Profile stats/my courses), return strictly user's custom courses
   if (!includeCurated) {
     return customCourses.filter(c => !c.is_curated && !c.$id?.startsWith('starter-'));
   }

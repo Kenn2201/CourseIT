@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Layers, ArrowUpRight, CheckCircle, Trash2 } from 'lucide-react';
+import { Clock, Layers, ArrowUpRight, CheckCircle, Trash2, User } from 'lucide-react';
 import { getCompletedSteps } from '../lib/storage';
 
 export default function CourseCard({ course, onDelete, currentUser = null, isAdmin = false }) {
@@ -9,8 +9,15 @@ export default function CourseCard({ course, onDelete, currentUser = null, isAdm
   const isComplete = steps.length > 0 && completedSteps.length >= steps.length;
 
   const isStarter = Boolean(course.is_curated || course.$id?.startsWith('starter-'));
+  const isGuest = Boolean(course.is_guest || course.creator_id === 'public_guest' || (!course.creator_id && !isStarter));
   const isOwner = Boolean(currentUser?.id && course.creator_id && course.creator_id === currentUser.id);
   const canDelete = isAdmin || (isOwner && !isStarter);
+
+  const creatorLabel = isStarter
+    ? 'CourseIT Team'
+    : isGuest
+    ? 'Guest (24h)'
+    : (course.creator_name || course.creator_email?.split('@')[0] || 'User');
 
   let hostname = 'docs';
   try {
@@ -41,8 +48,8 @@ export default function CourseCard({ course, onDelete, currentUser = null, isAdm
       className="glass-card rounded-2xl p-6 flex flex-col justify-between group relative overflow-hidden transition-all duration-300 hover:border-indigo-500/40 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-950/20"
     >
       <div>
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-md truncate max-w-[180px]">
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-md truncate max-w-[170px]">
             {hostname}
           </span>
           <div className="flex items-center gap-1.5">
@@ -68,6 +75,19 @@ export default function CourseCard({ course, onDelete, currentUser = null, isAdm
 
             <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
           </div>
+        </div>
+
+        {/* Creator Attribution Badge */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[11px] font-medium text-slate-400 bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 rounded-md inline-flex items-center gap-1.5">
+            <span className="text-slate-500">By</span>
+            <span className="text-slate-200 font-semibold truncate max-w-[130px]">{creatorLabel}</span>
+            {isGuest && (
+              <span className="text-[9px] font-mono text-amber-300 bg-amber-500/20 px-1 py-0.2 rounded border border-amber-500/30">
+                24h Expire
+              </span>
+            )}
+          </span>
         </div>
 
         <h3 className="text-lg font-bold text-white group-hover:text-indigo-200 transition-colors line-clamp-2 leading-snug mb-3">

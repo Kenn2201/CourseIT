@@ -118,8 +118,10 @@ function normalizeCourse(doc) {
   };
 }
 
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
 /**
- * Get courses from local storage
+ * Get courses from local storage with 24-hour auto-purge for guest generations
  */
 export function getLocalCourses() {
   try {
@@ -128,7 +130,27 @@ export function getLocalCourses() {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([SAMPLE_GODOT_COURSE]));
       return [SAMPLE_GODOT_COURSE];
     }
-    return JSON.parse(raw);
+    const courses = JSON.parse(raw);
+    const now = Date.now();
+
+    // Automatic 24-hour self-deletion for public/guest courses
+    const validCourses = courses.filter(c => {
+      if (c.is_curated || c.$id?.startsWith('starter-')) return true;
+      const isGuest = Boolean(c.is_guest || c.creator_id === 'public_guest' || !c.creator_id);
+      if (!isGuest) return true;
+
+      const createdTime = c.$createdAt
+        ? new Date(c.$createdAt).getTime()
+        : (c.createdAt ? new Date(c.createdAt).getTime() : now);
+
+      return (now - createdTime) < TWENTY_FOUR_HOURS_MS;
+    });
+
+    if (validCourses.length !== courses.length) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(validCourses));
+    }
+
+    return validCourses;
   } catch {
     return [SAMPLE_GODOT_COURSE];
   }

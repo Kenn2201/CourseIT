@@ -302,6 +302,23 @@ export default function CourseDetail() {
                 {sourceDomain}
               </span>
 
+              {/* Creator Attribution Badge */}
+              <span className="inline-flex items-center gap-1.5 text-xs text-slate-300 bg-slate-900/80 border border-slate-700/60 px-3 py-1 rounded-full font-medium">
+                <span className="text-slate-400">Created by</span>
+                <strong className="text-white font-semibold">
+                  {Boolean(course.is_curated || course.$id?.startsWith('starter-'))
+                    ? 'CourseIT Team'
+                    : Boolean(course.is_guest || course.creator_id === 'public_guest' || (!course.creator_id))
+                    ? 'Guest (24h Trial)'
+                    : (course.creator_name || course.creator_email?.split('@')[0] || 'Member')}
+                </strong>
+                {Boolean(course.is_guest || course.creator_id === 'public_guest') && (
+                  <span className="text-[10px] font-mono text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
+                    Expires in 24h
+                  </span>
+                )}
+              </span>
+
               {course.source_url && (
                 <a
                   href={course.source_url}
@@ -411,7 +428,7 @@ export default function CourseDetail() {
         )}
 
         {/* Scripted Technical Companion Bot */}
-        <CourseTutor course={course} />
+        <CourseTutor course={course} mode="course" />
       </div>
     </div>
   );

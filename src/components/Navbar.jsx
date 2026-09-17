@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, Sparkles, User, ShieldCheck, LogIn, LayoutDashboard, Terminal, Compass, MessageSquarePlus } from 'lucide-react';
+import { BookOpen, Sparkles, User, ShieldCheck, LogIn, LogOut, LayoutDashboard, Terminal, Compass, MessageSquarePlus, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { isAppwriteConfigured } from '../lib/appwrite';
-import { getAuthState, checkAppwriteSession } from '../lib/auth';
+import { getAuthState, checkAppwriteSession, logoutUser } from '../lib/auth';
 import ChangelogModal from './ChangelogModal';
 import AdminModal from './AdminModal';
 import FeedbackModal from './FeedbackModal';
@@ -12,13 +12,23 @@ export default function Navbar() {
   const isLive = isAppwriteConfigured();
   const location = useLocation();
   const [authState, setAuthState] = useState(getAuthState());
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutNotice, setSignOutNotice] = useState(false);
+  const [signInNotice, setSignInNotice] = useState(false);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   useEffect(() => {
     // Check if session exists on load or OAuth redirect
-    checkAppwriteSession().then(state => setAuthState(state));
+    checkAppwriteSession().then(state => {
+      setAuthState(state);
+      setIsCheckingSession(false);
+    }).catch(() => {
+      setIsCheckingSession(false);
+    });
 
     // First-time or 24-hour Changelog Pop-up
     try {
@@ -32,7 +42,15 @@ export default function Navbar() {
 
     // Listen for custom quota, auth, and changelog updates
     const handleAuthEvent = () => {
-      checkAppwriteSession().then(state => setAuthState(state));
+      checkAppwriteSession().then(state => {
+        const wasAuthenticated = authState?.isAuthenticated;
+        setAuthState(state);
+        setIsCheckingSession(false);
+        if (!wasAuthenticated && state?.isAuthenticated) {
+          setSignInNotice(true);
+          setTimeout(() => setSignInNotice(false), 2500);
+        }
+      });
     };
     const handleOpenChangelog = () => setIsChangelogOpen(true);
 
@@ -45,7 +63,7 @@ export default function Navbar() {
       window.removeEventListener('courseit_auth_changed', handleAuthEvent);
       window.removeEventListener('courseit_open_changelog', handleOpenChangelog);
     };
-  }, []);
+  }, [authState?.isAuthenticated]);
 
   const handleCloseChangelog = () => {
     setIsChangelogOpen(false);
@@ -54,13 +72,33 @@ export default function Navbar() {
     } catch {}
   };
 
+  const handleHeaderSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await logoutUser();
+      setSignOutNotice(true);
+      setTimeout(() => {
+        setSignOutNotice(false);
+        setIsSigningOut(false);
+      }, 1500);
+    } catch (err) {
+      console.error('Sign out failed:', err);
+      setIsSigningOut(false);
+    }
+  };
+
+  const handleOpenAuth = (mode = 'login') => {
+    setAuthMode(mode);
+    setIsAuthOpen(true);
+  };
+
   const remainingCredits = authState?.quota?.quota_remaining ?? 250;
   const isAppRoute = location.pathname === '/app' || location.pathname === '/dashboard';
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-slate-950/85 backdrop-blur-md transition-colors duration-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
               <BookOpen className="w-5 h-5" />
@@ -77,7 +115,7 @@ export default function Navbar() {
                   className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors cursor-pointer flex items-center gap-1"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                  <span>v1.5.0 BETA</span>
+                  <span>v1.7.0 BETA</span>
                 </button>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">Action-first docs learning paths</p>
@@ -85,6 +123,21 @@ export default function Navbar() {
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Quick Transition Feedback Banners */}
+            {signInNotice && (
+              <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold animate-in fade-in zoom-in-95">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Welcome back, {authState?.user?.name || 'User'}!</span>
+              </div>
+            )}
+
+            {signOutNotice && (
+              <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 text-xs font-semibold animate-in fade-in zoom-in-95">
+                <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Signed out cleanly</span>
+              </div>
+            )}
+
             {/* Generator Switch Link */}
             {!isAppRoute && (
               <Link
@@ -116,18 +169,6 @@ export default function Navbar() {
               <span>What's New</span>
             </button>
 
-            {/* Beta Feedback Button (For Authenticated Users) */}
-            {authState?.isAuthenticated && (
-              <button
-                type="button"
-                onClick={() => setIsFeedbackOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition-all cursor-pointer shadow-sm"
-              >
-                <MessageSquarePlus className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden sm:inline">Beta Feedback</span>
-              </button>
-            )}
-
             {/* Admin Dashboard Quick Link (Only visible if Admin) */}
             {authState?.isAdmin && (
               <Link
@@ -139,28 +180,53 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* User Session & Quotas Pill (Links to /profile) */}
-            {authState?.isAuthenticated ? (
-              <Link
-                to="/profile"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 border border-indigo-500/30 hover:border-indigo-500/60 text-slate-200 transition-all cursor-pointer shadow-sm shadow-indigo-950/30 group"
-                title="View Profile & Manage Prompts"
-              >
-                <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-[10px] text-white font-bold group-hover:scale-105 transition-transform">
-                  {authState?.user?.name?.[0]?.toUpperCase() || 'U'}
-                </div>
-                <span className="font-semibold text-white truncate max-w-[100px]">
-                  {authState?.user?.name || 'User'}
-                </span>
-                <span className="text-slate-500 hidden sm:inline">•</span>
-                <span className="text-indigo-300 font-mono font-bold hidden sm:inline">
-                  {remainingCredits.toFixed(0)}/250 Cr
-                </span>
-              </Link>
+            {/* AUTH STATE CONTROLS IN HEADER */}
+            {isCheckingSession ? (
+              // Verifying-session skeleton/loader to avoid flash of wrong UI
+              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-400 font-mono animate-pulse">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                <span className="hidden sm:inline">Verifying session...</span>
+              </div>
+            ) : authState?.isAuthenticated ? (
+              // Authenticated User Controls: Profile pill + Direct Sign Out
+              <div className="flex items-center gap-1.5">
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 border border-indigo-500/30 hover:border-indigo-500/60 text-slate-200 transition-all cursor-pointer shadow-sm shadow-indigo-950/30 group"
+                  title="View Profile & Manage Prompts"
+                >
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-[10px] text-white font-bold group-hover:scale-105 transition-transform">
+                    {authState?.user?.name?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <span className="font-semibold text-white truncate max-w-[100px]">
+                    {authState?.user?.name || 'User'}
+                  </span>
+                  <span className="text-slate-500 hidden sm:inline">•</span>
+                  <span className="text-indigo-300 font-mono font-bold hidden sm:inline">
+                    {remainingCredits.toFixed(0)}/250 Cr
+                  </span>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={handleHeaderSignOut}
+                  disabled={isSigningOut}
+                  className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/30 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                  title="Sign Out"
+                >
+                  {isSigningOut ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-400" />
+                  ) : (
+                    <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-300" />
+                  )}
+                  <span className="hidden sm:inline">{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
+                </button>
+              </div>
             ) : (
+              // Unauthenticated User Controls: Direct Sign In in Header
               <button
                 type="button"
-                onClick={() => setIsAuthOpen(true)}
+                onClick={() => handleOpenAuth('login')}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer active:scale-95"
               >
                 <LogIn className="w-3.5 h-3.5" />
@@ -168,7 +234,7 @@ export default function Navbar() {
               </button>
             )}
 
-            {/* Theme Toggle (Dark / Light with PixelSwap animation) */}
+            {/* Theme Toggle (Universal Light / Dark with PixelSwap animation) */}
             <ThemeToggle />
 
             {/* Database Sync Status indicator */}
@@ -190,6 +256,7 @@ export default function Navbar() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         authState={authState}
+        initialMode={authMode}
         onAuthChange={(newState) => setAuthState(newState)}
       />
 

@@ -11,100 +11,116 @@ body {
   background-color: #030712;
   color: #f3f4f6;
   overflow-x: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Light Mode Overrides */
+/* =========================================================
+   Universal Light Mode Overrides (Dashboard, Detail, Shell, Modals)
+   ========================================================= */
 html.light {
   color-scheme: light;
 }
 
-html.light body {
-  background-color: #f8fafc;
-  color: #0f172a;
-}
-
-html.light header {
-  background-color: rgba(255, 255, 255, 0.85) !important;
-  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
-}
-
-html.light header span.text-white {
-  color: #0f172a !important;
-}
-
-html.light .glass-panel {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-}
-
-html.light .glass-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-}
-
-html.light .glass-card:hover {
-  background: #ffffff;
-  border-color: rgba(99, 102, 241, 0.4);
-  box-shadow: 0 12px 28px -8px rgba(99, 102, 241, 0.15);
-}
-
-/* Full Light Mode Overrides for Landing Page & All Pages */
-html.light .landing-root {
+html.light body,
+html.light #root > div,
+html.light .landing-root,
+html.light [class*="bg-[#070913]"],
+html.light [class*="bg-[#030712]"] {
   background-color: #f8fafc !important;
   color: #0f172a !important;
 }
 
-html.light .landing-root h1,
-html.light .landing-root h2,
-html.light .landing-root h3,
-html.light .landing-root h4 {
+html.light header {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border-bottom-color: rgba(226, 232, 240, 0.9) !important;
+}
+
+html.light .glass-panel {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(226, 232, 240, 0.95) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02) !important;
+}
+
+html.light .glass-card {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light .glass-card:hover {
+  background: #ffffff !important;
+  border-color: rgba(99, 102, 241, 0.5) !important;
+  box-shadow: 0 12px 28px -8px rgba(99, 102, 241, 0.15) !important;
+}
+
+html.light .bg-slate-950,
+html.light .bg-slate-950\/80,
+html.light .bg-slate-950\/90,
+html.light .bg-slate-950\/95,
+html.light .bg-slate-950\/60,
+html.light .bg-slate-950\/40 {
+  background-color: #f8fafc !important;
+}
+
+html.light .bg-slate-900,
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/80,
+html.light .bg-slate-900\/95,
+html.light .bg-slate-900\/60,
+html.light .bg-slate-900\/40 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-slate-850,
+html.light .bg-slate-800,
+html.light .bg-slate-800\/80,
+html.light .bg-slate-800\/60,
+html.light .bg-slate-800\/40 {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .border-slate-800,
+html.light .border-slate-800\/80,
+html.light .border-slate-800\/90,
+html.light .border-slate-700,
+html.light .border-slate-700\/80 {
+  border-color: #e2e8f0 !important;
+}
+
+html.light h1,
+html.light h2,
+html.light h3,
+html.light h4,
+html.light .text-white,
+html.light .text-slate-100 {
   color: #0f172a !important;
 }
 
-html.light .landing-root p {
+html.light .text-slate-200,
+html.light .text-slate-300 {
   color: #334155 !important;
 }
 
-html.light .landing-root section {
-  border-color: rgba(0, 0, 0, 0.08) !important;
-}
-
-html.light .landing-root .bg-slate-950,
-html.light .landing-root .bg-slate-950\/60,
-html.light .landing-root .bg-slate-950\/80,
-html.light .landing-root .bg-slate-950\/40 {
-  background-color: rgba(241, 245, 249, 0.9) !important;
-}
-
-html.light .landing-root .bg-slate-900,
-html.light .landing-root .bg-slate-900\/80,
-html.light .landing-root .bg-slate-900\/60,
-html.light .landing-root .bg-slate-900\/40 {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-  color: #0f172a !important;
-}
-
-html.light .landing-root .text-slate-100 {
-  color: #0f172a !important;
-}
-
-html.light .landing-root .text-slate-300,
-html.light .landing-root .text-slate-400 {
-  color: #475569 !important;
-}
-
-html.light .landing-root .text-slate-500 {
+html.light .text-slate-400 {
   color: #64748b !important;
 }
 
-html.light .landing-root .border-slate-800,
-html.light .landing-root .border-slate-800\/80,
-html.light .landing-root .border-slate-800\/90 {
-  border-color: #e2e8f0 !important;
+html.light .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.light input,
+html.light textarea,
+html.light select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8 !important;
 }
 
 /* Custom glow and backdrop effects */
@@ -221,4 +237,3 @@ html.light ::-webkit-scrollbar-thumb:hover {
     page-break-inside: avoid;
   }
 }
-

@@ -37,7 +37,7 @@ export default function Footer({ onOpenChangelog }) {
                   onClick={triggerChangelog}
                   className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors cursor-pointer"
                 >
-                  v1.5.0 BETA
+                  v1.7.0 BETA
                 </button>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed">
@@ -168,7 +168,7 @@ export default function Footer({ onOpenChangelog }) {
                 onClick={triggerChangelog}
                 className="hover:text-indigo-400 transition-colors cursor-pointer"
               >
-                v1.5.0 Release Notes
+                v1.7.0 Release Notes
               </button>
             </div>
           </div>

@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0-beta] - 2026-09-17 — Dashboard Application Shell, Appwrite Serverless History, Light Mode Theming & Auth Hardening
+
+### Fixed & Hardened
+- **Bug 1: Model Picker & Tab Clickability Fix**:
+  - Removed container `overflow-hidden` from `.glass-panel` in `UrlInputForm.jsx` that was clipping absolute dropdown elements.
+  - Elevated z-index and isolated hitboxes so `isPending`, `isOutOfQuota`, and `isLoading` only disable generation submission, never the tab switchers or model dropdowns.
+- **Bug 2: Universal Light Mode Theming**:
+  - Root-caused the light mode failure: replaced non-interactive wrappers in `ThemeToggle.jsx` with a semantic, fully clickable `<button type="button">`.
+  - Added comprehensive universal `html.light` CSS utility rules in `src/index.css` covering `body`, cards, panels, inputs, borders, and text across all pages (`/`, `/app`, `/course/:id`, `/admin`, `/profile`).
+  - Injected an inline theme initialization script in `index.html` to eliminate theme flash on page reload.
+- **Bug 3: Feedback & Chatbot Collision Avoidance**:
+  - Relocated the floating Beta Feedback button to `bottom-6 right-24`, preventing visual overlap with the CourseTutor bot docked at `bottom-6 right-6`.
+- **Universal Server-Side Auth Re-verification**:
+  - Implemented `getAuthJwt()` in `src/lib/auth.js` leveraging Appwrite's `account.createJWT()`.
+  - Added `authenticatedFetch()` that automatically injects `x-appwrite-jwt`.
+  - Server endpoints (`/api/courses/delete`, `/api/user/archive`, `/api/summarize`, `/api/summarize-text`) independently verify the JWT via `verifyAppwriteSession()`.
+  - Request body `userId` and `isAdmin` flags are ignored and overridden with verified session identity, preventing spoofed requests.
+
+### Added
+- **Dashboard Application Shell with Sidebar**:
+  - Restructured `/dashboard` into an application shell featuring a responsive sidebar with five distinct workspaces:
+    1. **Studio & Courses**: URL and Document OCR generator, prompt presets, and interactive course catalog.
+    2. **Generation History & Uploads**: Searchable, filterable audit log of past prompts and uploaded OCR documents backed by Appwrite collections.
+    3. **My Account & Quota**: Live balance, approval status, and link to profile manager.
+    4. **Preferences**: Anti-fluff strictness level, color theme switcher, and model defaults.
+    5. **Help & Docs**: ADHD anti-fluff principles and supported input formats.
+- **Serverless Appwrite Collection History Architecture**:
+  - Replaced ephemeral local flat files with Appwrite collection storage (`courses` collection and `course_docs` bucket), ensuring zero data loss across Netlify Functions serverless cold starts.
+  - Enforced strict ACLs: users can read and delete their own history entries; administrators can audit and delete across all users.
+- **Course Author Attribution & 24h Guest Purging**:
+  - Added "Created by [User]" badges to course cards and detail page headers.
+  - Guest/public generations automatically expire and self-delete after 24 hours via timestamp pruning in `appwrite.js`.
+- **Distinct Chatbot Scopes**:
+  - **Public Landing Mode (`mode="landing"`)**: "CourseIT Guide" offering interactive product FAQ chips (Anti-Fluff Engine, Supported Inputs, Model Credits, Guest 3/3 Trial).
+  - **Course Detail Mode (`mode="course"`)**: "Technical Companion" providing step-focused code explanations, runnable snippets, common bugs, and concept quizzes.
+- **Header Auth Controls & Session Loader**:
+  - Relocated sign-in and direct sign-out controls into the persistent `Navbar.jsx` with an animated session-checking skeleton loader.
+- **Landing Page Copy Clarity**:
+  - Softened credit messaging from "250 Free Credits on Sign-up" to "250 Free Credits on Admin Approval".
+  - Reconciled model pricing tiers to explicitly indicate Flash Lite is included in the guest trial while higher tiers require an approved beta account.
+
 ## [1.6.0-beta] - 2026-09-17 — Course Deletion Security ACL, Google OAuth Persistence & Visible Model Fallbacks
 
 ### Fixed & Secured

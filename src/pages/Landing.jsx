@@ -86,29 +86,33 @@ const MODEL_PRICING = [
   {
     tier: 'Flash Lite (Fastest)',
     cost: '0.5 Credits',
-    desc: 'Instant synthesis for standard API pages & simple guides. Free for public sandbox.',
-    badge: 'Free in Sandbox',
+    desc: 'Instant synthesis for standard API pages & simple guides. Free for public guest sandbox.',
+    badge: 'Guest 3/3 & Beta',
+    trialLabel: 'Included in Guest 3/3 Trial & Beta',
     speed: '~0.8s'
   },
   {
     tier: 'Gemini 3.5 Lite',
     cost: '1.0 Credit',
     desc: 'Balanced reasoning with detailed implementation instructions and test commands.',
-    badge: 'Balanced',
+    badge: 'Beta Required',
+    trialLabel: 'Approved Beta Account Required',
     speed: '~1.5s'
   },
   {
     tier: 'Gemini 3.6 Flash',
     cost: '2.0 Credits',
     desc: 'Deep multi-step structuring with verified code syntax and architectural notes.',
-    badge: 'High Detail',
+    badge: 'Beta Required',
+    trialLabel: 'Approved Beta Account Required',
     speed: '~2.2s'
   },
   {
     tier: 'Gemini 3.7 Flash',
     cost: '5.0 Credits',
     desc: 'Maximum technical depth for intricate framework specs and complex scans.',
-    badge: 'Pro Reasoning',
+    badge: 'Pro Beta',
+    trialLabel: 'Approved Beta Account Required',
     speed: '~3.5s'
   }
 ];
@@ -416,10 +420,10 @@ export default function Landing({ onLaunchApp }) {
             <span>Transparent Credit Economy</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            250 Free Credits on Sign-up
+            250 Free Credits on Admin Approval
           </h2>
           <p className="text-xs text-slate-400 mt-2">
-            Pick the exact reasoning tier you need for each task. Credits are deducted only upon successful course creation.
+            Pick the exact reasoning tier you need for each task. Unauthenticated guests can generate 3 free courses with Flash Lite. Approved beta testers unlock all tiers with 250 free credits.
           </p>
         </div>
 
@@ -443,8 +447,10 @@ export default function Landing({ onLaunchApp }) {
                 <p className="text-xs text-slate-400 leading-relaxed">{m.desc}</p>
               </div>
 
-              <div className="pt-3 border-t border-slate-800/80 text-[11px] text-slate-500 font-mono">
-                Included in Free Trial
+              <div className={`pt-3 border-t border-slate-800/80 text-[11px] font-mono ${
+                m.tier.includes('Flash Lite') ? 'text-emerald-400' : 'text-slate-500'
+              }`}>
+                {m.trialLabel}
               </div>
             </div>
           ))}
@@ -461,7 +467,7 @@ export default function Landing({ onLaunchApp }) {
             Ready to experience action-first documentation?
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto">
-            Create an account today to unlock 250 free credits, save your generated curricula, and access client-side document OCR.
+            Create an account today to request 250 free credits upon admin approval, save your generated curricula, and access client-side document OCR.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -470,7 +476,7 @@ export default function Landing({ onLaunchApp }) {
               onClick={() => handleOpenAuth('signup')}
               className="px-6 py-3 rounded-2xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
             >
-              Sign Up for 250 Credits &rarr;
+              Request Beta Access (250 Credits) &rarr;
             </button>
             <button
               type="button"
@@ -503,7 +509,7 @@ export default function Landing({ onLaunchApp }) {
       />
 
       {/* Interactive Companion Tutor for Public Landing Page */}
-      <CourseTutor course={STARTER_COURSES[0]} />
+      <CourseTutor course={STARTER_COURSES[0]} mode="landing" />
     </div>
   );
 }

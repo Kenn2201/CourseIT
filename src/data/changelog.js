@@ -1,9 +1,58 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.7.0 BETA',
+    date: 'September 17, 2026',
+    title: 'Dashboard Application Shell, Appwrite Serverless History, Light Mode Theming & Auth Hardening',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Dashboard Application Shell & Sidebar',
+        desc: 'Transformed dashboard into a responsive application shell featuring dedicated Studio, Generation History, Profile, Preferences, and Help sections.'
+      },
+      {
+        title: 'Appwrite Serverless History & OCR Audit',
+        desc: 'Generation prompts and OCR uploads are stored and audited in Appwrite collections with individual deletion and full user/admin ACLs, ensuring persistence on Netlify Functions.'
+      },
+      {
+        title: 'Universal Server-Side Auth Re-verification',
+        desc: 'All protected endpoints re-verify identity via Appwrite session JWT (x-appwrite-jwt), ignoring or rejecting forged user IDs in request bodies.'
+      },
+      {
+        title: 'Root-Cause Light Mode Fix',
+        desc: 'Eliminated unclickable wrappers, added universal light theme styling across routes, cards, and inputs with instantaneous PixelSwap transitions.'
+      },
+      {
+        title: 'Unclickable Model Picker & Tab Fix',
+        desc: 'Removed container overflow-hidden restrictions and elevated dropdown hitboxes for smooth model selection and tab switching.'
+      },
+      {
+        title: 'Course Attribution & 24h Guest Purging',
+        desc: 'Added author attribution badges to course cards and detail pages, with automatic 24-hour auto-purging of unauthenticated guest courses.'
+      },
+      {
+        title: 'Scripted Chatbot Scope Separation',
+        desc: 'Separated public landing demo guide (anti-fluff FAQ chips) from authenticated technical companion (step-specific code and quiz support).'
+      },
+      {
+        title: 'Header Navigation Auth Controls',
+        desc: 'Relocated sign-in and sign-out controls to persistent header with smooth session checking skeleton loader and animated exit transitions.'
+      }
+    ],
+    notes: [
+      'Built responsive DashboardSidebar and GenerationHistory components with real-time search and filter controls',
+      'Stored history in Appwrite collections rather than ephemeral local flat files for serverless Netlify compatibility',
+      'Implemented getAuthJwt() and authenticatedFetch() client utilities alongside server-side verifyAppwriteSession()',
+      'Resolved Bug 1: fixed model dropdown clipping and tab switcher hitboxes',
+      'Resolved Bug 2: semantic theme toggle button and comprehensive light mode CSS rules',
+      'Resolved Bug 3: repositioned Beta Feedback button to prevent overlap with docked CourseTutor bot',
+      'Added Created by [User] attribution and automatic 24-hour expiry calculation for guest courses in appwrite.js',
+      'Soften landing page copy to clarify 250 credits unlock upon admin approval'
+    ]
+  },
+  {
     version: 'v1.6.0 BETA',
     date: 'September 17, 2026',
     title: 'Course Deletion Security ACL, Google OAuth Persistence & Visible Model Fallbacks',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'Critical Security: Course Deletion ACL',

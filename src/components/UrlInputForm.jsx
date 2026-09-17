@@ -244,11 +244,11 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
       </div>
 
       {/* Main Interactive Form Card */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800/90 relative overflow-hidden shadow-2xl">
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800/90 relative shadow-2xl z-20">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 
         {inputMode === 'url' ? (
-          <form onSubmit={handleUrlSubmit} className="space-y-4 relative z-10">
+          <form onSubmit={handleUrlSubmit} className="space-y-4 relative z-20">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <input

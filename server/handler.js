@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { Client, Databases, ID, Query } from 'node-appwrite';
+import { Client, Databases, ID, Query, Account as ServerAccount } from 'node-appwrite';
 import { Resend } from 'resend';
 import { extractDocumentation } from './extract.js';
 import { summarizeWithLLM } from './llm.js';
@@ -22,6 +22,42 @@ if (!fs.existsSync(DATA_DIR)) {
 // 250 credits default trial quota
 export const DEFAULT_CREDITS = 250;
 export const ADMIN_EMAIL = 'kenn.nacario12@gmail.com';
+
+/**
+ * Universally re-verifies the requester's session identity server-side via Appwrite JWT.
+ * Returns verified session object { userId, userEmail, userName, isAdmin } or null.
+ */
+export async function verifyAppwriteSession(jwt) {
+  if (!jwt) return null;
+  const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT;
+  const projectId = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT_ID;
+
+  if (!endpoint || !projectId) return null;
+
+  try {
+    const client = new Client()
+      .setEndpoint(endpoint)
+      .setProject(projectId)
+      .setJWT(jwt);
+
+    const account = new ServerAccount(client);
+    const user = await account.get();
+
+    if (!user || !user.$id) return null;
+
+    const isAdmin = Boolean(user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+
+    return {
+      userId: user.$id,
+      userEmail: user.email,
+      userName: user.name || user.email.split('@')[0],
+      isAdmin
+    };
+  } catch (err) {
+    console.warn('Appwrite JWT session verification failed:', err.message);
+    return null;
+  }
+}
 
 function loadTokenUsage() {
   try {

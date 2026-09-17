@@ -27,9 +27,11 @@ import {
   FileDown,
   Copy,
   CheckCheck,
-  Sparkles
+  Sparkles,
+  Link2,
+  UploadCloud
 } from 'lucide-react';
-import { getAuthState, checkAppwriteSession, ADMIN_EMAIL } from '../lib/auth';
+import { getAuthState, checkAppwriteSession, authenticatedFetch, ADMIN_EMAIL } from '../lib/auth';
 import { listCourses } from '../lib/appwrite';
 import AdminModal from '../components/AdminModal';
 import UserDetailsModal from '../components/UserDetailsModal';
@@ -48,6 +50,8 @@ export default function Admin() {
   const [deletingCourseId, setDeletingCourseId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'approved'
+  const [courseSearchTerm, setCourseSearchTerm] = useState('');
+  const [courseFilterType, setCourseFilterType] = useState('all'); // 'all' | 'url' | 'document'
   const [notification, setNotification] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -194,7 +198,7 @@ export default function Admin() {
     setDeletingCourseId(courseId);
 
     try {
-      const res = await fetch('/api/courses/delete', {
+      const res = await authenticatedFetch('/api/courses/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseId })
@@ -202,10 +206,12 @@ export default function Admin() {
       const data = await res.json();
       if (data.success) {
         setCourses(prev => prev.filter(c => c.$id !== courseId));
-        setNotification({ type: 'success', message: 'Course deleted permanently.' });
+        setNotification({ type: 'success', message: 'Course deleted permanently from Appwrite.' });
+      } else {
+        throw new Error(data.error || 'Failed to delete course.');
       }
     } catch (err) {
-      setNotification({ type: 'error', message: 'Failed to delete course.' });
+      setNotification({ type: 'error', message: err.message || 'Failed to delete course.' });
     } finally {
       setDeletingCourseId(null);
     }
@@ -889,48 +895,164 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Tab 4: Courses & Storage Audit */}
-      {activeTab === 'courses' && (
-        <div className="glass-panel rounded-3xl border border-indigo-500/20 p-6 space-y-4">
-          <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-white">Stored Courses & Prompts ({courses.length})</h3>
-              <p className="text-xs text-slate-400">Review or delete stored courses from database</p>
-            </div>
-            <button onClick={fetchCourses} className="p-2 rounded-xl bg-slate-900 text-slate-400 hover:text-white">
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
+      {/* Tab 4: Courses & Generation History Management */}
+      {activeTab === 'courses' && (() => {
+        const filteredCourseList = courses.filter((c) => {
+          const isDoc = Boolean(c.source_url?.startsWith('upload://') || c.source_url?.includes('ocr'));
+          if (courseFilterType === 'url' && isDoc) return false;
+          if (courseFilterType === 'document' && !isDoc) return false;
 
-          <div className="divide-y divide-slate-800/80">
-            {courses.map((c) => (
-              <div key={c.$id} className="py-3 flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-white truncate">{c.title || 'Untitled'}</p>
-                  <p className="text-[11px] text-slate-500 font-mono truncate">{c.source_url}</p>
+          const q = courseSearchTerm.toLowerCase();
+          return (
+            (c.title || '').toLowerCase().includes(q) ||
+            (c.source_url || '').toLowerCase().includes(q) ||
+            (c.creator_email || '').toLowerCase().includes(q) ||
+            (c.creator_name || '').toLowerCase().includes(q)
+          );
+        });
+
+        return (
+          <div className="glass-panel rounded-3xl border border-indigo-500/20 p-6 space-y-5">
+            <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[11px] font-mono mb-1.5">
+                  <Database className="w-3 h-3" />
+                  <span>Appwrite Collections Storage</span>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <Link
-                    to={`/course/${c.$id}`}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </Link>
-
-                  <button
-                    onClick={() => handleDeleteCourse(c.$id)}
-                    disabled={deletingCourseId === c.$id}
-                    className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <h3 className="text-base font-bold text-white">All User Generations & Upload History ({courses.length})</h3>
+                <p className="text-xs text-slate-400">
+                  Inspect and manage all courses, extracted web documentation, and OCR scans stored in Appwrite.
+                </p>
               </div>
-            ))}
+              <button
+                onClick={fetchCourses}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:border-slate-600 text-slate-200 text-xs font-semibold transition-all cursor-pointer self-start sm:self-auto"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {/* Search & Filter Controls */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Filter by title, author email, or URL..."
+                  value={courseSearchTerm}
+                  onChange={(e) => setCourseSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+                {[
+                  { id: 'all', label: `All (${courses.length})` },
+                  { id: 'url', label: 'Web URLs' },
+                  { id: 'document', label: 'OCR Uploads' }
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setCourseFilterType(f.id)}
+                    className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                      courseFilterType === f.id
+                        ? 'bg-indigo-600 text-white font-bold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Course List */}
+            {filteredCourseList.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 text-xs">
+                No generation records found matching criteria.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-800/60">
+                {filteredCourseList.map((c) => {
+                  const isDoc = Boolean(c.source_url?.startsWith('upload://') || c.source_url?.includes('ocr'));
+                  const isStarter = Boolean(c.is_curated || c.$id?.startsWith('starter-'));
+                  const author = c.creator_email || c.creator_name || (isStarter ? 'CourseIT Team' : 'Guest User');
+
+                  return (
+                    <div key={c.$id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group hover:bg-slate-850/40 rounded-xl px-2 transition-colors">
+                      <div className="min-w-0 flex-1 flex items-start gap-3">
+                        <div className={`p-2 rounded-xl shrink-0 mt-0.5 border ${
+                          isDoc
+                            ? 'bg-violet-500/10 border-violet-500/20 text-violet-400'
+                            : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+                        }`}>
+                          {isDoc ? <UploadCloud className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                        </div>
+
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`text-[10px] font-mono font-semibold px-2 py-0.2 rounded-full border ${
+                              isDoc
+                                ? 'bg-violet-500/10 text-violet-300 border-violet-500/20'
+                                : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+                            }`}>
+                              {isDoc ? 'OCR Doc' : 'URL Doc'}
+                            </span>
+
+                            <span className="text-[11px] font-mono text-slate-400">
+                              By: <strong className="text-slate-300">{author}</strong>
+                            </span>
+
+                            {c.$createdAt && (
+                              <span className="text-[10px] font-mono text-slate-500">
+                                &bull; {new Date(c.$createdAt).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs font-semibold text-white truncate group-hover:text-indigo-300 transition-colors">
+                            {c.title || 'Untitled'}
+                          </p>
+
+                          <p className="text-[11px] text-slate-500 font-mono truncate max-w-xl">
+                            {c.source_url}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <Link
+                          to={`/course/${c.$id}`}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+                          title="Open Course"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </Link>
+
+                        <button
+                          onClick={() => handleDeleteCourse(c.$id)}
+                          disabled={deletingCourseId === c.$id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                          title="Delete from Appwrite database"
+                        >
+                          {deletingCourseId === c.$id ? (
+                            <div className="w-3.5 h-3.5 border-2 border-rose-400/30 border-t-rose-400 rounded-full animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Tab 5: Email Suite & Tester Broadcast */}
       {activeTab === 'emails' && (

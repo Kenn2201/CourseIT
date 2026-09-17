@@ -33,7 +33,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
+      <div className="min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-200">
         <Navbar />
         <main className="flex-1">
           <Routes>
@@ -62,12 +62,12 @@ export default function App() {
           </Routes>
         </main>
 
-        {/* Floating Beta Feedback Button for Logged-In Users */}
+        {/* Floating Beta Feedback Button for Logged-In Users (Docked on right side, offset to avoid collision with CourseTutor bot) */}
         {authState?.isAuthenticated && (
           <button
             type="button"
             onClick={() => setIsFeedbackOpen(true)}
-            className="fixed bottom-5 right-5 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xl shadow-emerald-900/40 border border-emerald-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            className="fixed bottom-6 right-24 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xl shadow-emerald-900/40 border border-emerald-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer"
             title="Submit Beta Feedback"
           >
             <MessageSquarePlus className="w-4 h-4" />

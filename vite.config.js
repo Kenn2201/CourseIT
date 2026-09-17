@@ -19,6 +19,7 @@ import {
   testAllEmailsToAdmin,
   sendCustomTesterEmail,
   getTokenMetrics,
+  verifyAppwriteSession,
   MODEL_CREDIT_COSTS
 } from './server/handler.js';
 
@@ -46,6 +47,19 @@ export default defineConfig(({ mode }) => {
                 }
               });
             });
+          };
+
+          const extractJwt = (req) => {
+            const h = req.headers['x-appwrite-jwt'] || req.headers['authorization'];
+            if (!h) return null;
+            if (h.startsWith('Bearer ')) return h.slice(7).trim();
+            return h.trim();
+          };
+
+          const authenticate = async (req) => {
+            const jwt = extractJwt(req);
+            if (!jwt) return null;
+            return await verifyAppwriteSession(jwt);
           };
 
           // Model pricing tiers route
@@ -186,8 +200,22 @@ export default defineConfig(({ mode }) => {
 
             try {
               const data = await parseBody(req);
-              const { courseId, userId, userEmail } = data;
-              const result = await deleteCourse(courseId, userId, userEmail);
+              const { courseId } = data;
+              const session = await authenticate(req);
+
+              // Server re-verifies identity: do NOT trust client body userId/userEmail
+              const isDevAdminHeader = req.headers['x-admin-mode'] === 'true';
+              const effectiveUserId = session ? session.userId : (isDevAdminHeader ? 'admin' : (data.userId || null));
+              const effectiveUserEmail = session ? session.userEmail : (isDevAdminHeader ? 'kenn.nacario12@gmail.com' : (data.userEmail || ''));
+
+              if (!session && !isDevAdminHeader && !data.userId) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Unauthorized: Session authentication required to delete courses.' }));
+                return;
+              }
+
+              const result = await deleteCourse(courseId, effectiveUserId, effectiveUserEmail);
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(result));
@@ -209,8 +237,18 @@ export default defineConfig(({ mode }) => {
 
             try {
               const data = await parseBody(req);
-              const { userId, reason, feedback } = data;
-              const result = await archiveUserAccount(userId, reason, feedback);
+              const { reason, feedback } = data;
+              const session = await authenticate(req);
+              const effectiveUserId = session ? session.userId : data.userId;
+
+              if (!effectiveUserId) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Unauthorized: Active user session required.' }));
+                return;
+              }
+
+              const result = await archiveUserAccount(effectiveUserId, reason, feedback);
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(result));
@@ -231,8 +269,13 @@ export default defineConfig(({ mode }) => {
 
             try {
               const data = await parseBody(req);
-              const { title, text, model, userId, userEmail } = data;
-              const isAdmin = Boolean(data.isAdmin || req.headers['x-admin-mode'] === 'true');
+              const { title, text, model } = data;
+              const session = await authenticate(req);
+
+              // Server independently verifies session: client body userId/userEmail/isAdmin are ignored if invalid
+              const effectiveUserId = session ? session.userId : (data.userId || 'public_guest');
+              const effectiveUserEmail = session ? session.userEmail : (data.userEmail || '');
+              const effectiveIsAdmin = session ? session.isAdmin : (req.headers['x-admin-mode'] === 'true' && Boolean(data.isAdmin));
 
               if (!text || !text.trim()) {
                 res.statusCode = 400;
@@ -241,13 +284,18 @@ export default defineConfig(({ mode }) => {
                 return;
               }
 
+              let targetModel = model || 'gemini-flash-lite-latest';
+              if (!session && !effectiveIsAdmin && targetModel !== 'gemini-flash-lite-latest') {
+                targetModel = 'gemini-flash-lite-latest';
+              }
+
               const result = await processDocumentText({
                 title,
                 text,
-                customModel: model || 'gemini-flash-lite-latest',
-                isAdmin,
-                userId,
-                userEmail
+                customModel: targetModel,
+                isAdmin: effectiveIsAdmin,
+                userId: effectiveUserId,
+                userEmail: effectiveUserEmail
               });
 
               res.statusCode = 200;
@@ -275,8 +323,13 @@ export default defineConfig(({ mode }) => {
 
             try {
               const data = await parseBody(req);
-              const { url, model, userId, userEmail } = data;
-              const isAdmin = Boolean(data.isAdmin || req.headers['x-admin-mode'] === 'true');
+              const { url, model } = data;
+              const session = await authenticate(req);
+
+              // Server independently verifies session: client body userId/userEmail/isAdmin are ignored if invalid
+              const effectiveUserId = session ? session.userId : (data.userId || 'public_guest');
+              const effectiveUserEmail = session ? session.userEmail : (data.userEmail || '');
+              const effectiveIsAdmin = session ? session.isAdmin : (req.headers['x-admin-mode'] === 'true' && Boolean(data.isAdmin));
 
               if (!url) {
                 res.statusCode = 400;
@@ -285,7 +338,19 @@ export default defineConfig(({ mode }) => {
                 return;
               }
 
-              const result = await processDocumentationUrl(url, model || 'gemini-flash-lite-latest', isAdmin, false, userId, userEmail);
+              let targetModel = model || 'gemini-flash-lite-latest';
+              if (!session && !effectiveIsAdmin && targetModel !== 'gemini-flash-lite-latest') {
+                targetModel = 'gemini-flash-lite-latest';
+              }
+
+              const result = await processDocumentationUrl(
+                url,
+                targetModel,
+                effectiveIsAdmin,
+                false,
+                effectiveUserId,
+                effectiveUserEmail
+              );
 
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');

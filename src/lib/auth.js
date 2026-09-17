@@ -262,10 +262,64 @@ export async function checkAppwriteSession() {
   return getAuthState();
 }
 
+let cachedJwt = null;
+let jwtExpiry = 0;
+
+/**
+ * Creates or retrieves a valid Appwrite session JWT for server-side verification
+ */
+export async function getAuthJwt() {
+  const authState = getAuthState();
+  if (!authState.isAuthenticated || !account || !isAppwriteConfigured()) {
+    return null;
+  }
+
+  const now = Date.now();
+  // Return cached JWT if still fresh (Appwrite JWTs last 15 min; we cache for 10 min)
+  if (cachedJwt && jwtExpiry > now) {
+    return cachedJwt;
+  }
+
+  try {
+    const res = await account.createJWT();
+    if (res && res.jwt) {
+      cachedJwt = res.jwt;
+      jwtExpiry = now + 10 * 60 * 1000;
+      return cachedJwt;
+    }
+  } catch (err) {
+    console.warn('Could not generate Appwrite JWT session token:', err.message);
+  }
+  return null;
+}
+
+/**
+ * Universal authenticated fetch helper: automatically attaches verified session JWT
+ */
+export async function authenticatedFetch(url, options = {}) {
+  const jwt = await getAuthJwt();
+  const headers = {
+    ...(options.headers || {})
+  };
+
+  if (jwt) {
+    headers['x-appwrite-jwt'] = jwt;
+    headers['authorization'] = `Bearer ${jwt}`;
+  }
+
+  return fetch(url, {
+    ...options,
+    headers
+  });
+}
+
 /**
  * Log out current session
  */
 export async function logoutUser() {
+  cachedJwt = null;
+  jwtExpiry = 0;
+
   if (account) {
     try {
       await account.deleteSession('current');

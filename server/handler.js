@@ -503,7 +503,7 @@ export async function listAllUsers() {
   const hasAdmin = records.some(r => r.email && r.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
   if (!hasAdmin) {
     const adminRecord = {
-      user_id: '6aaaabc5003d03916b08',
+      user_id: process.env.ADMIN_USER_ID || 'admin_master_account',
       name: 'Kenn Nacario',
       email: ADMIN_EMAIL,
       quota_remaining: DEFAULT_CREDITS,

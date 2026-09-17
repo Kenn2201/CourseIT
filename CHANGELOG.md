@@ -8,368 +8,280 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.11.1] - 2026-09-17 — Serverless Production Hotfix & Connected Documentation (LIVE Beta)
 
 ### Fixed & Hardened
-- **Netlify 502 Bad Gateway Serverless Fix**:
-  - Resolved `EROFS: read-only file system` crash on AWS Lambda / Netlify Functions by redirecting runtime fallback JSON data files to `os.tmpdir()` (`/tmp/courseit_data`) whenever running in serverless environments (`NETLIFY` / `AWS_LAMBDA_FUNCTION_NAME`).
-  - Wrapped all local file and directory access in safe `try / catch` blocks to guarantee serverless worker cold-start reliability.
-  - Corrected parameter order mismatch in `netlify/functions/api.js` where `userId` was passed as `customModel` to `processDocumentationUrl()`, restoring expected `(url, targetModel, effectiveIsAdmin, false, effectiveUserId, effectiveUserEmail)` signature.
-  - Mapped both `/api/summarize` and `/api/summarize-text` (OCR and document text extraction) endpoints in the Netlify function.
-- **Appwrite Authentication Resilience & Sydney Cloud Parity**:
-  - Decoupled pure authentication (`new Account(client)`) from database collection ID requirements, ensuring login and signup function even if collections are being migrated.
-  - Set default Appwrite endpoint to the active Sydney cloud region (`https://syd.cloud.appwrite.io/v1`).
-  - Injected build-time `define` mapping in `vite.config.js` to automatically resolve both `VITE_APPWRITE_*` and non-prefixed `APPWRITE_*` variables from environment configurations.
-  - Implemented `ensureAccount()` lazy initialization helper in `src/lib/auth.js` with actionable setup diagnostics if project credentials are not configured.
-- **Netlify Build Configuration Syntax**:
-  - Removed unsupported `timeout = 30` scalar syntax from `netlify.toml` that caused Netlify buildbot configuration parsing failures.
-  - Enforced `node_bundler = "esbuild"` with `external_node_modules = ["jsdom"]`.
+- **Serverless Worker Runtime & Fallback Protection**:
+  - Resolved read-only filesystem crash on cloud serverless workers by directing runtime fallback data files to system temporary storage.
+  - Wrapped all local file and directory access in safe exception handling blocks to guarantee serverless cold-start reliability.
+  - Aligned serverless request handler parameters and function signatures with core processing pipelines.
+  - Unified document extraction and OCR text synthesis within the universal serverless function router.
+- **Authentication Decoupling & Cloud Parity**:
+  - Decoupled pure user authentication from database collection dependencies, ensuring login and signup function smoothly even during schema migrations.
+  - Configured default endpoint to the active regional cloud node.
+  - Injected build-time environment mappings to automatically resolve prefixed and standard configuration variables.
+  - Implemented resilient client authentication initialization with actionable setup diagnostics.
+- **Serverless Build Configuration Syntax**:
+  - Cleaned serverless bundler configuration syntax to guarantee reliable automated builds.
+  - Enforced high-performance bundling with external module isolation.
 
 ### Documentation & Version Synchronization
 - **Connected Documentation**:
-  - Synchronized SemVer across `src/constants/version.js` (`1.11.1` / `v1.11.1 LIVE Beta`), `package.json`, `src/data/changelog.js`, `CHANGELOG.md`, `VERSIONING.md`, and `README.md`.
-  - Linked GitHub commit references and cross-linked `VERSIONING.md` and `CHANGELOG.md` in repository documentation.
+  - Synchronized SemVer across version constants (`v1.11.1 LIVE Beta`), package metadata, in-app changelog, release documentation, and repository guides.
+  - Linked commit references and established single source of truth guidelines.
 
 ## [1.11.0] - 2026-09-17 — Production Live Release, Netlify Serverless Routing & Security Hardening
 
 ### Security & Credential Scrubbing
 - **Complete Public Repository Audit**:
-  - Completely scrubbed all hardcoded project IDs, database IDs, and collection IDs (`6aaa6fef000b2b0129c4`, `6aaa6f9c0016a0c52d4a`, `6aaa6efb002017f29b1a`) across `appwrite.json`, `src/lib/appwrite.js`, `server/handler.js`, and `functions/summarize/src/main.js`.
-  - Migrated entire configuration to strict environment variables (`process.env.*` and `import.meta.env.*`) with safe fallbacks ensuring no crash when env variables are absent during build.
-  - Verified with repository-wide automated regex grep scanning — zero hardcoded Appwrite IDs remain in tracked files.
+  - Completely scrubbed all hardcoded project credentials, database identifiers, and collection references across configuration and source files.
+  - Migrated entire platform configuration to strict environment variables with safe fallbacks ensuring no build-time crashes when credentials are absent.
+  - Verified with repository-wide automated regex scanning — zero hardcoded credentials remain in tracked files.
 
 ### Backend & Deployment
-- **Universal Netlify Serverless API Routing**:
-  - Deployed `netlify/functions/api.js` routing all 11 backend REST endpoints (`/api/summarize`, `/api/user/*`, `/api/feedback`, `/api/admin/*`, `/api/courses/delete`) in a single serverless function.
-  - Configured `netlify.toml` with `[[redirects]]` routing `/api/*` to `/.netlify/functions/api/:splat`.
-  - Cryptographically verifies Appwrite user session JWTs (`account.get()`) across all protected endpoints, preserving 100% parity with local development.
+- **Universal Serverless API Routing**:
+  - Deployed universal serverless API router handling all backend endpoints under serverless execution with cryptographic session verification.
+  - Configured wildcard path redirects routing application API requests to serverless workers.
+  - Cryptographically verifies user session JWTs across all protected endpoints, preserving full parity with local development.
 
 ### Platform Features & UX
 - **Platform Maintenance Mode**:
-  - Implemented `src/pages/Maintenance.jsx` with real-time operational status pills, estimated completion timer, and Admin Bypass modal (`/maintenance?bypass=admin` or secret passcode).
-  - Wired global maintenance route guard in `App.jsx` checking `VITE_MAINTENANCE_MODE` and `localStorage.getItem('courseit_maintenance_mode')`.
-  - Added interactive "Platform Public Access" toggle banner in `src/pages/Admin.jsx` allowing administrators to toggle maintenance mode on/off on demand.
+  - Implemented maintenance screen with real-time operational status indicators, countdown timers, and administrator bypass authentication.
+  - Wired global maintenance route guards checking active operational environment variables and local administrative states.
+  - Added interactive platform access toggle allowing authorized administrators to control public access on demand.
 - **Profile Overhaul & Custom Avatar Photo Upload**:
-  - Built client-side custom profile photo uploader in `src/pages/Profile.jsx` with automatic 256x256 cover cropping and JPEG compression.
-  - Stored optimized image in `localStorage` under `courseit_custom_pfp_img` and wired instant cross-component synchronization via `courseit_pfp_updated` events.
-  - Synced custom avatars to `Navbar.jsx` user status pill and dropdown menu.
-  - Preserved curated preset icons (`AVATAR_PRESETS`) with seamless switching.
-  - Replaced redundant "Your Stored Courses" list in Profile with a comprehensive **Account Summary & Workspace Metrics** dashboard (user-authored courses count isolated from starters, Gemini reasoning credits, processed tokens, cloud sync node) with direct link to the Studio Dashboard.
+  - Built client-side custom profile photo uploader with automatic cover cropping and compression.
+  - Stored optimized image locally with instantaneous cross-component synchronization across navigation bars and profile views.
+  - Preserved curated preset avatars with seamless switching.
+  - Replaced redundant course lists in Profile with a comprehensive **Account Summary & Workspace Metrics** dashboard (custom syntheses count, reasoning credits, processed tokens) and direct studio access.
 - **Authentication Modal Polish & Stability**:
-  - Wrapped `onAuthChange` in `AdminModal.jsx` within `try / catch / finally` blocks to permanently eliminate modal freezing on `"Loading your workspace..."`.
-  - Added `autoComplete` attributes (`email`, `current-password`, `new-password`, `name`) resolving browser DOM warnings.
-  - Enforced body scroll locks (`overflow: hidden`) on modal open and added `my-auto` / `overflow-y-auto` preventing modal clipping on mobile and compact viewports.
-  - Added pre-emptive session deletion in `src/lib/auth.js` (`account.deleteSession('current')`) preventing Appwrite active session collision errors during login.
+  - Protected authentication state changes with exception handling to prevent dialog freezing on login completion.
+  - Added browser autocomplete attributes (`email`, `current-password`, `new-password`, `name`) resolving DOM warnings.
+  - Enforced body scroll locks and responsive centering preventing modal clipping on mobile and compact viewports.
+  - Added pre-emptive session clearance during sign-in to prevent active session collision errors.
 - **Global Rebranding & Tech Badges**:
-  - Rebranded platform identity to **CourseIT Ai** across document titles, page headers, Navbar, and Footer.
-  - Added "Powered by Netlify • Appwrite • Google Gemini • Resend" tech badge strip in `Footer.jsx`.
+  - Rebranded platform identity to **CourseIT Ai** across document titles, page headers, navigation, and footers.
+  - Added tech stack partner badge strip celebrating ecosystem tools.
 
 ## [1.10.0-beta] - 2026-09-17 — Guest Flow Restoration, Anti-Fluff Enforcement & Platform Polish
 
 ### Fixed & Restored
 - **Guest Flow Regression**:
-  - Fixed `authenticatedFetch()` and `getAuthJwt()` in `src/lib/auth.js` to strictly skip JWT creation for unauthenticated guest sessions, preventing Appwrite `User (role: guests) missing scopes (["account"])` session verification failures.
-  - Resolved guest courses directly from `localStorage` in `getCourse()` (`src/lib/appwrite.js`), preventing failing 404 Appwrite database requests and eliminating the "Private Course — Authentication Required" block for guest visitors.
-  - Allowed guest course deletion directly from local storage in `src/pages/Dashboard.jsx` without attempting unauthorized server-side calls to `/api/courses/delete`.
-  - Fixed `Navbar.jsx:320` `setAuthState is not defined` crash on sign-in by switching to `refreshAuth()` from `useAuth()`.
-  - Hid `DashboardSidebar` for unauthenticated visitors (`authState.isAuthenticated && <DashboardSidebar />`).
+  - Fixed client authentication requests to skip JWT token creation for unauthenticated guest sessions, preventing session verification scope failures.
+  - Resolved guest courses directly from local storage, preventing 404 database queries and eliminating private access barrier blocks for guest visitors.
+  - Allowed guest users to delete temporary guest courses locally without hitting backend authentication barriers.
+  - Resolved navigation bar session refresh state synchronization on sign-in.
+  - Cleaned dashboard navigation layout for unauthenticated guest visitors.
 
 ### Added & Improved
 - **Anti-Fluff System Instruction**:
-  - Strengthened `SYSTEM_INSTRUCTION` in `server/llm.js` with negative constraints banning conversational padding ("In this section", "Let's explore", "Welcome to", "It is important to understand").
-  - Mandated imperative action verbs for every step title (e.g., Configure, Build, Define, Connect, Export, Run, Install).
-  - Enforced mandatory runnable code snippets or CLI commands whenever source documentation contains syntax.
+  - Hardened LLM system prompt with strict negative constraints (banning conversational padding like "In this section") and mandating imperative verbs and runnable code snippets.
+  - Enforced single-concept step modularity with concrete execution time estimates.
 - **Modern IDE Code Block UI**:
-  - Replaced hardcoded "GDScript / Syntax Example" badge in `StepItem.jsx` with dynamic language detection (Dockerfile, Terminal / Bash, GDScript, Rust, TypeScript / React, JSON, Python).
-  - Designed macOS-style IDE window controls (colored red/yellow/green dots), syntax badge, and quick copy button.
+  - Designed macOS-style window controls (colored dot indicators), syntax badges, and one-click copy buttons.
+  - Added dynamic language syntax detection (Dockerfile, Terminal / Bash, GDScript, Rust, TypeScript / React, JSON, Python).
 - **Rich Starter Course Code Snippets & Live Scripted Companion**:
-  - Added runnable code snippets, concrete implementation steps, and verified pro-tips for all 4 starter courses in `src/data/starterCourses.js` (Docker Multi-Stage, React 19, Rust Ownership, Godot Signals).
-  - Upgraded `CourseTutor.jsx` scripted action ("Show Code") to present verified code snippets instead of generic Godot layout text.
+  - Added runnable code snippets, concrete implementation steps, and verified pro-tips for all curated starter courses (Docker Multi-Stage, React 19, Rust Ownership, Godot Signals).
+  - Upgraded technical companion actions to present verified code snippets instead of generic placeholder text.
 - **Catalog Structural Separation & Attribution Consistency**:
   - Split dashboard catalog into two distinct visual sections: "Curated Starters" and "Community & Custom Generated Courses".
-  - Standardized author attribution across Course Cards (`CourseCard.jsx`), Generation History (`GenerationHistory.jsx`), Admin Management (`Admin.jsx`), and Profile (`Profile.jsx`) with "Created by [user]" and "Guest User (24h)".
+  - Standardized author attribution across Course Cards, Generation History, Admin Management, and Profile with "Created by [user]" and temporary guest badges.
 - **Actionable Generation Pipeline Error Handling**:
-  - Replaced hanging or silent errors with actionable diagnostic messages (scraping, LLM generation, or save issues) and a one-click [Try Again] button.
+  - Replaced hanging or silent errors with actionable diagnostic messages (scraping, synthesis, or network issues) and a one-click [Try Again] button.
 - **Login/Signup Modal Polish**:
-  - Portaled `AdminModal.jsx` to `document.body` via `createPortal`.
-  - Centered input icons with `top-1/2 -translate-y-1/2`.
-  - Added interactive password visibility toggle (`Eye` / `EyeOff`).
-- **Environment & Layout Cleanup**:
-  - Repositioned floating Beta Feedback button in `App.jsx` to `bottom-20 right-6` to eliminate overlap with the docked `CourseTutor` assistant at `bottom-6 right-6`.
-  - Moved `ADMIN_EMAIL` to environment variables (`VITE_ADMIN_EMAIL` / `ADMIN_EMAIL`) across frontend and server, updating `.env`, `.env.example`, `README.md`, and `Footer.jsx`.
+  - Portaled authentication dialog directly to document body, centered input adornments, and added password visibility toggles.
+- **Environment & Layout Polish**:
+  - Repositioned floating feedback controls to eliminate overlap with docked technical companion.
+  - Moved administrator contact configuration entirely to environment variables across frontend and server.
 
 ## [1.9.0-beta] - 2026-09-17 — Security Audit & Auth Hardening: Live Session Source of Truth, Backend JWT Verification, ACL Route Guards & Settings Engine
 
 ### Added
 - **Unified Live AuthContext**:
-  - Implemented `AuthContext` (`src/context/AuthContext.jsx`) providing verified `user`, `isAdmin`, `isAuthenticated`, and `quota` across the entire React component tree.
-  - Linked `CreditContext` directly with `AuthContext` to ensure synchronous lifecycle updates.
+  - Implemented centralized authentication context providing verified user identity, administrator role, authentication status, and credit balance across the component tree.
+  - Linked credit accounting directly with authentication lifecycle to ensure synchronous updates.
 - **Strict Course ACL & Starter Isolation**:
-  - Prefixed all public starter courses with `starter-` (`starter-godot-signals`, `starter-react-server-components`, `starter-rust-ownership`, `starter-docker-builds`).
-  - Isolated custom user courses: unauthenticated guests can only view public starter templates.
-  - Custom courses require verified author ownership or administrator privileges to view or delete; added dedicated 401/403 ACL access error screens with return-to-safety actions.
+  - Namespaced public starter courses and isolated custom user courses: unauthenticated guests only view public starter templates.
+  - Custom courses require verified author ownership or administrator privileges to view or delete; added dedicated 401/403 access error screens with return-to-safety navigation.
 - **Interactive Dashboard Settings Page Controls**:
-  - Implemented real-time functional controls for **Color Theme** (Dark / Soft Light), **ADHD Anti-Fluff Level** (Concise, Balanced, Exhaustive), and **Default Model Preference** (Gemini 2.5 Flash Lite, Flash, Pro).
-  - Synced default model selection directly to the generation input form (`UrlInputForm.jsx`).
+  - Implemented real-time functional controls for **Color Theme** (Dark / Soft Light), **ADHD Anti-Fluff Level** (Concise, Balanced, Exhaustive), and **Default Model Preference** (Gemini Flash Lite, Flash, Pro).
+  - Synced default model selection directly to the generation input form.
 - **Expanded Help & Architecture Documentation**:
-  - Expanded Tab 5 (Help) into an interactive knowledge base detailing documentation synthesis, client-side OCR upload limits, credit costs, and export workflows.
+  - Expanded Help workspace into an interactive knowledge base detailing documentation synthesis, client-side OCR upload limits, credit costs, and export workflows.
 
 ### Fixed & Hardened
 - **Root-Cause Auth Session State Desync**:
-  - Resolved session desync where unauthenticated `/app` visitors saw admin data upon opening `/profile`.
-  - Removed outdated local-storage caching fallbacks in `src/lib/auth.js` that preserved expired sessions on 401 response; now strictly purges session tokens and resets to guest state.
-  - Stripped hardcoded `'kenn.nacario12@gmail.com'` fallbacks from `src/pages/Profile.jsx` and enforced an authentication required lock guard.
-- **Server-Side Backend JWT Verification Across 8 Admin Endpoints**:
-  - Enforced cryptographically verified Appwrite session JWT tokens on `/api/admin/users`, `/api/admin/approve`, `/api/admin/topup`, `/api/admin/feedbacks/status`, `/api/admin/test-all-emails`, `/api/admin/send-custom-email`, `/api/admin/token-metrics`, and `GET /api/feedback` in `vite.config.js`.
+  - Resolved session desync where unauthenticated visitors saw cached administrator states upon opening profile settings.
+  - Removed outdated local storage caching fallbacks that preserved expired sessions on 401 response; now strictly purges session tokens and resets to guest state.
+  - Stripped hardcoded administrator email fallbacks from user profile views and enforced an authentication required lock guard.
+- **Server-Side Cryptographic JWT Verification Across Administrative Endpoints**:
+  - Enforced cryptographically verified session JWT tokens across all administrative control and management endpoints.
   - Prevented identity spoofing and blocked unauthorized access to user emails, feedback, and admin actions.
-- **Appwrite Legacy Database Document Migration**:
-  - Backfilled legacy Appwrite course documents with `creator_id` and `creator_email` attributes, ensuring `listCourses()` query filtering strictly retains rightful owner access.
+- **Document Ownership Migration**:
+  - Backfilled legacy course records with explicit creator ownership attributes, ensuring query filtering strictly retains rightful owner access.
 - **Release Notes Scroll Fix**:
-  - Updated all "Release Notes" links and hero badges to invoke `e.preventDefault()`, directly opening `ChangelogModal` without triggering unwanted page jumps to top.
+  - Updated all "Release Notes" links and hero badges to directly open the announcement modal without triggering unwanted page jumps.
 
 ## [1.8.0-beta] - 2026-09-17 — Consistency & Polish: Single Source of Truth for Version & Credits, Portalized Modals & Header Redesign
 
 ### Added
 - **Single Source of Truth for Versioning**:
-  - Created centralized constants authority (`src/constants/version.js`) exporting `CURRENT_VERSION`, `CURRENT_VERSION_LABEL`, and `RELEASE_DATE`.
-  - Added repository-level `VERSIONING.md` maintenance guide for consistent release tagging.
+  - Created centralized constants authority exporting version metadata and release labels.
+  - Added repository-level versioning maintenance guide for consistent release tagging.
   - Eliminated hardcoded version drift across logo pills, hero banners, footers, and modal headers.
-- **Single Source of Truth for Credit Balance (`CreditContext`)**:
-  - Implemented `CreditProvider` and `useUserCredits()` hook subscribed to live Appwrite quota updates and `courseit_quota_updated` events.
-  - Formatted credits dynamically without artificial `/ 250` display caps.
-  - Fixed backend `Math.floor` rounding bug in `server/handler.js`, preserving exact decimal deductions for Gemini Flash Lite (0.5 credits) and aligning database values with memory state.
+- **Single Source of Truth for Credit Balance**:
+  - Implemented centralized credit provider subscribed to live quota updates and balance refresh events.
+  - Formatted credits dynamically without artificial display caps.
+  - Refined quota accounting with exact decimal precision for accurate reasoning credit tracking.
 - **Mandatory First-Login Legal Consent Flow & Audit Trail**:
-  - Introduced non-dismissible `LegalConsentModal` requiring explicit agreement to Terms of Service, Privacy Policy, and Cookies.
-  - Stored consent timestamp (`terms_consented_at`, `terms_version`) directly on Appwrite account preferences (`account.updatePrefs`), establishing a durable, cross-device legal audit trail.
+  - Introduced non-dismissible consent dialog requiring explicit agreement to Terms of Service, Privacy Policy, and Cookies.
+  - Stored consent timestamp and terms version directly on account preferences, establishing a durable, cross-device legal audit trail.
   - Automatically launches the Changelog "What's New" modal immediately upon consent acceptance for seamless onboarding.
-- **Formatted Chatbot Typography Engine (`FormattedChatText`)**:
-  - Engineered zero-dependency Markdown parser in `src/components/FormattedChatText.jsx`.
-  - Renders `**bold**`, `*italic*`, `` `inline code` ``, and bullet points into styled typography, replacing raw markdown syntax.
+- **Formatted Chatbot Typography Engine**:
+  - Engineered zero-dependency typography parser for the companion bot.
+  - Renders bold, italic, inline code tags, and bullet points into styled typography, replacing raw markdown syntax.
 
 ### Fixed & Hardened
 - **Viewport-Centered Modal Portals**:
-  - Wrapped `ChangelogModal`, `LegalConsentModal`, `TermsPrivacyModal`, and `FeedbackModal` in React `createPortal(..., document.body)`.
-  - Resolved deep-scroll offset bug on long landing pages and prevented CSS transform ancestor clipping (`animate-page-load`).
+  - Mounted all interactive dialogs directly to the document body via React Portals.
+  - Resolved deep-scroll offset bug on long landing pages and prevented CSS transform ancestor clipping.
 - **Sidebar & Footer Layout Separation**:
-  - Relocated `<Footer />` inside the main workspace column in `Dashboard.jsx`, preventing it from overlapping or spanning underneath `DashboardSidebar`.
+  - Relocated footer inside the main workspace column in dashboard routes, preventing it from overlapping or spanning underneath the sidebar.
 - **Softened Light Mode & Relocated Controls**:
-  - Replaced glaring white tones with soft `#f1f5f9` slate backgrounds and `#ffffff` card surfaces.
-  - Audited and updated WCAG AAA/AA text contrast tokens for secondary (`.text-slate-400` -> `#475569`, `.text-slate-500` -> `#64748b`) and colored accent elements (`.text-indigo-400`, `.text-emerald-400`, `.text-amber-400`).
-  - Relocated theme toggles out of the header into `DashboardSidebar` and an accessible floating widget on the landing page with clear text labels.
+  - Replaced glaring white tones with soft slate backgrounds and clean card surfaces.
+  - Audited and updated WCAG text contrast tokens for secondary and colored accent elements.
+  - Relocated theme toggles into the dashboard sidebar and an accessible toggle in the landing lower section.
 - **Header Redesign & Infrastructure De-identification**:
-  - Consolidated separate credits badge and sign-out button into a unified user profile dropdown menu (avatar, name, live balance, studio/profile/admin links, sign out).
-  - Added prominent "Dashboard →" navigation button on the public landing page when authenticated.
-  - Completely removed internal infrastructure labels ("Sydney") from user-facing views.
+  - Consolidated separate credits badge and sign-out button into a unified user profile dropdown menu.
+  - Added prominent Dashboard navigation button on the public landing page when authenticated.
+  - Completely removed internal cloud infrastructure labels from user-facing views.
 
 ## [1.7.0-beta] - 2026-09-17 — Dashboard Application Shell, Appwrite Serverless History, Light Mode Theming & Auth Hardening
 
 ### Fixed & Hardened
-- **Bug 1: Model Picker & Tab Clickability Fix**:
-  - Removed container `overflow-hidden` from `.glass-panel` in `UrlInputForm.jsx` that was clipping absolute dropdown elements.
-  - Elevated z-index and isolated hitboxes so `isPending`, `isOutOfQuota`, and `isLoading` only disable generation submission, never the tab switchers or model dropdowns.
-- **Bug 2: Universal Light Mode Theming**:
-  - Root-caused the light mode failure: replaced non-interactive wrappers in `ThemeToggle.jsx` with a semantic, fully clickable `<button type="button">`.
-  - Added comprehensive universal `html.light` CSS utility rules in `src/index.css` covering `body`, cards, panels, inputs, borders, and text across all pages (`/`, `/app`, `/course/:id`, `/admin`, `/profile`).
-  - Injected an inline theme initialization script in `index.html` to eliminate theme flash on page reload.
-- **Bug 3: Feedback & Chatbot Collision Avoidance**:
-  - Relocated the floating Beta Feedback button to `bottom-6 right-24`, preventing visual overlap with the CourseTutor bot docked at `bottom-6 right-6`.
+- **Model Picker & Tab Hitbox Optimization**:
+  - Elevated z-index and isolated hitboxes so disabled generation states never impede tab switchers or model dropdowns.
+- **Universal Light Mode Theming**:
+  - Replaced non-interactive wrappers with semantic, fully clickable theme toggle buttons.
+  - Added comprehensive universal light mode styling rules covering body, cards, panels, inputs, and borders across all pages.
+  - Injected an inline theme initialization script to eliminate theme flashes on page reload.
+- **Feedback & Chatbot Layout Polish**:
+  - Adjusted button docking to prevent visual overlap between feedback controls and the technical companion.
 - **Universal Server-Side Auth Re-verification**:
-  - Implemented `getAuthJwt()` in `src/lib/auth.js` leveraging Appwrite's `account.createJWT()`.
-  - Added `authenticatedFetch()` that automatically injects `x-appwrite-jwt`.
-  - Server endpoints (`/api/courses/delete`, `/api/user/archive`, `/api/summarize`, `/api/summarize-text`) independently verify the JWT via `verifyAppwriteSession()`.
-  - Request body `userId` and `isAdmin` flags are ignored and overridden with verified session identity, preventing spoofed requests.
+  - Implemented secure authentication client utilities alongside server-side session token verification.
+  - Server endpoints independently verify session tokens, rejecting spoofed user IDs in request bodies.
 
 ### Added
 - **Dashboard Application Shell with Sidebar**:
-  - Restructured `/dashboard` into an application shell featuring a responsive sidebar with five distinct workspaces:
-    1. **Studio & Courses**: URL and Document OCR generator, prompt presets, and interactive course catalog.
-    2. **Generation History & Uploads**: Searchable, filterable audit log of past prompts and uploaded OCR documents backed by Appwrite collections.
-    3. **My Account & Quota**: Live balance, approval status, and link to profile manager.
-    4. **Preferences**: Anti-fluff strictness level, color theme switcher, and model defaults.
-    5. **Help & Docs**: ADHD anti-fluff principles and supported input formats.
-- **Serverless Appwrite Collection History Architecture**:
-  - Replaced ephemeral local flat files with Appwrite collection storage (`courses` collection and `course_docs` bucket), ensuring zero data loss across Netlify Functions serverless cold starts.
+  - Restructured dashboard into an application shell featuring five distinct workspaces (Studio & Courses, Generation History, My Account, Preferences, Help & Docs).
+- **Serverless Cloud Storage Architecture**:
+  - Stored generation history and uploaded OCR documents in cloud database collections and storage buckets, ensuring persistence across serverless executions.
   - Enforced strict ACLs: users can read and delete their own history entries; administrators can audit and delete across all users.
 - **Course Author Attribution & 24h Guest Purging**:
   - Added "Created by [User]" badges to course cards and detail page headers.
-  - Guest/public generations automatically expire and self-delete after 24 hours via timestamp pruning in `appwrite.js`.
+  - Guest generations automatically expire and self-delete after 24 hours.
 - **Distinct Chatbot Scopes**:
-  - **Public Landing Mode (`mode="landing"`)**: "CourseIT Guide" offering interactive product FAQ chips (Anti-Fluff Engine, Supported Inputs, Model Credits, Guest 3/3 Trial).
-  - **Course Detail Mode (`mode="course"`)**: "Technical Companion" providing step-focused code explanations, runnable snippets, common bugs, and concept quizzes.
-- **Header Auth Controls & Session Loader**:
-  - Relocated sign-in and direct sign-out controls into the persistent `Navbar.jsx` with an animated session-checking skeleton loader.
-- **Landing Page Copy Clarity**:
-  - Softened credit messaging from "250 Free Credits on Sign-up" to "250 Free Credits on Admin Approval".
-  - Reconciled model pricing tiers to explicitly indicate Flash Lite is included in the guest trial while higher tiers require an approved beta account.
+  - Public Landing Mode: "CourseIT Guide" offering interactive product FAQ chips (Anti-Fluff Engine, Supported Inputs, Model Credits, Guest Trial).
+  - Course Detail Mode: "Technical Companion" providing step-focused code explanations, runnable snippets, common bugs, and concept quizzes.
 
 ## [1.6.0-beta] - 2026-09-17 — Course Deletion Security ACL, Google OAuth Persistence & Visible Model Fallbacks
 
 ### Fixed & Secured
-- **Critical Security: Public Course Deletion ACL**:
-  - The delete action is strictly restricted to the course author or the admin (`kenn.nacario12@gmail.com`).
-  - Public visitors and non-author users will not see the delete button in the UI (`CourseCard.jsx`, `Profile.jsx`).
-  - Server-side route `/api/courses/delete` independently validates credentials against document ownership and returns `403 Forbidden` on unauthorized requests.
-  - Starter catalog templates (`starter-godot-signals`, `starter-react19-rsc`, `starter-rust-ownership`, `starter-docker-prod`) are permanently protected from deletion by non-admin visitors.
-- **Google OAuth 401 Session Teardown Fix**:
-  - Identified and removed the destructive `account.deleteSession('current')` call inside `checkAppwriteSession()` in `src/lib/auth.js`.
-  - Pending accounts remain fully authenticated (`account.get()` returns 200 OK) without having their active session terminated.
+- **Critical Security: Course Deletion Access Control**:
+  - Course deletion is strictly restricted to verified course authors or platform administrators.
+  - Unauthorized visitors cannot access or trigger delete actions in the interface or API.
+  - Starter catalog templates are permanently protected from deletion by non-admin visitors.
+- **Google OAuth Session Persistence**:
+  - Resolved session persistence for pending accounts, ensuring Google OAuth users remain signed in with active sessions.
 - **Changelog Date Text Layout & Overflow Fix**:
-  - Redesigned `ChangelogModal.jsx` header and entry rows to use responsive wrapping (`flex-wrap`, `break-words`, `shrink-0`) so dates like "September 17, 2026" never overflow or clip across any mobile viewport width.
+  - Redesigned changelog cards to use responsive wrapping so dates never overflow or clip across any mobile viewport width.
 
 ### Added
 - **Unified Pending-Approval Flow for Google OAuth**:
-  - Google OAuth signups land in the identical `pending` approval status (with 0 credits) as email signups.
-  - Newly registered Google OAuth users automatically receive a Beta Access Request acknowledgement email via Resend.
-  - Users in pending status see a helpful amber notice on `/dashboard`, while generation is disabled until admin approval grants 250 free credits.
+  - Google OAuth signups land in the identical pending approval queue as email signups, receiving acknowledgement emails and awaiting admin approval.
 - **User-Visible Model Resilience Notices**:
-  - When a higher-tier model (e.g. Gemini 3.7 Flash) encounters temporary upstream 503 load and falls back to Flash Lite, the response includes `fallbackNotice`.
-  - Displayed via an amber alert card in the generation success modal and on the dashboard, informing users why a lighter model was used.
-  - Charges only the credit cost of the actual model used.
-- **Single Source of Truth Synchronization**:
-  - Both `CHANGELOG.md` and in-app `src/data/changelog.js` now contain identical, synchronized release entries.
+  - When a higher-tier model encounters temporary upstream load and falls back to Flash Lite, users see an informative notification and are only charged for the actual model used.
 
 ## [1.5.0-beta] - 2026-09-17 — OAuth Token Resilience, Shared Guest Trials, Course Exports & Token Monitor
 
 ### Added
-- **Google OAuth Double-Invocation Fix**:
-  - Implemented `useRef(false)` execution lock in `AuthCallback.jsx` to prevent React 19 `StrictMode` from burning one-time OAuth secrets twice.
-- **Real-Time Appwrite Credit Writeback**:
-  - Quota deduction is strictly enforced per model and synced to the Appwrite `users_quota` collection.
+- **OAuth Execution Guard**:
+  - Implemented execution locks preventing framework StrictMode from consuming one-time OAuth secrets twice.
+- **Real-Time Database Credit Writeback**:
+  - Quota deduction is strictly enforced per model and synchronized to the database quota collection.
 - **Shared 3/3 Public Guest Trial Sandbox**:
-  - URL generation and OCR document extraction share a single pool of 3 free runs per 24 hours.
-  - Locked tiers (`gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`) display struck-through text and `🔒 Beta` badges.
-  - Informative trial exhaustion modal with 24-hour notice and beta access request trigger.
-- **Scripted Technical Companion (`CourseTutor.jsx`)**:
-  - Embedded CourseTutor on the public landing page and inside CourseDetail with zero conversational AI fluff.
+  - URL generation and OCR document extraction share a single pool of 3 free runs per 24 hours with locked higher tiers.
+- **Scripted Technical Companion**:
+  - Embedded interactive companion on the public landing page and course detail views.
 - **Course Content Export (PDF, DOCX, Markdown)**:
-  - 1-click export to `@media print` high-contrast PDF, formatted Word `.doc`, and clean Markdown `.md`.
-- **Profile Customizer & Active Session Status**:
-  - Gradient avatar selector, Appwrite Cloud Sydney active session indicator, and processed tokens metrics.
+  - 1-click export to high-contrast PDF, formatted Word documents, and clean Markdown.
 - **Admin Tester Emailer & Feedback Export**:
-  - Direct email composer with dark-mode HTML templates dispatched from `hello@courseit.kenncode.me`.
-  - Bulk and single-card Markdown feedback export.
-- **Gemini Token & Cost Monitor**:
-  - Real-time token usage and blended USD cost tracking in the Admin dashboard.
+  - Direct email composer with dark-mode HTML templates and feedback export capabilities.
+- **AI Token & Cost Monitor**:
+  - Real-time token usage and cost tracking in the Admin dashboard.
 
 ## [1.4.1-beta] - 2026-09-17 — ADHD Anti-Fluff Engine, User Feedback, ThemeToggle & Security Hardening
 
 ### Added
 - **ADHD & Low Attention Span Anti-Fluff Positioning**:
   - Official positioning: *"Built for developers with ADHD, documentation fatigue, or low attention spans. Zero AI fluff."*
-  - Interactive **AntiFluffDiff** component comparing wordy chatty LLM responses against CourseIT's direct numbered action steps (`npm install jsonwebtoken@latest`, edit `src/auth.ts:42`, etc.) with word count comparison and 1-click copy.
-  - Multi-ecosystem expansion beyond Godot: curated starter documentation for React 19 / Next.js, Rust Lang, Docker Multi-Stage, and Godot 4.
+  - Interactive **AntiFluffDiff** component comparing wordy LLM responses against CourseIT's direct numbered action steps.
+  - Multi-ecosystem expansion: curated starter documentation for React 19, Rust, Docker, and Godot 4.
 - **User Beta Feedback System**:
-  - Floating action button on all pages and Navbar header button for authenticated users.
-  - Interactive `FeedbackModal` capturing 1–5 star ratings, feedback category (Bug, Feature Request, Documentation Quality, General UX), and feedback notes.
-  - Dedicated **Beta Feedback** review tab in Admin panel with live status badges (New, In Review, Resolved, Archived).
+  - Interactive feedback dialog capturing star ratings, category selection, and notes, with an administrative review tab.
 - **PixelSwap Animated Light Mode**:
-  - Ported `PixelSwap` component from `reactbits.txt` for pixelated transition between Sun ☀️ and Moon 🌙.
-  - Created `ThemeToggle` with View Transitions API and localStorage persistence.
-  - Comprehensive light mode theme tokens and styling in `index.css`.
+  - Smooth animated transitions between Sun and Moon theme states with persistent storage.
 - **Developer Portfolio Integration**:
-  - Footer component featuring Kenn Vincent Nacario's portfolio (`https://kenncode.me`), GitHub (`@Kenn2201`), LinkedIn profile, and direct inquiry email.
-  - Version info, changelog link, and terms & privacy notes.
-- **Sandbox Security & Anti-Bypass Hardening**:
-  - Unauthenticated guest users are strictly locked out from selecting or submitting higher-tier models (`gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`).
-  - Strict 3 URL runs and 1 OCR doc per 24 hours enforced on server.
-  - Guest courses are no longer persisted into the permanent Appwrite database, protecting against public spam flooding.
-  - Accurate public quota display: `Public Guest Trial: 3/3 Free Tests (Flash Lite) • 1/1 OCR (24h Window)`.
-- **Verified Resend Delivery & Email Suite**:
-  - Verified sender: `CourseIT <hello@courseit.kenncode.me>`.
-  - Admin 1-click button to dispatch all 5 templates (Approval, Password Reset, Quota Top-Up, Welcome, Account Archived) directly to `kenn.nacario12@gmail.com` for testing.
+  - Footer component featuring developer portfolio, GitHub, LinkedIn profile, and contact links.
+- **Verified Transactional Email Suite**:
+  - Verified sender configuration for user approval, password reset, quota adjustments, and welcome notifications.
 - **Admin Details & Archive Modals**:
-  - `UserDetailsModal` for inspecting users, adjusting credits (+50, +250), and approving accounts.
-  - `Archived Accounts` tab in Admin panel with 1-click account reactivation.
-- **Pre-Seeded Test Account**:
-  - `courseit.kenn.test@yopmail.com` / `CourseIT2026!Demo` pre-seeded with 250 approved credits for end-to-end testing.
+  - Management modal for inspecting users, adjusting credits, approving accounts, and reactivating archived accounts.
 
 ## [1.4.0-beta] - 2026-09-17 — Landing Page Separation, Step Readability & Scripted Companion
 
 ### Added
 - **Dedicated Public Landing Page**:
   - Clear value proposition explaining the philosophy of "Action-First Learning Engine for Developers".
-  - Dynamic interactive background using ReactBits `ShapeGrid` canvas.
-  - "How It Works" 3-step workflow pipeline with `SpotlightCard` component.
-  - Interactive Curated Godot 4 Starter Showcase allowing immediate exploration of demo courses.
-  - Transparent Model Pricing & Credit Economy breakdown.
+  - Dynamic interactive background using animated canvas grids.
+  - "How It Works" 3-step workflow pipeline with spotlight presentation cards.
 - **Clean Public & Authenticated State Separation**:
-  - Complete logout state that thoroughly deletes Appwrite sessions and purges all localStorage session keys.
-  - Logged-out visitors are cleanly routed to the rich Landing Page with zero quota leakage (`50.0/250`).
-  - Authenticated users access the full generator Dashboard with their approved 250 credits.
+  - Complete logout state that thoroughly clears cloud sessions and local credentials.
+  - Logged-out visitors access the rich Landing Page, while authenticated users access the full generator Dashboard.
 - **Step Text Readability Revamp**:
-  - Parsed messy multi-sentence implementation text into sequential vertical cards with badges (`01`, `02`, `03`).
-  - Syntax highlight chips for Godot node types (`Node2D`, `Sprite2D`, `Button`, `CharacterBody2D`, etc.).
-  - High-contrast typography and styled terminal GDScript blocks with 1-click copy.
-  - Prominent amber Pro-Tip / Gotcha callouts.
-- **Scripted Technical Companion Bot (`CourseTutor.jsx`)**:
-  - Dockable course tutor focused on the active course and step.
-  - 4 scripted technical action chips:
-    - 💡 *Explain this step in simple terms*
-    - 💻 *Show runnable GDScript code example*
-    - ⚠️ *Common bugs & gotchas to avoid*
-    - 🎯 *Test my knowledge / Quick quiz*
-  - Eliminates generic AI fluff and provides concrete, copyable code assistance.
-- **1-Click Course Deletion Modal (`DeleteConfirmModal.jsx`)**:
-  - Modern confirmation modal integrated into CourseCard, Dashboard, and Profile for safe course removal.
-- **Account Archiving Workflow**:
-  - Dedicated "Archive Account" option in `/profile` with reason selection and feedback notes.
-  - Automated confirmation email dispatched via Resend (`CourseIT <hello@courseit.kenncode.me>`) with reactivation instructions.
-- **Changelog Modal Tabs**:
-  - Added "What's New in v1.4.0" and "Version History" tabs in `ChangelogModal.jsx`.
+  - Parsed multi-sentence implementation text into sequential vertical cards with badges.
+  - High-contrast typography and styled terminal code blocks with one-click copy and actionable pro-tip callouts.
+- **Scripted Technical Companion Bot**:
+  - Dockable companion focused on the active course with 4 instant scripted action chips (explanation, code, gotchas, quiz).
 
 ## [1.3.0] - 2026-09-16 — 250 Credits, OAuth2 Token Flow, Profile & Model Cost Tiers
 
 ### Added
-- **250 Course Credits Trial**: Accounts upgraded from 50 to **250 credits**, with live meter tracking in the Navbar and Profile page.
-- **Appwrite OAuth2 Token Flow**: Direct integration with Appwrite's recommended `account.createOAuth2Token` and `/auth/success` callback for Google and GitHub.
-- **Model Credit Pricing Tiers**:
-  - `Flash Lite`: 0.5 credits (Free for public sandbox: 3 courses & 1 doc per 24 hours)
-  - `Gemini 3.5 Lite`: 1.0 credit
-  - `Gemini 3.6 Flash`: 2.0 credits
-  - `Gemini 3.7 Flash`: 5.0 credits
-- **User Profile Page (`/profile`)**: Manage account avatar, email, password reset via Resend, credit meter, and stored course prompt management.
-- **Server Storage & Prompt Management**: Cap stored prompts at 100 with 1-click prompt deletion in Profile and Admin dashboard to prevent database and storage overload.
-- **Guaranteed Resend Dispatching**: Configured `CourseIT <onboarding@resend.dev>` to permanently resolve 403 unverified domain issues with auto-switch to `notifications@kenncode.me`.
-- **First-Time 24-Hour Changelog Modal**: Automatically displays release announcements on first visit, remembering dismissal for 24 hours.
-- **Celebratory Course Completion Pop-Up (`CourseSuccessModal`)**: Dynamic metrics dialog displaying steps count, duration, and credit cost upon generation.
+- **250 Course Credits Trial**: Accounts upgraded to 250 credits with live meter tracking in navigation and profile views.
+- **OAuth2 Token Flow**: Direct integration with social OAuth handlers and secure callback verification.
+- **Model Credit Pricing Tiers**: Flash Lite (0.5), 3.5 Lite (1.0), 3.6 Flash (2.0), 3.7 Flash (5.0).
+- **User Profile Page**: Account management, password reset via email, credit meters, and stored course management.
+- **Transactional Email Dispatching**: Verified transactional email delivery for user verification and password resets.
 
 ## [1.2.0] - 2026-09-16 — SaaS Architecture & Local Document OCR Release
 
 ### Added
-- **Local Document Upload & OCR (Tesseract.js)**: Drag and drop scanned tutorial screenshots, diagrams, and text/markdown files. Extracted client-side via `tesseract.js` to preserve tokens and bypass vision model costs before generating courses.
-- **Appwrite Storage Bucket (`course_docs`)**: Secure storage bucket for user-uploaded documents and image assets.
-- **Account-Based Quotas (50 Credits Trial)**: Default credits increased to 50/50 for all approved users with real-time sync across Navbar and input panels.
-- **Admin Approval Workflow via Resend**:
-  - Protected admin dashboard (`/admin`) exclusively for `kenn.nacario12@gmail.com`.
-  - Queues all user signups as `pending`.
-  - One-click "Approve & Grant 50 Credits" button updates status and quota.
-  - Automated approval email dispatch via Resend from `CourseIT <notifications@kenncode.me>` with fallback to `onboarding@resend.dev`.
-- **Appwrite Email/Password & Social OAuth**:
-  - Streamlined Email/Password signup with required confirmation message: *"Done sign up! Requested code, wait for email!"*.
-  - Configured OAuth callback support for Google and GitHub.
-- **Doppler Secrets Integration**: All runtime and serverless secrets (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`, Appwrite credentials) synced directly to Doppler.
+- **Local Document Upload & OCR (Tesseract.js)**: Drag and drop scanned tutorial screenshots, diagrams, and text files with client-side OCR extraction.
+- **Secure Cloud Storage**: Dedicated cloud storage bucket for user-uploaded documents and image assets.
+- **Account-Based Quotas**: Default credit allocation with real-time sync across navigation bars and input panels.
+- **Admin Approval Workflow**: Approval queue for beta tester registrations with automated approval email dispatch.
 
 ## [1.1.0] - 2026-09-16 — Public Release Announcement
 
 ### Added
-- **Actionable Implementation Instructions & Code Snippets**: Each step now provides step-by-step editor/setup navigation (`implementation`), runnable code snippets or CLI syntax with a dedicated "Copy Code" button (`code_snippet`), and practical gotchas/tips (`pro_tip`).
-- **"Recommended Next Step" Guidance**: Courses now suggest concrete follow-up projects, tutorials, or topics to tackle next, ensuring broad docs (like `index.html`) provide clear forward direction.
-- **Instant URL Deduplication Cache**: Pasting previously analyzed documentation links checks the Appwrite database first, returning existing courses in <50ms with 0 tokens consumed.
-- **Public Rate Limiting (20 Free Uses)**: Added fair-usage public generation credits to safeguard the Gemini Free Tier while allowing friends to test the app.
-- **Admin Portal**: Integrated Appwrite Authentication (Google OAuth and Email/Password) to unlock unlimited course generation and admin controls.
-- **Interactive Model Selector**: Live dropdown on the dashboard to choose between `Flash Lite (~800ms)`, `Gemini 3.5 Lite`, `Gemini 3.6 Flash`, and `Gemini 3.7 Flash`.
-- **In-App "What's New" Announcement Modal**: Users and visitors can click "What's New" or the version tag in the Navbar to view release announcements.
-
-### Changed
-- Enhanced `SYSTEM_INSTRUCTION` in `server/llm.js` to demand concrete implementation details, syntax examples, and next-step recommendations.
-- Upgraded `StepItem` component with collapsible rich implementation blocks, styled code terminals, and pro-tip callouts.
-- Upgraded `CourseDetail` to display course overviews and recommended next step cards.
+- **Actionable Implementation Instructions & Code Snippets**: Each step provides setup navigation, runnable code snippets or CLI syntax, and practical pro-tips.
+- **Recommended Next Step Guidance**: Courses suggest concrete follow-up topics and projects to tackle next.
+- **URL Deduplication Cache**: Instant cached retrieval for previously synthesized documentation links.
+- **Model Selector**: Live dropdown on the dashboard to select reasoning tiers.
+- **In-App Announcement Modal**: Release notes and changelog dialog accessible across views.
 
 ## [0.1.0] - 2026-09-16
 
 ### Added
 - Initial project scaffolding with Vite, React 19, and Tailwind CSS.
-- Mozilla Readability + JSDOM HTML text extraction pipeline (`server/extract.js`).
-- Google Gemini API integration enforcing action-first, 5-rule prompt (`server/llm.js`).
-- Appwrite Database client and server-side write integration for `courses` collection.
-- Local storage fallback layer for offline/demo reliability.
-- Interactive Dashboard list page with Godot 4 quick-load chips and search filter.
-- Multi-phase animated extraction & summarization progress visualizer.
-- Course detail page (`/course/:id`) with action-first numbered steps and interactive completion checklist.
+- Readability text extraction and content purification pipeline.
+- AI model integration enforcing action-first prompt rules.
+- Cloud database and local fallback storage layer.
+- Interactive Dashboard with course catalog and completion checklists.

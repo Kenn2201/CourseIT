@@ -1,53 +1,62 @@
-# 🎓 CourseIT
+# 🎓 CourseIT Ai
 
 > **Action-First Documentation Summarizer for Developers with Finite Attention Spans.**  
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
-[![CourseIT Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseit.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.9.0--beta-indigo.svg)
+[![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
+![Version](https://img.shields.io/badge/version-v1.11.0--LIVE-indigo.svg)
+[![Last Commit](https://img.shields.io/badge/last%20commit-e2401e5-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
+[![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
+[![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
 ![Vite](https://img.shields.io/badge/Vite-6.4.3-646CFF.svg?logo=vite)
+![Netlify](https://img.shields.io/badge/Netlify-Serverless-00C7B7.svg?logo=netlify)
 ![Tailwind](https://img.shields.io/badge/TailwindCSS-v4-38b2ac.svg?logo=tailwind-css)
-![Appwrite](https://img.shields.io/badge/Appwrite-Cloud-FD366E.svg?logo=appwrite)
+![Appwrite](https://img.shields.io/badge/Appwrite-Cloud%20Sydney-FD366E.svg?logo=appwrite)
 ![Gemini](https://img.shields.io/badge/Google%20Gemini-Flash%20Lite%20%7C%203.5%20%7C%203.6%20%7C%203.7-4285F4.svg?logo=google)
 ![Resend](https://img.shields.io/badge/Resend-Verified%20Domain-black.svg?logo=resend)
 
 ---
 
-## 📜 Recent Changelog & Release Notes
+## 📜 Versioning, Changelog & Audit Trail
 
-All notable changes are tracked in detail in [**CHANGELOG.md**](file:///g:/files%20for%20transfers%20iidkkk/project%20web%20app/portfolio-kenn/project-3-CourseIT/CHANGELOG.md).
+CourseIT Ai maintains a strict single source of truth for all releases:
+* **Current Production Version**: `v1.11.0 LIVE` ([`src/constants/version.js`](src/constants/version.js))
+* **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
+* **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
+* **Latest Production Commit**: [`e2401e5`](https://github.com/Kenn2201/CourseIT/commits/master)
 
-* **v1.9.0-beta (September 17, 2026)**:
+### Recent Release Notes
+
+* **v1.11.0 LIVE (September 17, 2026)** — *Production Live Release & Security Hardening*:
+  * **Universal Netlify Serverless API**: Created `netlify/functions/api.js` and configured `netlify.toml` wildcard routing to serve all 11 backend REST endpoints in serverless execution with Appwrite session JWT verification.
+  * **Public Repo Credential Scrubbing**: Removed all raw project, database, and collection IDs from tracked configuration and source files, migrating strictly to environment variables with zero hardcoded fallbacks.
+  * **Platform Maintenance Mode & Admin Bypass**: Implemented `src/pages/Maintenance.jsx` with animated status pills, countdown, Admin Bypass modal, and dynamic administrative toggle in `Admin.jsx`.
+  * **Profile Overhaul & Custom Avatar Photo Upload**: Built client-side custom profile picture uploader with 256x256 cover cropping and JPEG compression, instant cross-component synchronization, and preserved preset icons.
+  * **Account Summary & Workspace Metrics**: Replaced redundant course list with live telemetry cards (custom syntheses count isolated from starters, reasoning credits, tokens processed) and direct callout to Studio Dashboard.
+  * **Login Modal & Autocomplete Polish**: Protected `AdminModal.jsx` from unhandled exceptions on session refresh with `try / catch / finally`, added explicit `autoComplete` attributes, and enforced viewport scroll locks.
+  * **Global Rebranding & Tech Badges**: Standardized identity to **CourseIT Ai** across document titles, page headers, Navbar, and added "Powered by Netlify • Appwrite • Google Gemini • Resend" badge strip in `Footer.jsx`.
+
+* **v1.10.0-beta (September 17, 2026)** — *Guest Flow Restoration & Platform Polish*:
+  * **Guest Flow Regression Fix**: Prevented unauthenticated guest requests from triggering Appwrite JWT session errors, fixed 404s on locally-stored guest courses, and eliminated the Private Course authentication block for guest visitors.
+  * **Zero-Fluff System Instruction & Imperative Steps**: Hardened LLM system prompt with strict negative constraints (banning conversational padding like "In this section") and mandating imperative verbs and runnable code snippets.
+  * **Modern IDE Code Block UI**: Upgraded code snippet blocks with macOS-style window controls, dynamic language syntax badges (Bash, Dockerfile, GDScript, Rust, TypeScript, Python), and one-click copy functionality.
+  * **Rich Starter Course Snippets & Live Scripted Companion**: Completely populated runnable code snippets and implementation guides for Docker, React 19, Rust, and Godot starter courses; updated CourseTutor "Show Code" to display real verified syntax.
+  * **Structured Catalog & Attribution Consistency**: Separated the dashboard into Curated Starters and Community & Custom Courses with clear author attribution across all views.
+
+* **v1.9.0-beta (September 17, 2026)** — *Security Audit & Auth Hardening*:
   * **Unified AuthContext**: Eliminated stale `localStorage` desyncs and hardcoded admin fallbacks; established live Appwrite session as single source of truth across the entire app.
   * **Backend Appwrite JWT Verification**: Enforced cryptographic JWT session authentication across all 8 `/api/admin/*` endpoints and course deletions in `vite.config.js`.
   * **Strict Course ACL & Starter Isolation**: Namespaced public starter catalog with `starter-` prefix and strictly restricted custom courses to verified authors and administrators.
-  * **Appwrite Database Migration**: Backfilled legacy course records with explicit `creator_id` and `creator_email` attributes.
   * **Interactive Settings Engine**: Live controls for Color Theme, ADHD Anti-Fluff Level, and Default Model Preference synced with course generation.
-  * **Expanded Documentation & Non-Jumping Release Notes**: In-depth architecture/guide documentation and instant modal triggers without viewport scroll jumps.
-* **v1.8.0-beta (September 17, 2026)**:
-  * **Single Source of Truth**: Unified versioning via `src/constants/version.js` and credits via `CreditContext`; eliminated backend `Math.floor` rounding bug.
-  * **Mandatory First-Login Legal Consent**: Added durable Terms/Privacy consent stored on Appwrite user records for a persistent audit trail, with automatic onboarding notes.
-  * **Portalized Viewport Modals**: Mounted all modals via React Portals to guarantee center alignment on deep scroll.
-  * **Sidebar & Footer Separation**: Embedded footer inside workspace column, eliminating sidebar overlap.
-  * **Softened Light Mode**: Soft `#f1f5f9` slate background with WCAG AAA/AA text contrast and relocated toggles.
-  * **Consolidated Header & Anti-Fluff Chatbot**: User menu dropdown, prominent landing "Dashboard →" link, and Markdown typography parsing.
-* **v1.7.0-beta (September 17, 2026)**:
-  * Dashboard application shell with responsive sidebar, Appwrite serverless history collections, universal JWT re-verification, root-cause light mode fix, and author attributions.
-  * **OAuth 401 Fix**: Removed destructive session teardown on pending status; Google OAuth users stay signed in.
-  * **OAuth Pending Queue**: Google OAuth signups land in the same pending approval queue as email signups with auto-acknowledgement emails via Resend.
-  * **Model Resilience Notice**: Informs users when Gemini 3.7 hits high upstream demand and seamlessly falls back to Flash Lite, charging only for the lighter tier.
-  * **Mobile Changelog Fix**: Responsive date wrapping preventing text overflow at narrow viewport widths.
-* **v1.5.0-beta (September 17, 2026)**:
-  * StrictMode execution guard for OAuth token exchange, real-time Appwrite credit sync, shared 3/3 guest sandbox with struck-through locked tiers, embedded technical companion, PDF/DOCX/MD exports, profile customizer, and Gemini token monitor.
 
 ---
 
-## ⚡ What is CourseIT?
+## ⚡ What is CourseIT Ai?
 
 Standard technical documentation is often filled with introductory scene-setting, marketing fluff, and wall-of-text explanations that trigger cognitive fatigue. 
 
-**CourseIT solves developer ADHD and information overload** by transforming any documentation URL or scanned image into an **action-first, numbered curriculum**:
+**CourseIT Ai solves developer ADHD and information overload** by transforming any documentation URL or scanned image into an **action-first, numbered curriculum**:
 
 * **One Concept per Step**: Never bundles multiple concepts together.
 * **No Scene-Setting**: Immediately starts with the action or CLI command.
@@ -64,14 +73,15 @@ Standard technical documentation is often filled with introductory scene-setting
 
 | Layer | Technology | Purpose |
 | :--- | :--- | :--- |
-| **Frontend** | React 19 + Vite 6 | Lightning-fast reactive interface with StrictMode resilience |
+| **Frontend** | React 19 + Vite 6 | Reactive interface with StrictMode resilience and lazy initialization |
 | **Styling** | Tailwind CSS v4 + Vanilla CSS | Curated dark & light modes with custom glassmorphism and print rules |
-| **Extraction** | Cheerio + Mozilla Readability | High-speed server-side HTML scraping and article isolation |
+| **Serverless Backend** | Netlify Functions (Node 22) | Universal serverless API router with JWT session verification |
+| **Extraction** | Mozilla Readability + JSDOM | High-speed server-side HTML scraping and article isolation |
 | **OCR** | Tesseract.js | In-browser client-side optical character recognition |
 | **AI Models** | Google Gemini SDK (`@google/generative-ai`) | Multi-tier reasoning: Flash Lite, Gemini 3.5, 3.6, and 3.7 Flash |
 | **Auth & Database** | Appwrite Cloud (Sydney `syd1`) | OAuth2 (Google & GitHub), email auth, quotas, document storage |
 | **Email Delivery** | Resend API | Transactional emails dispatched from `CourseIT <hello@courseit.kenncode.me>` |
-| **Secrets** | Doppler CLI / dotenv | Centralized cloud environment management |
+| **Hosting & CI/CD** | Netlify | Automated continuous deployment directly connected to GitHub |
 
 ---
 
@@ -89,8 +99,8 @@ Ensure you have the following installed on your machine:
 ### 2. Clone the Repository
 
 ```bash
-git clone https://github.com/kennnacario/portfolio-kenn.git
-cd portfolio-kenn/project-3-CourseIT
+git clone https://github.com/Kenn2201/CourseIT.git
+cd CourseIT
 ```
 
 ---
@@ -122,13 +132,13 @@ LLM_API_KEY=your_gemini_api_key_here
 VITE_APPWRITE_ENDPOINT=https://syd.cloud.appwrite.io/v1
 VITE_APPWRITE_PROJECT_ID=your_project_id
 VITE_APPWRITE_DATABASE_ID=your_database_id
-VITE_APPWRITE_COLLECTION_ID=courses
+VITE_APPWRITE_COLLECTION_ID=your_collection_id
 
 # Appwrite Server API Key (for server handlers)
 APPWRITE_ENDPOINT=https://syd.cloud.appwrite.io/v1
 APPWRITE_PROJECT_ID=your_project_id
 APPWRITE_DATABASE_ID=your_database_id
-APPWRITE_COLLECTION_ID=courses
+APPWRITE_COLLECTION_ID=your_collection_id
 APPWRITE_API_KEY=your_appwrite_server_key
 
 # Resend Transactional Emailer
@@ -139,8 +149,6 @@ RESEND_FROM_EMAIL=CourseIT <hello@courseit.kenncode.me>
 ADMIN_EMAIL=your_admin_email@example.com
 VITE_ADMIN_EMAIL=your_admin_email@example.com
 ```
-
-> **💡 Doppler Users**: If you use [Doppler](https://www.doppler.com/) for secret management, you can run `doppler setup` and launch via `doppler run -- npm run dev`.
 
 ---
 
@@ -154,29 +162,17 @@ Visit [`http://localhost:5173`](http://localhost:5173) in your browser.
 
 ---
 
-## 🗄️ Appwrite Cloud Setup
+## 🌐 Netlify Production Deployment
 
-To use persistent courses, quota tracking, and authentication, set up an Appwrite project:
+To connect and deploy the repository to Netlify:
 
-1. **Create Project**: Go to [Appwrite Cloud Console](https://cloud.appwrite.io/) and create a project in the **Sydney (`syd1`)** region.
-2. **Database & Collections**:
-   * **Database**: Create a database (e.g. `courseit_db`).
-   * **Collection 1: `courses`**:
-     * `title` (string, required)
-     * `source_url` (string, required)
-     * `steps` (string, large, holds serialized JSON)
-     * Permissions: `Any` can read; `Users` can create/update.
-   * **Collection 2: `users_quota`**:
-     * `user_id` (string, required)
-     * `name` (string)
-     * `email` (string)
-     * `quota_remaining` (float or integer, default `250`)
-     * `status` (string: `pending` | `approved` | `archived`)
-3. **Storage Bucket**:
-   * Bucket ID: `course_docs` (used to store uploaded scanned tutorial images/PDFs).
-4. **OAuth 2 Providers (Optional)**:
-   * Under **Auth > Settings > Social Providers**, enable **Google** and **GitHub**.
-   * Add the Appwrite OAuth redirect URI to your Google Cloud Console / GitHub Developer settings.
+1. **Import Project**: Log in to Netlify, click **Add new site > Import an existing project**, and select your GitHub repository (`Kenn2201/CourseIT`).
+2. **Build Settings**:
+   * **Build command**: `npm run build`
+   * **Publish directory**: `dist`
+   * **Functions directory**: `netlify/functions` (auto-detected via `netlify.toml`)
+3. **Environment Variables**: Under **Site configuration > Environment variables**, add all environment variables listed above.
+4. **Trigger Clean Deploy**: If environment variables are added or changed, click **Deploys > Trigger deploy > Clear cache and deploy site** to ensure Vite compiles the frontend bundle with the latest values.
 
 ---
 
@@ -186,14 +182,8 @@ The repository follows a clean branch workflow:
 
 | Branch | Purpose |
 | :--- | :--- |
-| `master` | Stable, production-ready releases. |
+| `master` | Stable, production-ready releases deployed to Netlify. |
 | `kenn/develop` | Active development, feature iterations, and beta testing. |
-
-To switch to the active development branch:
-
-```bash
-git checkout -b kenn/develop
-```
 
 ---
 
@@ -201,9 +191,12 @@ git checkout -b kenn/develop
 
 ```
 project-3-CourseIT/
+├── netlify/
+│   └── functions/
+│       └── api.js        # Universal serverless REST API function for Netlify deployment
 ├── server/
-│   ├── handler.js        # Server middleware: OCR processing, Appwrite sync, quotas, emailer
-│   ├── llm.js            # Google Gemini & OpenAI SDK integration with usageMetadata tracking
+│   ├── handler.js        # Core business logic: Appwrite sync, quotas, emailer, safe fallback
+│   ├── llm.js            # Google Gemini SDK integration with AST structural zero-fluff prompts
 │   ├── extract.js        # Web scraper with Readability content purification
 │   └── data/             # Local fallback JSON stores (users_quota, token_usage, feedback)
 ├── src/
@@ -211,22 +204,27 @@ project-3-CourseIT/
 │   │   ├── CourseTutor.jsx      # Scripted technical companion tutor
 │   │   ├── UrlInputForm.jsx     # URL & OCR input with locked tier cross-out & modal
 │   │   ├── StepItem.jsx         # Numbered step card with code blocks & checklists
-│   │   ├── AdminModal.jsx       # Auth modal with OAuth and email signup
-│   │   └── ...
+│   │   ├── AdminModal.jsx       # Auth modal with OAuth, email login, and freeze protection
+│   │   └── Navbar.jsx           # Global header with dynamic avatar sync & credit badge
 │   ├── pages/
 │   │   ├── Landing.jsx          # Public showcase page with embedded tutor & anti-fluff comparison
 │   │   ├── Dashboard.jsx        # Course catalog, live quota counter, generation pipeline
 │   │   ├── CourseDetail.jsx     # Full learning path with Export (PDF / DOCX / MD)
-│   │   ├── Profile.jsx          # Profile with avatar selector, tokens processed, active session
-│   │   └── Admin.jsx            # Admin operations: Approvals, Feedback export, Emailer, Token monitor
+│   │   ├── Profile.jsx          # Custom PFP photo upload & workspace telemetry metrics
+│   │   ├── Admin.jsx            # Admin operations & Maintenance mode toggle
+│   │   └── Maintenance.jsx      # Animated maintenance status screen with Admin Bypass
+│   ├── constants/
+│   │   ├── version.js           # Single source of truth for versioning (v1.11.0 LIVE)
+│   │   └── presets.js           # Curated avatar presets
 │   ├── lib/
-│   │   ├── appwrite.js          # Appwrite client SDK initialization
-│   │   ├── auth.js              # Auth & session guards with OAuth StrictMode deduplication
+│   │   ├── appwrite.js          # Appwrite client SDK initialization with resilient fallbacks
+│   │   ├── auth.js              # Auth & session guards with ensureAccount lazy init
 │   │   └── ocr.js               # Client-side Tesseract.js image/PDF worker
 │   └── data/
-│       ├── changelog.js         # Version history source of truth
+│       ├── changelog.js         # Interactive version history source of truth
 │       └── starterCourses.js    # Built-in public cross-ecosystem templates
-├── vite.config.js        # Vite build config + integrated development API middleware
+├── netlify.toml          # Netlify build, redirects, and function bundler config
+├── vite.config.js        # Vite build config + local dev API middleware + env define
 └── package.json
 ```
 

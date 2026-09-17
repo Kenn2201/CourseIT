@@ -35,7 +35,7 @@ import {
 import { getAuthState, checkAppwriteSession, authenticatedFetch, ADMIN_EMAIL } from '../lib/auth';
 import { useAuth } from '../context/AuthContext';
 import { CURRENT_VERSION_LABEL } from '../constants/version';
-import { listCourses } from '../lib/appwrite';
+import { listCourses, getMaintenanceMode, setMaintenanceMode as persistMaintenanceMode } from '../lib/appwrite';
 import AdminModal from '../components/AdminModal';
 import UserDetailsModal from '../components/UserDetailsModal';
 
@@ -67,27 +67,41 @@ export default function Admin() {
   const [customRecipientEmail, setCustomRecipientEmail] = useState('');
   const [customEmailSubject, setCustomEmailSubject] = useState('Welcome to CourseIT Beta!');
   const [isSendingCustomEmail, setIsSendingCustomEmail] = useState(false);
-  const [maintenanceMode, setMaintenanceMode] = useState(() => {
-    return localStorage.getItem('courseit_maintenance_mode') === 'true' || import.meta.env.VITE_MAINTENANCE_MODE === 'true';
-  });
+  const [maintenanceMode, setMaintenanceMode] = useState(
+    localStorage.getItem('courseit_maintenance_mode') === 'true' ||
+    import.meta.env.VITE_MAINTENANCE_MODE === 'true'
+  );
 
-  const handleToggleMaintenance = () => {
+  // Sync maintenance toggle from Appwrite on mount
+  useEffect(() => {
+    getMaintenanceMode().then(on => setMaintenanceMode(on));
+  }, []);
+
+  const handleToggleMaintenance = async () => {
     const next = !maintenanceMode;
     setMaintenanceMode(next);
-    localStorage.setItem('courseit_maintenance_mode', String(next));
-    window.dispatchEvent(new Event('courseit_maintenance_changed'));
-    setNotification({
-      type: 'success',
-      message: next
-        ? 'Platform Maintenance Mode ENABLED. Public access is now locked.'
-        : 'Platform Maintenance Mode DISABLED. Application is now live to the public!'
-    });
+    setNotification({ type: 'info', message: 'Updating maintenance mode...' });
+    try {
+      await persistMaintenanceMode(next);
+      setNotification({
+        type: 'success',
+        message: next
+          ? '🔒 Platform Maintenance Mode ENABLED. Public access is now locked globally.'
+          : '🟢 Platform Maintenance Mode DISABLED. Application is now live to the public!'
+      });
+    } catch (err) {
+      setNotification({ type: 'error', message: 'Failed to update maintenance mode: ' + err.message });
+      setMaintenanceMode(!next); // revert
+    }
   };
 
+  // Stable primitive deps (userId, email) prevent infinite re-fetch loops
+  const userId = user?.id;
+  const userEmail = user?.email;
   useEffect(() => {
     if (authLoading) return;
     setAuthState({ isAuthenticated, isAdmin, user });
-    if (isAdmin || user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    if (isAdmin || userEmail?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
       fetchUsers();
       fetchCourses();
       fetchFeedbacks();
@@ -95,7 +109,8 @@ export default function Admin() {
     } else {
       setLoading(false);
     }
-  }, [authLoading, isAdmin, user, isAuthenticated]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAdmin, userId, userEmail, isAuthenticated]);
 
   const fetchUsers = async () => {
     setLoading(true);

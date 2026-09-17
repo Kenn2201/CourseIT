@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { MessageSquarePlus } from 'lucide-react';
 import Navbar from './components/Navbar';
@@ -13,6 +13,7 @@ import LegalConsentModal from './components/LegalConsentModal';
 import Maintenance from './pages/Maintenance';
 import CourseTutor from './components/CourseTutor';
 import { STARTER_COURSES } from './data/starterCourses';
+import { getMaintenanceMode } from './lib/appwrite';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { hasUserConsented } from './lib/auth';
 
@@ -22,24 +23,31 @@ function AppContent() {
   const isCourseDetail = location.pathname.startsWith('/course/');
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
-  const [isMaintenance, setIsMaintenance] = useState(() => {
-    return (
-      import.meta.env.VITE_MAINTENANCE_MODE === 'true' ||
-      localStorage.getItem('courseit_maintenance_mode') === 'true'
-    );
-  });
+  // Initialise from localStorage instantly so there's no flash-of-content on refresh
+  const [isMaintenance, setIsMaintenance] = useState(
+    import.meta.env.VITE_MAINTENANCE_MODE === 'true' ||
+    localStorage.getItem('courseit_maintenance_mode') === 'true'
+  );
 
-  useEffect(() => {
-    const handleMaintenanceChange = () => {
-      setIsMaintenance(
-        import.meta.env.VITE_MAINTENANCE_MODE === 'true' ||
-        localStorage.getItem('courseit_maintenance_mode') === 'true'
-      );
-    };
-
-    window.addEventListener('courseit_maintenance_changed', handleMaintenanceChange);
-    return () => window.removeEventListener('courseit_maintenance_changed', handleMaintenanceChange);
+  const checkMaintenance = useCallback(async () => {
+    const on = await getMaintenanceMode();
+    setIsMaintenance(on);
   }, []);
+
+  // Poll Appwrite every 30 s so ALL browsers stay in sync
+  useEffect(() => {
+    checkMaintenance();
+    const interval = setInterval(checkMaintenance, 30_000);
+
+    // Also react instantly when the admin toggles on the SAME browser
+    const handleLocalChange = () => checkMaintenance();
+    window.addEventListener('courseit_maintenance_changed', handleLocalChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('courseit_maintenance_changed', handleLocalChange);
+    };
+  }, [checkMaintenance]);
 
   useEffect(() => {
     if (isAuthenticated && user && !hasUserConsented(user)) {

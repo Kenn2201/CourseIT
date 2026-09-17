@@ -1,9 +1,37 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.11.1 LIVE',
+    date: 'September 17, 2026',
+    title: 'Serverless Production Hotfix & Connected Documentation',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Netlify 502 Bad Gateway Serverless Fix',
+        desc: 'Resolved read-only filesystem crash (EROFS) on AWS Lambda by directing runtime fallback files to os.tmpdir(), and aligned netlify/functions/api.js parameter signatures with server/handler.js.'
+      },
+      {
+        title: 'Appwrite Auth Decoupling & Sydney Cloud Parity',
+        desc: 'Decoupled pure authentication from database collection dependencies, defaulted to Sydney syd1 cloud region, and added build-time define fallbacks in vite.config.js for VITE_ and standard env variables.'
+      },
+      {
+        title: 'Netlify Functions Bundler & Timeout Configuration',
+        desc: 'Cleaned netlify.toml syntax with valid esbuild configuration and external jsdom bundling to ensure reliable serverless execution.'
+      },
+      {
+        title: 'Connected Documentation & Semantic Versioning Policy',
+        desc: 'Synchronized version identifiers, release checklists, and git commit references across README.md, VERSIONING.md, and CHANGELOG.md.'
+      }
+    ],
+    notes: [
+      'Added ensureAccount() lazy initialization in auth.js with actionable setup diagnostics',
+      'Mapped both /api/summarize and /api/summarize-text routes in universal Netlify function',
+      'Ensured all documentation cross-links resolve directly to master branch'
+    ]
+  },
+  {
     version: 'v1.11.0 LIVE',
     date: 'September 17, 2026',
     title: 'Production Live Release, Netlify Serverless Routing & Security Hardening',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'Complete Security Audit & Credential Scrubbing',

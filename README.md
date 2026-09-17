@@ -4,8 +4,8 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.11.0--LIVE-indigo.svg)
-[![Last Commit](https://img.shields.io/badge/last%20commit-d94935e-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
+![Version](https://img.shields.io/badge/version-v1.11.1--LIVE-indigo.svg)
+[![Last Commit](https://img.shields.io/badge/last%20commit-07d8752-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
@@ -21,12 +21,18 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.11.0 LIVE` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.11.1 LIVE` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
-* **Latest Production Commit**: [`e2401e5`](https://github.com/Kenn2201/CourseIT/commits/master)
+* **Latest Production Commit**: [`07d8752`](https://github.com/Kenn2201/CourseIT/commits/master)
 
 ### Recent Release Notes
+
+* **v1.11.1 LIVE (September 17, 2026)** — *Serverless Production Hotfix & Connected Documentation*:
+  * **Netlify 502 Bad Gateway Serverless Fix**: Resolved AWS Lambda read-only filesystem crash (`EROFS`) by directing runtime fallback files to `os.tmpdir()` (`/tmp/courseit_data`), wrapped file system access in `try / catch`, and aligned parameter signatures in `netlify/functions/api.js`.
+  * **Appwrite Auth Decoupling & Sydney Cloud Parity**: Decoupled pure authentication from database collection dependencies, defaulted to Sydney (`syd1`) cloud region, and injected build-time `define` fallbacks in `vite.config.js` for both `VITE_` and standard environment variables.
+  * **Netlify Build Syntax Hardening**: Removed invalid `timeout = 30` scalar syntax from `netlify.toml` and verified `node_bundler = "esbuild"` with `external_node_modules = ["jsdom"]`.
+  * **Semantic Versioning Synchronization**: Synchronized version identifiers, release checklists, and git commit references across `src/constants/version.js`, `package.json`, `src/data/changelog.js`, `CHANGELOG.md`, `VERSIONING.md`, and `README.md`.
 
 * **v1.11.0 LIVE (September 17, 2026)** — *Production Live Release & Security Hardening*:
   * **Universal Netlify Serverless API**: Created `netlify/functions/api.js` and configured `netlify.toml` wildcard routing to serve all 11 backend REST endpoints in serverless execution with Appwrite session JWT verification.

@@ -7,10 +7,10 @@
  * Refer to VERSIONING.md for the full release checklist.
  */
 
-export const CURRENT_VERSION = '1.11.0';
-export const CURRENT_VERSION_LABEL = 'v1.11.0 LIVE';
+export const CURRENT_VERSION = '1.11.1';
+export const CURRENT_VERSION_LABEL = 'v1.11.1 LIVE';
 export const RELEASE_DATE = 'September 17, 2026';
-export const RELEASE_NAME = 'Production Live Release & Security Hardening';
+export const RELEASE_NAME = 'Serverless Production Hotfix & Connected Documentation';
 
 export const APP_NAME = 'CourseIT Ai';
 export const APP_TAGLINE = 'Action-first docs learning paths';

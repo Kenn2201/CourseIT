@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.1] - 2026-09-17 — Serverless Production Hotfix & Connected Documentation
+
+### Fixed & Hardened
+- **Netlify 502 Bad Gateway Serverless Fix**:
+  - Resolved `EROFS: read-only file system` crash on AWS Lambda / Netlify Functions by redirecting runtime fallback JSON data files to `os.tmpdir()` (`/tmp/courseit_data`) whenever running in serverless environments (`NETLIFY` / `AWS_LAMBDA_FUNCTION_NAME`).
+  - Wrapped all local file and directory access in safe `try / catch` blocks to guarantee serverless worker cold-start reliability.
+  - Corrected parameter order mismatch in `netlify/functions/api.js` where `userId` was passed as `customModel` to `processDocumentationUrl()`, restoring expected `(url, targetModel, effectiveIsAdmin, false, effectiveUserId, effectiveUserEmail)` signature.
+  - Mapped both `/api/summarize` and `/api/summarize-text` (OCR and document text extraction) endpoints in the Netlify function.
+- **Appwrite Authentication Resilience & Sydney Cloud Parity**:
+  - Decoupled pure authentication (`new Account(client)`) from database collection ID requirements, ensuring login and signup function even if collections are being migrated.
+  - Set default Appwrite endpoint to the active Sydney cloud region (`https://syd.cloud.appwrite.io/v1`).
+  - Injected build-time `define` mapping in `vite.config.js` to automatically resolve both `VITE_APPWRITE_*` and non-prefixed `APPWRITE_*` variables from environment configurations.
+  - Implemented `ensureAccount()` lazy initialization helper in `src/lib/auth.js` with actionable setup diagnostics if project credentials are not configured.
+- **Netlify Build Configuration Syntax**:
+  - Removed unsupported `timeout = 30` scalar syntax from `netlify.toml` that caused Netlify buildbot configuration parsing failures.
+  - Enforced `node_bundler = "esbuild"` with `external_node_modules = ["jsdom"]`.
+
+### Documentation & Version Synchronization
+- **Connected Documentation**:
+  - Synchronized SemVer across `src/constants/version.js` (`1.11.1` / `v1.11.1 LIVE`), `package.json`, `src/data/changelog.js`, `CHANGELOG.md`, `VERSIONING.md`, and `README.md`.
+  - Linked GitHub commit references and cross-linked `VERSIONING.md` and `CHANGELOG.md` in repository documentation.
+
 ## [1.11.0] - 2026-09-17 — Production Live Release, Netlify Serverless Routing & Security Hardening
 
 ### Security & Credential Scrubbing

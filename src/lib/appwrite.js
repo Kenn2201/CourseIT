@@ -127,8 +127,7 @@ export function getLocalCourses() {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([SAMPLE_GODOT_COURSE]));
-      return [SAMPLE_GODOT_COURSE];
+      return [];
     }
     const courses = JSON.parse(raw);
     const now = Date.now();
@@ -152,7 +151,7 @@ export function getLocalCourses() {
 
     return validCourses;
   } catch {
-    return [SAMPLE_GODOT_COURSE];
+    return [];
   }
 }
 
@@ -183,13 +182,22 @@ import { STARTER_COURSES } from '../data/starterCourses';
  * with user-specific or admin-managed custom courses.
  */
 export async function listCourses(userId = null, isAdmin = false) {
+  // Guests and unauthenticated visitors ONLY see public starter templates + current session guest courses
+  if (!userId || userId === 'public_guest') {
+    const local = getLocalCourses().filter(c => c.is_guest);
+    const allMap = new Map();
+    STARTER_COURSES.forEach(c => allMap.set(c.$id, c));
+    local.forEach(c => allMap.set(c.$id, c));
+    return Array.from(allMap.values());
+  }
+
   let customCourses = [];
 
   if (databases && isAppwriteConfigured()) {
     try {
       const queries = [Query.orderDesc('$createdAt')];
-      // If regular user, only show their courses plus starters
-      if (userId && !isAdmin && userId !== 'public_guest') {
+      // If regular authenticated user, strictly filter by creator_id
+      if (!isAdmin) {
         queries.push(Query.equal('creator_id', userId));
       }
 
@@ -201,18 +209,11 @@ export async function listCourses(userId = null, isAdmin = false) {
 
       customCourses = response.documents.map(normalizeCourse);
     } catch (err) {
-      // Fallback: read from local custom storage
-      customCourses = getLocalCourses().filter(c => !c.is_curated);
+      // Fallback: read from local storage with creator filtering
+      customCourses = getLocalCourses().filter(c => !c.is_curated && (isAdmin || c.creator_id === userId));
     }
   } else {
-    customCourses = getLocalCourses().filter(c => !c.is_curated);
-  }
-
-  // Filter custom courses if guest
-  if (!userId || userId === 'public_guest') {
-    // Guests only see starter templates and courses generated in their current session
-    const local = getLocalCourses().filter(c => c.is_guest);
-    customCourses = local;
+    customCourses = getLocalCourses().filter(c => !c.is_curated && (isAdmin || c.creator_id === userId));
   }
 
   // Merge STARTER_COURSES first so catalog templates are always present
@@ -220,33 +221,60 @@ export async function listCourses(userId = null, isAdmin = false) {
   STARTER_COURSES.forEach(c => allMap.set(c.$id, c));
   customCourses.forEach(c => allMap.set(c.$id, c));
 
-  const merged = Array.from(allMap.values());
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
-  } catch {}
-
-  return merged;
+  return Array.from(allMap.values());
 }
 
 /**
- * Get a specific course by ID: checks STARTER_COURSES first, then Appwrite, then local storage
+ * Get a specific course by ID: checks STARTER_COURSES first, then Appwrite, then local storage.
+ * Enforces strict ACL: non-starter custom courses require authenticated ownership or admin privileges.
  */
-export async function getCourse(id) {
+export async function getCourse(id, user = null, isAdmin = false) {
+  // 1. Curated starter templates are always public
   const starter = STARTER_COURSES.find(c => c.$id === id);
   if (starter) return starter;
 
+  // 2. Fetch from Appwrite
+  let found = null;
   if (databases && isAppwriteConfigured()) {
     try {
       const doc = await databases.getDocument(DATABASE_ID, COLLECTION_ID, id);
-      return normalizeCourse(doc);
+      if (doc) found = normalizeCourse(doc);
     } catch (err) {
       console.warn(`Appwrite fetch for ${id} failed, checking local storage:`, err.message);
     }
   }
 
-  const local = getLocalCourses();
-  const found = local.find(c => c.$id === id);
-  if (found) return found;
+  // 3. Fallback to local storage
+  if (!found) {
+    const local = getLocalCourses();
+    found = local.find(c => c.$id === id);
+  }
 
-  throw new Error(`Course with ID ${id} not found.`);
+  if (!found) {
+    throw new Error(`Course with ID "${id}" was not found.`);
+  }
+
+  // 4. Strict Access Control Verification
+  if (found.is_curated || found.$id?.startsWith('starter-')) {
+    return found;
+  }
+
+  // Non-starter courses require authentication
+  if (!user || !user.id) {
+    const err = new Error('Authentication Required: You must be signed in to view this private course.');
+    err.code = 'UNAUTHORIZED';
+    err.status = 401;
+    throw err;
+  }
+
+  // Check creator ownership or master administrator authorization
+  const isAuthor = Boolean(found.creator_id && found.creator_id === user.id);
+  if (!isAuthor && !isAdmin) {
+    const err = new Error('Access Denied: You do not have permission to view this custom course.');
+    err.code = 'FORBIDDEN';
+    err.status = 403;
+    throw err;
+  }
+
+  return found;
 }

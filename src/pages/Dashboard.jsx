@@ -14,18 +14,23 @@ import GenerationHistory from '../components/GenerationHistory';
 import ThemeToggle from '../components/ThemeToggle';
 import { CURRENT_VERSION_LABEL } from '../constants/version';
 import { listCourses, saveLocalCourse } from '../lib/appwrite';
-import { getAuthState, checkAppwriteSession, authenticatedFetch } from '../lib/auth';
+import { authenticatedFetch } from '../lib/auth';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user, isAuthenticated, isAdmin, isPending, quota: authQuota, credits, refreshAuth, refreshCredits } = useAuth();
+  const [quota, setQuota] = useState(authQuota);
+  useEffect(() => {
+    setQuota(authQuota);
+  }, [authQuota]);
+  const authState = { user, isAuthenticated, isAdmin, isPending, quota: quota || authQuota };
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'history' | 'profile' | 'settings' | 'help'
   const [courses, setCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [generateError, setGenerateError] = useState('');
-  const [quota, setQuota] = useState({ total: 250, used: 0, remaining: 250, quota_remaining: 250 });
-  const [authState, setAuthState] = useState(getAuthState());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [successCourse, setSuccessCourse] = useState(null);
@@ -34,21 +39,30 @@ export default function Dashboard() {
   const [courseToDelete, setCourseToDelete] = useState(null);
   const [isDeletingCourse, setIsDeletingCourse] = useState(false);
 
-  const loadQuota = async (user) => {
+  // Settings State
+  const [defaultModel, setDefaultModel] = useState(() => localStorage.getItem('courseit_default_model') || 'gemini-flash-lite-latest');
+  const [antiFluffLevel, setAntiFluffLevel] = useState(() => localStorage.getItem('courseit_antifluff_level') || 'strict');
+  const [settingsNotice, setSettingsNotice] = useState('');
+
+  const handleModelChange = (newModel) => {
+    setDefaultModel(newModel);
     try {
-      const uId = user?.id || 'public_guest';
-      const uEmail = user?.email || '';
-      const res = await fetch(`/api/user/quota?userId=${encodeURIComponent(uId)}&email=${encodeURIComponent(uEmail)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.quota) {
-          setQuota(data.quota);
-        }
-      }
+      localStorage.setItem('courseit_default_model', newModel);
+      setSettingsNotice('Default reasoning model preference saved!');
+      setTimeout(() => setSettingsNotice(''), 2500);
     } catch {}
   };
 
-  const loadCourses = async (user = authState?.user, isAdmin = authState?.isAdmin) => {
+  const handleAntiFluffChange = (newLevel) => {
+    setAntiFluffLevel(newLevel);
+    try {
+      localStorage.setItem('courseit_antifluff_level', newLevel);
+      setSettingsNotice(`Anti-Fluff mode set to ${newLevel.toUpperCase()}!`);
+      setTimeout(() => setSettingsNotice(''), 2500);
+    } catch {}
+  };
+
+  const loadCourses = async () => {
     setLoadingCourses(true);
     try {
       const data = await listCourses(user?.id, isAdmin);
@@ -61,21 +75,8 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    checkAppwriteSession().then(state => {
-      setAuthState(state);
-      loadQuota(state?.user);
-      loadCourses(state?.user, state?.isAdmin);
-    });
-
-    const handleQuotaEvent = () => {
-      checkAppwriteSession().then(state => {
-        setAuthState(state);
-        loadQuota(state?.user);
-      });
-    };
-    window.addEventListener('courseit_quota_updated', handleQuotaEvent);
-    return () => window.removeEventListener('courseit_quota_updated', handleQuotaEvent);
-  }, []);
+    loadCourses();
+  }, [user?.id, isAdmin]);
 
   const handleGenerate = async (inputPayload, legacyModel) => {
     setIsGenerating(true);
@@ -83,10 +84,8 @@ export default function Dashboard() {
     setSuccessFallback(null);
 
     try {
-      const currentAuth = getAuthState();
-      const isAdmin = currentAuth.isAdmin;
-      const userId = currentAuth.user?.id || null;
-      const userEmail = currentAuth.user?.email || '';
+      const userId = user?.id || null;
+      const userEmail = user?.email || '';
 
       let response;
       if (inputPayload && typeof inputPayload === 'object' && inputPayload.type === 'document') {
@@ -434,8 +433,15 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6 max-w-2xl">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 space-y-6 max-w-3xl">
+                {settingsNotice && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2.5 animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-medium">{settingsNotice}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pb-5 border-b border-slate-800">
                   <div>
                     <h4 className="text-sm font-semibold text-white">Color Theme</h4>
                     <p className="text-xs text-slate-400 mt-0.5">Toggle between Dark Mode and Light Mode with PixelSwap animation</p>
@@ -443,24 +449,56 @@ export default function Dashboard() {
                   <ThemeToggle />
                 </div>
 
-                <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-800">
                   <div>
                     <h4 className="text-sm font-semibold text-white">ADHD Anti-Fluff Level</h4>
-                    <p className="text-xs text-slate-400 mt-0.5">Strict mode: 0 conversational filler, numbered steps, code commands only</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {antiFluffLevel === 'strict'
+                        ? 'Strict mode: 0 conversational filler, numbered steps, executable code commands only'
+                        : 'Balanced mode: Preserves brief conceptual overviews alongside numbered steps'}
+                    </p>
                   </div>
-                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold">
-                    ACTIVE (MAX)
-                  </span>
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleAntiFluffChange('strict')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                        antiFluffLevel === 'strict'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      STRICT (ZERO FLUFF)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAntiFluffChange('balanced')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                        antiFluffLevel === 'balanced'
+                          ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      BALANCED
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h4 className="text-sm font-semibold text-white">Default Model Preference</h4>
-                    <p className="text-xs text-slate-400 mt-0.5">Default reasoning tier for instant single-click generations</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Automatically pre-selects this reasoning tier on the course generation form</p>
                   </div>
-                  <span className="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-mono text-xs">
-                    Flash Lite (0.5 cr)
-                  </span>
+                  <select
+                    value={defaultModel}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 text-xs font-mono cursor-pointer focus:outline-none focus:border-indigo-500 shrink-0"
+                  >
+                    <option value="gemini-flash-lite-latest">Flash Lite (0.5 cr) — Ultra Fast (~0.8s)</option>
+                    <option value="gemini-3.5-flash-lite">Gemini 3.5 Lite (1.0 cr) — Balanced</option>
+                    <option value="gemini-3.6-flash">Gemini 3.6 Flash (2.0 cr) — Deep Synthesis</option>
+                    <option value="gemini-3.7-flash">Gemini 3.7 Flash (5.0 cr) — Complex Architectures</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -472,35 +510,106 @@ export default function Dashboard() {
               <div className="border-b border-slate-800 pb-5">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-mono mb-2">
                   <HelpCircle className="w-3.5 h-3.5" />
-                  <span>Documentation & Guide</span>
+                  <span>Comprehensive Guide & Documentation</span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                  How CourseIT Works
+                  Mastering CourseIT
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                  Master the action-first learning engine and discover all supported documentation formats.
+                  Learn how the anti-fluff extraction works, supported formats, credit tiers, and troubleshooting.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 1. Anti-Fluff Engine */}
                 <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-3">
                   <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
                     <Zap className="w-5 h-5" />
                   </div>
-                  <h3 className="text-base font-bold text-white">ADHD Anti-Fluff Principles</h3>
+                  <h3 className="text-base font-bold text-white">1. How Anti-Fluff Extraction Works</h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Most developers don't have the patience or attention span to read 20 pages of architectural context just to configure a button signal or build a container. CourseIT strips out conversational prose, leaving only the essential code snippets, step order, and pro tips.
+                    Most technical tutorials and API references contain 70-80% conversational filler, disclaimers, and marketing context. CourseIT applies an AST structural heuristic that strips preamble, extracts raw code blocks, and isolates imperative instructions into strictly numbered sequential steps with estimated times and pro-tips.
                   </p>
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-indigo-300">
+                    Input: 40-page API Guide &rarr; Output: 4-6 Action Steps with Code
+                  </div>
                 </div>
 
+                {/* 2. Supported Inputs */}
                 <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                     <BookOpen className="w-5 h-5" />
                   </div>
-                  <h3 className="text-base font-bold text-white">Supported Input Formats</h3>
+                  <h3 className="text-base font-bold text-white">2. Supported Input Formats</h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    You can paste any public documentation URL (e.g. Godot, React, Rust, Docker) or upload tutorial slides/scans via client-side OCR (PNG, JPG, WEBP, PDF, TXT, MD). Text is parsed before AI synthesis.
+                    <strong>Direct URLs:</strong> Paste documentation links from Godot, React, Next.js, Rust Book, Docker, MDN, Python docs, and GitHub Readmes.<br />
+                    <strong>Client-Side OCR:</strong> Upload scanned cheat sheets, tutorial screenshots, or PDF pages (PNG, JPG, WEBP, PDF, TXT, MD). Text is extracted in-browser with Tesseract.js before LLM synthesis.
                   </p>
+                </div>
+
+                {/* 3. Model Tiers & Resilience */}
+                <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                    <BrainCircuit className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-base font-bold text-white">3. Credits, Model Tiers & Fallback Resilience</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    CourseIT offers 4 tiered reasoning models:
+                  </p>
+                  <ul className="text-xs text-slate-300 space-y-1 font-mono">
+                    <li>&bull; Flash Lite (0.5 cr): Fastest (~0.8s), great for standard guides</li>
+                    <li>&bull; Gemini 3.5 Lite (1.0 cr): Balanced speed and technical detail</li>
+                    <li>&bull; Gemini 3.6 Flash (2.0 cr): Deep synthesis with rich code examples</li>
+                    <li>&bull; Gemini 3.7 Flash (5.0 cr): High-power reasoning for complex architectures</li>
+                  </ul>
+                  <p className="text-[11px] text-slate-400 italic">
+                    If Gemini 3.7 encounters high upstream traffic, CourseIT automatically fails over to Flash Lite and charges only 0.5 credits.
+                  </p>
+                </div>
+
+                {/* 4. Course Navigation & Exports */}
+                <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-600/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-base font-bold text-white">4. Navigating Steps & Export Options</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Click step checkboxes to track real-time progress saved to local storage. Use the copy button on code snippets to grab commands instantly. You can export complete courses to Markdown (.md) or Word (.doc), or print directly to formatted PDF.
+                  </p>
+                </div>
+
+                {/* 5. Troubleshooting & FAQ */}
+                <div className="md:col-span-2 glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-indigo-400" />
+                    <span>Troubleshooting & FAQ</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5">
+                      <h4 className="font-semibold text-slate-200">Generation says "URL extraction failed"</h4>
+                      <p className="text-slate-400">
+                        Some SPAs render entirely via client-side JavaScript. If a URL fails to scrape, copy-paste the text or screenshot the page and upload it using the Document OCR tab.
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5">
+                      <h4 className="font-semibold text-slate-200">How do guest course quotas work?</h4>
+                      <p className="text-slate-400">
+                        Unauthenticated visitors receive 3 free trial generations stored in local session storage (auto-purged after 24 hours). Create an account for 250 persistent cloud credits.
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5">
+                      <h4 className="font-semibold text-slate-200">Why are custom courses private?</h4>
+                      <p className="text-slate-400">
+                        Courses you generate are tied strictly to your account and protected by server-side verification. Only curated starter templates are public.
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5">
+                      <h4 className="font-semibold text-slate-200">Need more credits?</h4>
+                      <p className="text-slate-400">
+                        Approved beta testers can request top-ups in the Profile tab or reach out directly to <code>hello@courseit.kenncode.me</code>.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -17,9 +17,9 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { isAppwriteConfigured } from '../lib/appwrite';
-import { getAuthState, checkAppwriteSession, logoutUser } from '../lib/auth';
+import { logoutUser } from '../lib/auth';
 import { CURRENT_VERSION_LABEL } from '../constants/version';
-import { useUserCredits } from '../context/CreditContext';
+import { useAuth } from '../context/AuthContext';
 import ChangelogModal from './ChangelogModal';
 import AdminModal from './AdminModal';
 import FeedbackModal from './FeedbackModal';
@@ -27,8 +27,8 @@ import FeedbackModal from './FeedbackModal';
 export default function Navbar() {
   const isLive = isAppwriteConfigured();
   const location = useLocation();
-  const [authState, setAuthState] = useState(getAuthState());
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const { user, isAuthenticated, isAdmin, isPending, quota, credits, formatCredits, logout, loading: isCheckingSession } = useAuth();
+  const authState = { user, isAuthenticated, isAdmin, isPending, quota };
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutNotice, setSignOutNotice] = useState(false);
   const [signInNotice, setSignInNotice] = useState(false);
@@ -38,9 +38,6 @@ export default function Navbar() {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
-
-  // Authoritative credit state from single source of truth
-  const { credits, formatCredits } = useUserCredits();
 
   // Close user menu on outside click or route change
   useEffect(() => {
@@ -58,14 +55,6 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    // Check if session exists on load or OAuth redirect
-    checkAppwriteSession().then(state => {
-      setAuthState(state);
-      setIsCheckingSession(false);
-    }).catch(() => {
-      setIsCheckingSession(false);
-    });
-
     // First-time or 24-hour Changelog Pop-up
     try {
       const lastSeen = localStorage.getItem('courseit_changelog_seen');
@@ -76,30 +65,13 @@ export default function Navbar() {
       }
     } catch {}
 
-    // Listen for custom quota, auth, and changelog updates
-    const handleAuthEvent = () => {
-      checkAppwriteSession().then(state => {
-        const wasAuthenticated = authState?.isAuthenticated;
-        setAuthState(state);
-        setIsCheckingSession(false);
-        if (!wasAuthenticated && state?.isAuthenticated) {
-          setSignInNotice(true);
-          setTimeout(() => setSignInNotice(false), 2500);
-        }
-      });
-    };
     const handleOpenChangelog = () => setIsChangelogOpen(true);
-
-    window.addEventListener('courseit_quota_updated', handleAuthEvent);
-    window.addEventListener('courseit_auth_changed', handleAuthEvent);
     window.addEventListener('courseit_open_changelog', handleOpenChangelog);
 
     return () => {
-      window.removeEventListener('courseit_quota_updated', handleAuthEvent);
-      window.removeEventListener('courseit_auth_changed', handleAuthEvent);
       window.removeEventListener('courseit_open_changelog', handleOpenChangelog);
     };
-  }, [authState?.isAuthenticated]);
+  }, []);
 
   const handleCloseChangelog = () => {
     setIsChangelogOpen(false);
@@ -111,7 +83,7 @@ export default function Navbar() {
   const handleHeaderSignOut = async () => {
     setIsSigningOut(true);
     try {
-      await logoutUser();
+      await logout();
       setSignOutNotice(true);
       setTimeout(() => {
         setSignOutNotice(false);

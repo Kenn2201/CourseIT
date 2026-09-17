@@ -7,7 +7,9 @@ export default function Footer({ onOpenChangelog }) {
   const [legalModalOpen, setLegalModalOpen] = useState(false);
   const [legalInitialTab, setLegalInitialTab] = useState('terms');
 
-  const triggerChangelog = () => {
+  const triggerChangelog = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
     if (onOpenChangelog) {
       onOpenChangelog();
     } else {

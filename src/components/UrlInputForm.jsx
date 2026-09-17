@@ -44,13 +44,31 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
   const [inputMode, setInputMode] = useState('url'); // 'url' | 'document'
   const [url, setUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
-  const [selectedModel, setSelectedModel] = useState('gemini-flash-lite-latest');
+  const [selectedModel, setSelectedModel] = useState(() => {
+    try {
+      const saved = localStorage.getItem('courseit_default_model');
+      if (saved && (isAuthenticated || saved === 'gemini-flash-lite-latest')) {
+        return saved;
+      }
+    } catch {}
+    return 'gemini-flash-lite-latest';
+  });
   const [error, setError] = useState('');
   const [ocrProgress, setOcrProgress] = useState(null);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const fileInputRef = useRef(null);
   const modelDropdownRef = useRef(null);
+
+  // Sync with default model preference from settings
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('courseit_default_model');
+      if (saved && (isAuthenticated || saved === 'gemini-flash-lite-latest')) {
+        setSelectedModel(saved);
+      }
+    } catch {}
+  }, [isAuthenticated]);
 
   // Close dropdown on click outside
   useEffect(() => {

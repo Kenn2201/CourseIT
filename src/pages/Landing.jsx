@@ -191,10 +191,17 @@ export default function Landing({ onLaunchApp }) {
       <section className="relative z-10 pt-16 pb-16 sm:pt-24 sm:pb-20 px-4 sm:px-6 max-w-6xl mx-auto">
         <div className="text-center max-w-3xl mx-auto space-y-6">
           {/* Release & ADHD Focus Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-mono shadow-lg shadow-indigo-500/10">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              setIsChangelogOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-mono shadow-lg shadow-indigo-500/10 hover:bg-indigo-500/20 hover:border-indigo-500/40 transition-all cursor-pointer"
+          >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>CourseIT {CURRENT_VERSION_LABEL} • Zero-AI-Fluff Action Engine</span>
-          </div>
+          </button>
 
           {/* Main Headline */}
           <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-[1.12]">

@@ -7,10 +7,10 @@
  * Refer to VERSIONING.md for the full release checklist.
  */
 
-export const CURRENT_VERSION = '1.8.0';
-export const CURRENT_VERSION_LABEL = 'v1.8.0 BETA';
+export const CURRENT_VERSION = '1.9.0';
+export const CURRENT_VERSION_LABEL = 'v1.9.0 BETA';
 export const RELEASE_DATE = 'September 17, 2026';
-export const RELEASE_NAME = 'Consistency & Polish';
+export const RELEASE_NAME = 'Security Audit & Hardening';
 
 export const APP_NAME = 'CourseIT';
 export const APP_TAGLINE = 'Action-first docs learning paths';

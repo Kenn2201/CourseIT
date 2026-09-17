@@ -1,9 +1,50 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.9.0 BETA',
+    date: 'September 17, 2026',
+    title: 'Security Audit & Auth Hardening: Live Session Source of Truth, Backend JWT Verification, ACL Route Guards & Settings Engine',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Unified Live AuthContext & Purged Fallbacks',
+        desc: 'Eliminated stale localStorage desync by establishing AuthContext as the single live source of truth; unauthenticated API calls immediately purge cached sessions instead of leaking admin identity.'
+      },
+      {
+        title: 'Backend Appwrite JWT Verification Across Admin APIs',
+        desc: 'Hardened all 8 backend admin endpoints (/api/admin/*) and course deletion to cryptographically verify Appwrite session JWTs; strictly forbids unauthenticated or non-admin requests.'
+      },
+      {
+        title: 'Strict Course ACL & Starter Catalog Prefixing',
+        desc: 'Private custom courses now require authenticated author or administrator ownership. Public template courses are securely namespaced with "starter-" prefix and godot-nodes-and-scenes was removed from public catalog.'
+      },
+      {
+        title: 'Appwrite Document Migration',
+        desc: 'Successfully backfilled legacy Appwrite course documents with explicit creator_id and creator_email attributes, ensuring strict listCourses() filtering never drops owner access.'
+      },
+      {
+        title: 'Interactive Settings Page Controls',
+        desc: 'Wired functional Color Theme switcher, ADHD Anti-Fluff Level selector (Concise, Balanced, Exhaustive), and Default Model Preference synced seamlessly with the course generator.'
+      },
+      {
+        title: 'Expanded Help Documentation & Snappy Micro-Interactions',
+        desc: 'Comprehensive step-by-step documentation on documentation synthesis, OCR upload limits, credit costs, and smooth micro-animations across dashboard cards.'
+      }
+    ],
+    notes: [
+      'Created src/context/AuthContext.jsx and connected across App.jsx, Navbar.jsx, Dashboard.jsx, Profile.jsx, and CourseDetail.jsx',
+      'Purged cached localStorage fallback on 401 unauthenticated session in src/lib/auth.js',
+      'Removed hardcoded admin email and credit balances from Profile.jsx and Admin.jsx',
+      'Enforced Appwrite JWT authentication and admin verification on /api/admin/users, /api/admin/approve, /api/admin/topup, /api/admin/feedbacks/status, /api/admin/test-all-emails, /api/admin/send-custom-email, /api/admin/token-metrics, and GET /api/feedback in vite.config.js',
+      'Migrated legacy Appwrite database courses to set creator_id and creator_email metadata',
+      'Prefixed all public starter courses with "starter-" and isolated private courses to verified authors',
+      'Added dedicated 401/403 ACL access error screens with navigation back to safety'
+    ]
+  },
+  {
     version: 'v1.8.0 BETA',
     date: 'September 17, 2026',
     title: 'Consistency & Polish: Single Source of Truth for Version & Credits, Portalized Modals & Header Redesign',
-    badge: 'Latest Release',
+    badge: 'Previous',
     highlights: [
       {
         title: 'Single Source of Truth for Versioning',

@@ -72,9 +72,10 @@ export default defineConfig(({ mode }) => {
           // 1. User Quota status route
           server.middlewares.use('/api/user/quota', async (req, res) => {
             const urlObj = new URL(req.url, 'http://localhost');
-            const userId = urlObj.searchParams.get('userId') || 'public_guest';
-            const email = urlObj.searchParams.get('email') || '';
-            const name = urlObj.searchParams.get('name') || '';
+            const session = await authenticate(req);
+            const userId = session ? session.userId : (urlObj.searchParams.get('userId') || 'public_guest');
+            const email = session ? session.userEmail : (urlObj.searchParams.get('email') || '');
+            const name = session ? session.userName : (urlObj.searchParams.get('name') || '');
 
             try {
               const quota = await getUserQuota(userId, email, name);
@@ -135,6 +136,13 @@ export default defineConfig(({ mode }) => {
           // 4. Admin: list all users
           server.middlewares.use('/api/admin/users', async (req, res) => {
             try {
+              const session = await authenticate(req);
+              if (!session || !session.isAdmin) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Forbidden: Admin session required' }));
+                return;
+              }
               const users = await listAllUsers();
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
@@ -155,6 +163,13 @@ export default defineConfig(({ mode }) => {
             }
 
             try {
+              const session = await authenticate(req);
+              if (!session || !session.isAdmin) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Forbidden: Admin session required' }));
+                return;
+              }
               const data = await parseBody(req);
               const { userId, email } = data;
               const result = await approveUserAndSendEmail(userId, email);
@@ -177,6 +192,13 @@ export default defineConfig(({ mode }) => {
             }
 
             try {
+              const session = await authenticate(req);
+              if (!session || !session.isAdmin) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Forbidden: Admin session required' }));
+                return;
+              }
               const data = await parseBody(req);
               const { userId, amount } = data;
               const updated = await topUpUserCredits(userId, amount || 250);
@@ -203,17 +225,16 @@ export default defineConfig(({ mode }) => {
               const { courseId } = data;
               const session = await authenticate(req);
 
-              // Server re-verifies identity: do NOT trust client body userId/userEmail
-              const isDevAdminHeader = req.headers['x-admin-mode'] === 'true';
-              const effectiveUserId = session ? session.userId : (isDevAdminHeader ? 'admin' : (data.userId || null));
-              const effectiveUserEmail = session ? session.userEmail : (isDevAdminHeader ? 'kenn.nacario12@gmail.com' : (data.userEmail || ''));
-
-              if (!session && !isDevAdminHeader && !data.userId) {
+              // Server re-verifies identity via JWT: do NOT trust unverified client headers
+              if (!session) {
                 res.statusCode = 401;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ success: false, error: 'Unauthorized: Session authentication required to delete courses.' }));
                 return;
               }
+
+              const effectiveUserId = session.userId;
+              const effectiveUserEmail = session.userEmail;
 
               const result = await deleteCourse(courseId, effectiveUserId, effectiveUserEmail);
               res.statusCode = 200;
@@ -381,6 +402,13 @@ export default defineConfig(({ mode }) => {
                 res.end(JSON.stringify({ success: false, error: err.message }));
               }
             } else if (req.method === 'GET') {
+              const session = await authenticate(req);
+              if (!session || !session.isAdmin) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Forbidden: Admin session required' }));
+                return;
+              }
               const list = listAllFeedbacks();
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
@@ -399,6 +427,13 @@ export default defineConfig(({ mode }) => {
               return;
             }
             try {
+              const session = await authenticate(req);
+              if (!session || !session.isAdmin) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Forbidden: Admin session required' }));
+                return;
+              }
               const data = await parseBody(req);
               const { feedbackId, status } = data;
               const result = updateFeedbackStatus(feedbackId, status);
@@ -420,8 +455,15 @@ export default defineConfig(({ mode }) => {
               return;
             }
             try {
+              const session = await authenticate(req);
+              if (!session || !session.isAdmin) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Forbidden: Admin session required' }));
+                return;
+              }
               const data = await parseBody(req);
-              const result = await testAllEmailsToAdmin(data.adminEmail);
+              const result = await testAllEmailsToAdmin(data.adminEmail || session.userEmail);
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(result));
@@ -440,6 +482,13 @@ export default defineConfig(({ mode }) => {
               return;
             }
             try {
+              const session = await authenticate(req);
+              if (!session || !session.isAdmin) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Forbidden: Admin session required' }));
+                return;
+              }
               const data = await parseBody(req);
               const result = await sendCustomTesterEmail(data);
               res.statusCode = 200;
@@ -453,8 +502,15 @@ export default defineConfig(({ mode }) => {
           });
 
           // 13. API & Token Usage metrics monitor
-          server.middlewares.use('/api/admin/token-metrics', (req, res) => {
+          server.middlewares.use('/api/admin/token-metrics', async (req, res) => {
             try {
+              const session = await authenticate(req);
+              if (!session || !session.isAdmin) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Forbidden: Admin session required' }));
+                return;
+              }
               const metrics = getTokenMetrics();
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');

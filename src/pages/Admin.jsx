@@ -32,11 +32,14 @@ import {
   UploadCloud
 } from 'lucide-react';
 import { getAuthState, checkAppwriteSession, authenticatedFetch, ADMIN_EMAIL } from '../lib/auth';
+import { useAuth } from '../context/AuthContext';
+import { CURRENT_VERSION_LABEL } from '../constants/version';
 import { listCourses } from '../lib/appwrite';
 import AdminModal from '../components/AdminModal';
 import UserDetailsModal from '../components/UserDetailsModal';
 
 export default function Admin() {
+  const { user, isAdmin, isAuthenticated, loading: authLoading } = useAuth();
   const [authState, setAuthState] = useState(getAuthState());
   const [activeTab, setActiveTab] = useState('users'); // 'users' | 'archived' | 'courses' | 'feedback' | 'emails' | 'tokens'
   const [users, setUsers] = useState([]);
@@ -66,23 +69,22 @@ export default function Admin() {
   const [isSendingCustomEmail, setIsSendingCustomEmail] = useState(false);
 
   useEffect(() => {
-    checkAppwriteSession().then(state => {
-      setAuthState(state);
-      if (state.isAdmin || state.user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        fetchUsers();
-        fetchCourses();
-        fetchFeedbacks();
-        fetchTokenMetrics();
-      } else {
-        setLoading(false);
-      }
-    });
-  }, []);
+    if (authLoading) return;
+    setAuthState({ isAuthenticated, isAdmin, user });
+    if (isAdmin || user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+      fetchUsers();
+      fetchCourses();
+      fetchFeedbacks();
+      fetchTokenMetrics();
+    } else {
+      setLoading(false);
+    }
+  }, [authLoading, isAdmin, user, isAuthenticated]);
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await authenticatedFetch('/api/admin/users');
       const data = await res.json();
       if (data.success) {
         setUsers(data.users || []);
@@ -96,7 +98,7 @@ export default function Admin() {
 
   const fetchCourses = async () => {
     try {
-      const list = await listCourses();
+      const list = await listCourses(user?.id || user?.$id, true);
       setCourses(list || []);
     } catch (err) {
       console.error('Failed to fetch courses:', err);
@@ -105,7 +107,7 @@ export default function Admin() {
 
   const fetchFeedbacks = async () => {
     try {
-      const res = await fetch('/api/feedback');
+      const res = await authenticatedFetch('/api/feedback');
       const data = await res.json();
       if (data.success) {
         setFeedbacks(data.feedbacks || []);
@@ -120,7 +122,7 @@ export default function Admin() {
     setNotification(null);
 
     try {
-      const res = await fetch('/api/admin/approve', {
+      const res = await authenticatedFetch('/api/admin/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, email: customEmail })
@@ -149,7 +151,7 @@ export default function Admin() {
     setNotification(null);
 
     try {
-      const res = await fetch('/api/admin/topup', {
+      const res = await authenticatedFetch('/api/admin/topup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, amount })
@@ -177,7 +179,7 @@ export default function Admin() {
 
   const handleReactivate = async (userId) => {
     try {
-      await fetch('/api/admin/approve', {
+      await authenticatedFetch('/api/admin/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
@@ -219,7 +221,7 @@ export default function Admin() {
 
   const handleFeedbackStatus = async (feedbackId, status) => {
     try {
-      const res = await fetch('/api/admin/feedbacks/status', {
+      const res = await authenticatedFetch('/api/admin/feedbacks/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ feedbackId, status })
@@ -238,7 +240,7 @@ export default function Admin() {
     setNotification(null);
 
     try {
-      const res = await fetch('/api/admin/test-all-emails', {
+      const res = await authenticatedFetch('/api/admin/test-all-emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminEmail: ADMIN_EMAIL })
@@ -262,7 +264,7 @@ export default function Admin() {
   const fetchTokenMetrics = async () => {
     setLoadingTokens(true);
     try {
-      const res = await fetch('/api/admin/token-metrics');
+      const res = await authenticatedFetch('/api/admin/token-metrics');
       const data = await res.json();
       if (data.success) {
         setTokenMetrics(data.metrics);
@@ -325,7 +327,7 @@ export default function Admin() {
         throw new Error('Please specify a recipient email address.');
       }
 
-      const res = await fetch('/api/admin/send-custom-email', {
+      const res = await authenticatedFetch('/api/admin/send-custom-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -354,9 +356,9 @@ export default function Admin() {
     }
   };
 
-  const isAdmin = authState.isAdmin || authState.user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const isUserAdmin = Boolean(isAdmin || user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() || authState.isAdmin || authState.user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
 
-  if (!isAdmin) {
+  if (!isUserAdmin) {
     return (
       <div className="max-w-xl mx-auto px-4 py-20 text-center animate-in fade-in">
         <div className="glass-panel p-8 rounded-3xl border border-rose-500/30 space-y-4">
@@ -1129,7 +1131,7 @@ export default function Admin() {
                   type="button"
                   onClick={() => {
                     setCustomEmailSubject('CourseIT - New Features & Model Tiers Deployed');
-                    setCustomEmailBody('Hi Beta Tester,\n\nWe just deployed v1.5.0 with Gemini 3.5, 3.6, and 3.7 model tiers, export to PDF/DOCX, and a companion tutor on the dashboard.\n\nTake it for a spin and let us know what you think!\n- Kenn & The CourseIT Team');
+                    setCustomEmailBody(`Hi Beta Tester,\n\nWe just deployed ${CURRENT_VERSION_LABEL} with Gemini 3.5, 3.6, and 3.7 model tiers, export to PDF/DOCX, and a companion tutor on the dashboard.\n\nTake it for a spin and let us know what you think!\n- Kenn & The CourseIT Team`);
                   }}
                   className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-mono cursor-pointer transition-colors"
                 >

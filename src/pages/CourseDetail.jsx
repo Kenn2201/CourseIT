@@ -1,20 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Clock, Layers, Sparkles, CheckCircle2, Share2, Check, Download, Printer, FileText, FileCode, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Layers, Sparkles, CheckCircle2, Share2, Check, Download, Printer, FileText, FileCode, ChevronDown, Lock } from 'lucide-react';
 import StepItem from '../components/StepItem';
 import ProgressBar from '../components/ProgressBar';
 import CourseTutor from '../components/CourseTutor';
+import AdminModal from '../components/AdminModal';
 import { getCourse } from '../lib/appwrite';
 import { getCompletedSteps, toggleStep, resetCourseProgress } from '../lib/storage';
+import { useAuth } from '../context/AuthContext';
 
 export default function CourseDetail() {
   const { id } = useParams();
+  const { user, isAuthenticated, isAdmin, loading: authLoading } = useAuth();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [completedSteps, setCompletedSteps] = useState([]);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const exportRef = useRef(null);
 
   useEffect(() => {
@@ -28,11 +32,13 @@ export default function CourseDetail() {
   }, []);
 
   useEffect(() => {
+    if (authLoading) return;
+
     async function fetchCourse() {
       setLoading(true);
       setError('');
       try {
-        const data = await getCourse(id);
+        const data = await getCourse(id, user, isAdmin);
         setCourse(data);
         setCompletedSteps(getCompletedSteps(id));
       } catch (err) {
@@ -44,7 +50,7 @@ export default function CourseDetail() {
     }
 
     fetchCourse();
-  }, [id]);
+  }, [id, user, isAdmin, authLoading]);
 
   const handleToggle = (stepNumber) => {
     const updated = toggleStep(id, stepNumber);
@@ -172,19 +178,51 @@ export default function CourseDetail() {
   }
 
   if (error || !course) {
+    const isAuthRequired = error.includes('Authentication Required');
+    const isForbidden = error.includes('Access Denied');
+
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <div className="glass-panel p-8 rounded-2xl border border-rose-500/20">
-          <p className="text-rose-400 font-semibold mb-2">Error Loading Course</p>
-          <p className="text-slate-400 text-sm mb-6">{error}</p>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
-          </Link>
+      <div className="max-w-xl mx-auto px-4 py-20 text-center animate-in fade-in">
+        <div className={`glass-panel p-8 rounded-3xl border ${isAuthRequired ? 'border-indigo-500/30' : isForbidden ? 'border-rose-500/30' : 'border-slate-800'} space-y-4`}>
+          <div className={`w-14 h-14 mx-auto rounded-2xl ${isAuthRequired ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30' : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'} flex items-center justify-center`}>
+            <Lock className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-white">
+            {isAuthRequired ? 'Private Course — Authentication Required' : isForbidden ? 'Access Restricted' : 'Course Not Found'}
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-md mx-auto">
+            {isAuthRequired
+              ? 'This custom-generated course is private to its author. Please sign in to verify your access credentials.'
+              : isForbidden
+              ? 'You do not have permission to view this custom course. Only the original author or system administrators may access it.'
+              : (error || 'The requested course does not exist or may have expired.')}
+          </p>
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
+            {isAuthRequired && (
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="btn-primary py-2.5 px-5 rounded-xl font-semibold text-xs text-white cursor-pointer"
+              >
+                Sign In to View Course
+              </button>
+            )}
+            <Link
+              to="/app"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Dashboard</span>
+            </Link>
+          </div>
         </div>
+
+        <AdminModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          authState={{ isAuthenticated: false, user: null, isAdmin: false }}
+          onAuthChange={() => window.location.reload()}
+        />
       </div>
     );
   }

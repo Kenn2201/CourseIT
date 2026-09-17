@@ -1,43 +1,6 @@
 export const STARTER_COURSES = [
   {
-    $id: 'godot-nodes-and-scenes',
-    title: 'Nodes and Scenes in Godot 4',
-    source_url: 'https://docs.godotengine.org/en/stable/getting_started/step_by_step/nodes_and_scenes.html',
-    overview: 'Master the fundamental building blocks of Godot 4: instantiating scenes, node trees, and scene composition.',
-    recommended_next_step: 'Proceed to Godot Signals & Event Wiring',
-    is_curated: true,
-    category: 'Godot Engine',
-    badge: 'Starter Template',
-    $createdAt: '2026-09-17T00:00:00.000Z',
-    steps: [
-      {
-        step_number: 1,
-        title: 'Understand the Node as Godot\'s Basic Building Block',
-        time_estimate: '~5 min',
-        summary: 'Nodes are the fundamental objects in Godot. Every node has a name, editable properties, can receive callbacks to process each frame, and can be extended with scripts. Nodes only perform specific jobs (e.g. Sprite2D displays an image, Camera2D controls the viewport).'
-      },
-      {
-        step_number: 2,
-        title: 'Organize Nodes into a Hierarchical Scene Tree',
-        time_estimate: '~10 min',
-        summary: 'A scene is a collection of nodes arranged hierarchically in a tree. The tree has one single root node. When a parent node moves or transforms, all child nodes move along with it automatically.'
-      },
-      {
-        step_number: 3,
-        title: 'Create and Save a Scene in the Godot Editor',
-        time_estimate: '~8 min',
-        summary: 'In the Scene dock, click \'+\' to add a root node (such as Node2D or Control). Add child nodes under it. Save the scene file using Ctrl+S as a .tscn file inside your project\'s res:// folder.'
-      },
-      {
-        step_number: 4,
-        title: 'Instance Scenes to Reuse Game Components',
-        time_estimate: '~12 min',
-        summary: 'Scenes can be saved as templates and instanced inside other scenes (like a character or coin inside a game level). Click the link icon in the Scene dock to instance a saved .tscn file. Modifying the original scene updates all instances.'
-      }
-    ]
-  },
-  {
-    $id: 'godot-using-signals',
+    $id: 'starter-godot-signals',
     title: 'Using Signals to Decouple Game Objects',
     source_url: 'https://docs.godotengine.org/en/stable/getting_started/step_by_step/signals.html',
     overview: 'Emit custom signals, connect buttons and timers, and architect clean node communication without direct references.',
@@ -74,7 +37,7 @@ export const STARTER_COURSES = [
     ]
   },
   {
-    $id: 'react-server-components',
+    $id: 'starter-react-server-components',
     title: 'React 19 Server Components & Actions',
     source_url: 'https://react.dev/reference/rsc/server-components',
     overview: 'Master async server transitions, useActionState, and zero-bundle-size server execution paths.',
@@ -111,7 +74,7 @@ export const STARTER_COURSES = [
     ]
   },
   {
-    $id: 'rust-ownership-borrowing',
+    $id: 'starter-rust-ownership',
     title: 'Rust Ownership, References & Borrow Checker',
     source_url: 'https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html',
     overview: 'Conquer the borrow checker: understand stack vs heap allocation, mutable references, and lifetime scopes.',
@@ -148,7 +111,7 @@ export const STARTER_COURSES = [
     ]
   },
   {
-    $id: 'docker-multi-stage-builds',
+    $id: 'starter-docker-builds',
     title: 'Docker Multi-Stage Production Builds',
     source_url: 'https://docs.docker.com/build/building/multi-stage/',
     overview: 'Slash container sizes by 85%: separate build environments from runtime artifacts with clean Dockerfile stages.',

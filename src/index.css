@@ -280,3 +280,30 @@ html.light ::-webkit-scrollbar-thumb:hover {
     page-break-inside: avoid;
   }
 }
+
+/* =========================================================
+   Snappy Micro-Interactions & Transitions (v1.9.0)
+   ========================================================= */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.glass-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+}
+

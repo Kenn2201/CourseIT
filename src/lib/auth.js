@@ -256,11 +256,18 @@ export async function checkAppwriteSession() {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
       return authState;
     }
-  } catch {
-    // Not logged in
+  } catch (err) {
+    // Verified unauthenticated: strictly purge stale cached session to prevent desync or identity leak
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem('courseit_admin_mode');
+    } catch {}
+    cachedJwt = null;
+    jwtExpiry = 0;
+    return { isAuthenticated: false, isAdmin: false, user: null, quota: null };
   }
 
-  return getAuthState();
+  return { isAuthenticated: false, isAdmin: false, user: null, quota: null };
 }
 
 let cachedJwt = null;

@@ -4,7 +4,7 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseit.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.8.0--beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.9.0--beta-indigo.svg)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
 ![Vite](https://img.shields.io/badge/Vite-6.4.3-646CFF.svg?logo=vite)
 ![Tailwind](https://img.shields.io/badge/TailwindCSS-v4-38b2ac.svg?logo=tailwind-css)
@@ -18,6 +18,13 @@
 
 All notable changes are tracked in detail in [**CHANGELOG.md**](file:///g:/files%20for%20transfers%20iidkkk/project%20web%20app/portfolio-kenn/project-3-CourseIT/CHANGELOG.md).
 
+* **v1.9.0-beta (September 17, 2026)**:
+  * **Unified AuthContext**: Eliminated stale `localStorage` desyncs and hardcoded admin fallbacks; established live Appwrite session as single source of truth across the entire app.
+  * **Backend Appwrite JWT Verification**: Enforced cryptographic JWT session authentication across all 8 `/api/admin/*` endpoints and course deletions in `vite.config.js`.
+  * **Strict Course ACL & Starter Isolation**: Namespaced public starter catalog with `starter-` prefix and strictly restricted custom courses to verified authors and administrators.
+  * **Appwrite Database Migration**: Backfilled legacy course records with explicit `creator_id` and `creator_email` attributes.
+  * **Interactive Settings Engine**: Live controls for Color Theme, ADHD Anti-Fluff Level, and Default Model Preference synced with course generation.
+  * **Expanded Documentation & Non-Jumping Release Notes**: In-depth architecture/guide documentation and instant modal triggers without viewport scroll jumps.
 * **v1.8.0-beta (September 17, 2026)**:
   * **Single Source of Truth**: Unified versioning via `src/constants/version.js` and credits via `CreditContext`; eliminated backend `Math.floor` rounding bug.
   * **Mandatory First-Login Legal Consent**: Added durable Terms/Privacy consent stored on Appwrite user records for a persistent audit trail, with automatic onboarding notes.

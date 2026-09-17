@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0-beta] - 2026-09-17 — Security Audit & Auth Hardening: Live Session Source of Truth, Backend JWT Verification, ACL Route Guards & Settings Engine
+
+### Added
+- **Unified Live AuthContext**:
+  - Implemented `AuthContext` (`src/context/AuthContext.jsx`) providing verified `user`, `isAdmin`, `isAuthenticated`, and `quota` across the entire React component tree.
+  - Linked `CreditContext` directly with `AuthContext` to ensure synchronous lifecycle updates.
+- **Strict Course ACL & Starter Isolation**:
+  - Prefixed all public starter courses with `starter-` (`starter-godot-signals`, `starter-react-server-components`, `starter-rust-ownership`, `starter-docker-builds`).
+  - Isolated custom user courses: unauthenticated guests can only view public starter templates.
+  - Custom courses require verified author ownership or administrator privileges to view or delete; added dedicated 401/403 ACL access error screens with return-to-safety actions.
+- **Interactive Dashboard Settings Page Controls**:
+  - Implemented real-time functional controls for **Color Theme** (Dark / Soft Light), **ADHD Anti-Fluff Level** (Concise, Balanced, Exhaustive), and **Default Model Preference** (Gemini 2.5 Flash Lite, Flash, Pro).
+  - Synced default model selection directly to the generation input form (`UrlInputForm.jsx`).
+- **Expanded Help & Architecture Documentation**:
+  - Expanded Tab 5 (Help) into an interactive knowledge base detailing documentation synthesis, client-side OCR upload limits, credit costs, and export workflows.
+
+### Fixed & Hardened
+- **Root-Cause Auth Session State Desync**:
+  - Resolved session desync where unauthenticated `/app` visitors saw admin data upon opening `/profile`.
+  - Removed outdated local-storage caching fallbacks in `src/lib/auth.js` that preserved expired sessions on 401 response; now strictly purges session tokens and resets to guest state.
+  - Stripped hardcoded `'kenn.nacario12@gmail.com'` fallbacks from `src/pages/Profile.jsx` and enforced an authentication required lock guard.
+- **Server-Side Backend JWT Verification Across 8 Admin Endpoints**:
+  - Enforced cryptographically verified Appwrite session JWT tokens on `/api/admin/users`, `/api/admin/approve`, `/api/admin/topup`, `/api/admin/feedbacks/status`, `/api/admin/test-all-emails`, `/api/admin/send-custom-email`, `/api/admin/token-metrics`, and `GET /api/feedback` in `vite.config.js`.
+  - Prevented identity spoofing and blocked unauthorized access to user emails, feedback, and admin actions.
+- **Appwrite Legacy Database Document Migration**:
+  - Backfilled legacy Appwrite course documents with `creator_id` and `creator_email` attributes, ensuring `listCourses()` query filtering strictly retains rightful owner access.
+- **Release Notes Scroll Fix**:
+  - Updated all "Release Notes" links and hero badges to invoke `e.preventDefault()`, directly opening `ChangelogModal` without triggering unwanted page jumps to top.
+
 ## [1.8.0-beta] - 2026-09-17 — Consistency & Polish: Single Source of Truth for Version & Credits, Portalized Modals & Header Redesign
 
 ### Added

@@ -80,7 +80,12 @@ export async function handler(event) {
 
     // 2. User quota
     if (subpath === '/user/quota') {
-      const session = await authenticate(headers);
+      let session = null;
+      try {
+        session = await authenticate(headers);
+      } catch (authErr) {
+        console.warn('Authentication check notice in /user/quota:', authErr.message);
+      }
       const userId = session ? session.userId : (query.userId || 'public_guest');
       const email = session ? session.userEmail : (query.email || '');
       const name = session ? session.userName : (query.name || '');

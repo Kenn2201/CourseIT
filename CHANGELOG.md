@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.2] - 2026-09-17 — Serverless Evaluation Hotfix & Quota Engine Stabilization (LIVE Beta)
+
+### Fixed & Hardened
+- **Serverless Module Evaluation & Packaging Resilience**:
+  - Eliminated serverless startup crash caused by bundler-injected module wrappers evaluating in AWS Lambda CommonJS execution environment.
+  - Replaced environment-sensitive module path resolution with universal directory discovery, restoring 100% gateway uptime across all backend serverless endpoints.
+  - Resolved 502 Bad Gateway failures on user quota retrieval and AI course generation in production.
+- **Defensive Timeout Wrappers for Cloud Database Services**:
+  - Protected backend session verification and user quota database queries with non-blocking race timeouts.
+  - Guaranteed that slow external responses or cold network handshakes gracefully fall back without causing serverless function timeouts.
+- **Administrator Role Verification & Storage Resiliency**:
+  - Hardened administrator privilege verification and fallback directory initialization across serverless container recycling cycles.
+  - Wrapped serverless quota session authentication in defensive exception handling to guarantee reliable guest and user fallbacks.
+
 ## [1.11.1] - 2026-09-17 — Serverless Production Hotfix & Connected Documentation (LIVE Beta)
 
 ### Fixed & Hardened

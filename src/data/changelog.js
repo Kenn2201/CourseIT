@@ -1,9 +1,33 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.11.2 LIVE Beta',
+    date: 'September 17, 2026',
+    title: 'Serverless Evaluation Hotfix & Quota Engine Stabilization',
+    badge: 'Latest Release',
+    highlights: [
+      {
+        title: 'Universal CommonJS & ESM Serverless Bundling Fix',
+        desc: 'Eliminated runtime module evaluation crash caused by bundler-injected module wrappers, ensuring 100% gateway uptime on all serverless backend routes.'
+      },
+      {
+        title: 'Defensive Timeout Wrappers for Cloud Database Services',
+        desc: 'Protected authentication and quota retrieval pipelines with non-blocking race timeouts, preventing serverless function hangs and gateway dropouts.'
+      },
+      {
+        title: 'Admin Verification & Storage Resiliency',
+        desc: 'Strengthened administrator privilege verification and fallback storage directory discovery across serverless cold-start cycles.'
+      }
+    ],
+    notes: [
+      'Fixed 502 Bad Gateway error on user quota retrieval and course generation in production',
+      'Implemented non-blocking timeout guards for external cloud backend session checks',
+      'Stabilized cross-environment runtime storage resolution across local and cloud environments'
+    ]
+  },
+  {
     version: 'v1.11.1 LIVE Beta',
     date: 'September 17, 2026',
     title: 'Serverless Production Hotfix & Connected Documentation',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'Serverless Runtime Stability & Fallback Protection',

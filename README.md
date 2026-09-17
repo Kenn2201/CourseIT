@@ -4,7 +4,7 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.11.1--LIVE--Beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.11.2--LIVE--Beta-indigo.svg)
 [![Last Commit](https://img.shields.io/badge/last%20commit-20e56c6-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
@@ -21,12 +21,18 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.11.1 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.11.2 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
 * **Latest Production Commit**: [`20e56c6`](https://github.com/Kenn2201/CourseIT/commits/master)
 
 ### Recent Release Notes
+
+* **v1.11.2 LIVE Beta (September 17, 2026)** — *Serverless Evaluation Hotfix & Quota Engine Stabilization*:
+  * **AWS Lambda / Netlify Serverless Evaluation Fix**: Eliminated fatal `TypeError: The "path" argument must be of type string or an instance of URL. Received undefined` caused by CommonJS bundler execution of `fileURLToPath(import.meta.url)`. Switched to universal, environment-resilient directory discovery, restoring 100% gateway uptime across all serverless API routes.
+  * **Production 502 Bad Gateway Resolution**: Fixed 502 errors blocking both user quota retrieval (`/api/user/quota`) and course generation (`/api/summarize`, `/api/summarize-text`) in production.
+  * **Defensive Timeout Wrappers for Cloud Database**: Added non-blocking race timeouts (3.5s for session JWT validation, 3.0s for Appwrite database interactions) preventing serverless worker hangs and gateway dropouts.
+  * **Admin Role & Storage Resiliency**: Ensured administrator privilege detection and fallback storage directory discovery remain consistent across serverless container cold-starts.
 
 * **v1.11.1 LIVE Beta (September 17, 2026)** — *Serverless Production Hotfix & Connected Documentation*:
   * **Netlify 502 Bad Gateway Serverless Fix**: Resolved AWS Lambda read-only filesystem crash (`EROFS`) by directing runtime fallback files to `os.tmpdir()` (`/tmp/courseit_data`), wrapped file system access in `try / catch`, and aligned parameter signatures in `netlify/functions/api.js`.

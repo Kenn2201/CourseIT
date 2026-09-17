@@ -1,16 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { fileURLToPath } from 'url';
 import { Client, Databases, ID, Query, Account as ServerAccount } from 'node-appwrite';
 import { Resend } from 'resend';
 import { extractDocumentation } from './extract.js';
 import { summarizeWithLLM } from './llm.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// In serverless / AWS Lambda / Netlify environments, root is read-only.
+// In serverless / AWS Lambda / Netlify environments, the root file system is read-only.
 // Use os.tmpdir() for runtime fallback files.
 const isServerless = Boolean(
   process.env.NETLIFY ||
@@ -19,9 +15,17 @@ const isServerless = Boolean(
   process.env.VERCEL
 );
 
+const getLocalDataDir = () => {
+  const defaultPath = path.join(process.cwd(), 'server', 'data');
+  if (fs.existsSync(defaultPath)) return defaultPath;
+  const directPath = path.join(process.cwd(), 'data');
+  if (fs.existsSync(directPath)) return directPath;
+  return defaultPath;
+};
+
 const DATA_DIR = isServerless
   ? path.join(os.tmpdir(), 'courseit_data')
-  : path.join(__dirname, 'data');
+  : getLocalDataDir();
 
 const USERS_QUOTA_FILE = path.join(DATA_DIR, 'users_quota.json');
 const PUBLIC_SANDBOX_FILE = path.join(DATA_DIR, 'public_sandbox.json');
@@ -39,7 +43,7 @@ try {
 
 // 250 credits default trial quota
 export const DEFAULT_CREDITS = 250;
-export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '';
+export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'kenn.nacario12@gmail.com';
 
 /**
  * Universally re-verifies the requester's session identity server-side via Appwrite JWT.
@@ -59,7 +63,10 @@ export async function verifyAppwriteSession(jwt) {
       .setJWT(jwt);
 
     const account = new ServerAccount(client);
-    const user = await account.get();
+    const user = await Promise.race([
+      account.get(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Appwrite JWT session verification timeout')), 3500))
+    ]);
 
     if (!user || !user.$id) return null;
 
@@ -298,7 +305,7 @@ export async function getUserQuota(userId, email = '', name = '') {
   const db = getAppwriteDb();
   const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
 
-  const isAdmin = (email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+  const isAdmin = Boolean(email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
 
   const tokenStats = loadTokenUsage();
   const tokensUsed = tokenStats.perUser?.[userId]?.totalTokens || 0;
@@ -307,6 +314,7 @@ export async function getUserQuota(userId, email = '', name = '') {
   if (localData[userId]) {
     if (isAdmin) {
       localData[userId].status = 'approved';
+      localData[userId].isAdmin = true;
     }
     localData[userId].tokens_used = tokensUsed;
     return localData[userId];
@@ -315,8 +323,11 @@ export async function getUserQuota(userId, email = '', name = '') {
   // 2. Check Appwrite users_quota collection if available
   if (db && databaseId) {
     try {
-      const existing = await db.listDocuments(databaseId, 'users_quota', [
-        Query.equal('user_id', userId)
+      const existing = await Promise.race([
+        db.listDocuments(databaseId, 'users_quota', [
+          Query.equal('user_id', userId)
+        ]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Appwrite listDocuments timeout')), 3000))
       ]);
       if (existing.documents && existing.documents.length > 0) {
         const doc = existing.documents[0];
@@ -326,6 +337,7 @@ export async function getUserQuota(userId, email = '', name = '') {
           email: doc.email,
           quota_remaining: doc.quota_remaining ?? DEFAULT_CREDITS,
           status: isAdmin ? 'approved' : doc.status,
+          isAdmin: Boolean(isAdmin),
           tokens_used: tokensUsed,
           $id: doc.$id,
           $createdAt: doc.$createdAt
@@ -334,7 +346,9 @@ export async function getUserQuota(userId, email = '', name = '') {
         saveLocalUsersQuota(localData);
         return record;
       }
-    } catch {}
+    } catch (err) {
+      console.warn('Appwrite user quota fetch notice:', err.message);
+    }
   }
 
   // 3. Initialize new quota record (250 credits for admin, 0 for pending non-admin)
@@ -346,21 +360,28 @@ export async function getUserQuota(userId, email = '', name = '') {
     email: email || '',
     quota_remaining: initialQuota,
     status: initialStatus,
+    isAdmin: Boolean(isAdmin),
+    tokens_used: tokensUsed,
     $createdAt: new Date().toISOString()
   };
 
   // Try creating in Appwrite
   if (db && databaseId) {
     try {
-      const created = await db.createDocument(databaseId, 'users_quota', ID.unique(), {
-        user_id: newRecord.user_id,
-        name: newRecord.name,
-        email: newRecord.email,
-        quota_remaining: newRecord.quota_remaining,
-        status: newRecord.status
-      });
+      const created = await Promise.race([
+        db.createDocument(databaseId, 'users_quota', ID.unique(), {
+          user_id: newRecord.user_id,
+          name: newRecord.name,
+          email: newRecord.email,
+          quota_remaining: newRecord.quota_remaining,
+          status: newRecord.status
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Appwrite createDocument timeout')), 3000))
+      ]);
       newRecord.$id = created.$id;
-    } catch {}
+    } catch (err) {
+      console.warn('Appwrite user quota create notice:', err.message);
+    }
   }
 
   localData[userId] = newRecord;

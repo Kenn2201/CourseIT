@@ -1,5 +1,6 @@
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
+import { fetchDocumentHtml } from './safeFetch.js';
 
 /**
  * Extracts clean, readable text from any documentation URL using Mozilla Readability & jsdom.
@@ -8,7 +9,7 @@ import { Readability } from '@mozilla/readability';
  * @param {string} url - Target documentation URL
  * @returns {Promise<{ title: string, content: string, excerpt: string, siteName: string }>}
  */
-export async function extractDocumentation(url) {
+export async function extractDocumentation(url, options = {}) {
   if (!url || typeof url !== 'string') {
     throw new Error('A valid documentation URL is required.');
   }
@@ -23,24 +24,10 @@ export async function extractDocumentation(url) {
 
   if (!['https:', 'http:'].includes(parsedUrl.protocol)) throw new Error('Use an HTTP or HTTPS documentation URL.');
 
-  // Fetch raw HTML with a standard browser User-Agent
-  const response = await fetch(url, {
-    signal: AbortSignal.timeout(10000),
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 CourseIT/1.0',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch documentation from ${url} (HTTP ${response.status}: ${response.statusText})`);
-  }
-
-  const html = await response.text();
+  const { html, url: finalUrl } = await (options.fetchHtml || fetchDocumentHtml)(url);
 
   // Parse HTML DOM
-  const dom = new JSDOM(html, { url });
+  const dom = new JSDOM(html, { url: finalUrl || url });
   const doc = dom.window.document;
 
   // Remove common non-content elements that might confuse Readability

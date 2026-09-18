@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.2] - 2026-09-18 — Production Safety and Account Recovery (LIVE Beta)
+
+### Security
+- Restrict documentation fetches to public HTTP(S) destinations, recheck DNS and redirects, pin vetted addresses, and cap HTML responses at 1 MB.
+- Require a verified Appwrite session for signup registration and feedback identity; reject oversized API bodies and text input.
+- Reserve guest slots and account credits before AI work, releasing reservations on failure; update Readability past its security advisory.
+
+### Fixed
+- Replace the nonfunctional password-reset code with an Appwrite recovery-link request and password update page.
+- Preserve feedback message and verified sender, escape feedback email HTML, and await signup/feedback email dispatch outcomes.
+- Reuse session quota data, show unavailable credits without invented balances, and avoid full usage scans on ordinary quota reads.
+- Parallelize independent catalog reads and remove unsupported PDF upload and unverified landing-page claims.
+
+### Verification
+- Added regression coverage for URL policy, feedback, signup identity, quota reservations, and request limits. Production provider, OAuth, and email delivery remain to be verified with test accounts.
+
 ## [1.13.1] - 2026-09-18 — Application Startup Hotfix (LIVE Beta)
 
 ### Fixed

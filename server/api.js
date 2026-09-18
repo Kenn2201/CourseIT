@@ -5,7 +5,6 @@ import {
   registerUserSignup,
   listAllUsers,
   approveUserAndSendEmail,
-  sendPasswordResetEmail,
   topUpUserCredits,
   deleteCourse,
   archiveUserAccount,
@@ -55,6 +54,9 @@ const authenticate = async (headers) => {
 export async function handler(event) {
   if (event.httpMethod === 'OPTIONS') {
     return jsonResponse(200, { ok: true });
+  }
+  if (Buffer.byteLength(event.body || '', 'utf8') > 128 * 1024) {
+    return jsonResponse(413, { error: 'Request is too large (128 KB limit).' });
   }
 
   // Normalize subpath (e.g. /.netlify/functions/api/summarize -> /summarize, /api/summarize -> /summarize)
@@ -121,17 +123,15 @@ export async function handler(event) {
     // 3. User signup
     if (subpath === '/user/signup') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
-      const { userId, name, email } = body;
-      const record = await registerUserSignup(userId, name, email);
+      const session = await authenticate(headers);
+      if (!session) return jsonResponse(401, { error: 'Sign in to register your access request.' });
+      await registerUserSignup(session.userId, session.userName, session.userEmail);
       return jsonResponse(200, { success: true });
     }
 
-    // 4. Password reset
+    // 4. Legacy password reset endpoint: never issue a nonfunctional code.
     if (subpath === '/user/reset-password') {
-      if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
-      const { email } = body;
-      const result = await sendPasswordResetEmail(email);
-      return jsonResponse(200, result);
+      return jsonResponse(410, { success: false, error: 'Update the app and request an Appwrite password recovery link.' });
     }
 
     // 5. Documentation summarization (URL)
@@ -139,6 +139,7 @@ export async function handler(event) {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
       const { url, model } = body;
       if (!url) return jsonResponse(400, { error: 'URL is required' });
+      if (typeof url !== 'string' || url.length > 2048) return jsonResponse(400, { error: 'Enter a documentation URL under 2048 characters.' });
 
       const session = await authenticate(headers);
       if (body.userId && !session) return jsonResponse(401, { error: 'Sign in again before generating a course.' });
@@ -168,7 +169,10 @@ export async function handler(event) {
     if (subpath === '/summarize-text' || subpath === '/document') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
       const { title, text, model } = body;
-      if (!text || !text.trim()) return jsonResponse(400, { error: 'Text content is required' });
+      if (typeof text !== 'string' || !text.trim()) return jsonResponse(400, { error: 'Text content is required' });
+      if (text.length > 100000 || (typeof title === 'string' && title.length > 200)) {
+        return jsonResponse(413, { error: 'Document text is too large (100,000 characters maximum).' });
+      }
 
       const session = await authenticate(headers);
       if (body.userId && !session) return jsonResponse(401, { error: 'Sign in again before generating a course.' });
@@ -228,14 +232,22 @@ export async function handler(event) {
     // 9. Feedback endpoints
     if (subpath === '/feedback') {
       if (event.httpMethod === 'POST') {
-        const { userId, userEmail, userName, category, rating, comments } = body;
+        const session = await authenticate(headers);
+        if (!session) return jsonResponse(401, { error: 'Sign in to submit feedback.' });
+        const { category, rating, message, pageUrl } = body;
+        if (typeof message !== 'string' || !message.trim() || message.length > 4000 ||
+            typeof category !== 'string' || category.length > 80 ||
+            !Number.isInteger(rating) || rating < 1 || rating > 5) {
+          return jsonResponse(400, { error: 'Provide a rating, category and feedback under 4000 characters.' });
+        }
         const result = await submitUserFeedback({
-          userId,
-          email: userEmail,
-          name: userName,
+          userId: session.userId,
+          email: session.userEmail,
+          name: session.userName,
           category,
           rating,
-          message: comments
+          message: message.trim(),
+          pageUrl: typeof pageUrl === 'string' ? pageUrl.slice(0, 400) : ''
         });
         return jsonResponse(200, result);
       } else if (event.httpMethod === 'GET') {

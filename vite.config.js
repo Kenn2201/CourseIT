@@ -21,7 +21,16 @@ export default defineConfig(({ mode }) => {
       configureServer(server) {
         server.middlewares.use('/api', async (req, res) => {
           let body = '';
-          for await (const chunk of req) body += chunk;
+          let size = 0;
+          for await (const chunk of req) {
+            size += chunk.length;
+            if (size > 128 * 1024) {
+              res.writeHead(413, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Request is too large (128 KB limit).' }));
+              return;
+            }
+            body += chunk;
+          }
           const url = new URL(req.url, 'http://localhost');
           const result = await handler({
             httpMethod: req.method, path: '/api' + url.pathname, headers: req.headers,

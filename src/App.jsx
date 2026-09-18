@@ -8,6 +8,7 @@ import CourseDetail from './pages/CourseDetail';
 import Admin from './pages/Admin';
 import Profile from './pages/Profile';
 import AuthCallback from './pages/AuthCallback';
+import PasswordRecovery from './pages/PasswordRecovery';
 import FeedbackModal from './components/FeedbackModal';
 import LegalConsentModal from './components/LegalConsentModal';
 import Maintenance from './pages/Maintenance';
@@ -85,6 +86,7 @@ function AppContent() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/auth/success" element={<AuthCallback type="success" />} />
           <Route path="/auth/failure" element={<AuthCallback type="failure" />} />
+          <Route path="/auth/recover" element={<PasswordRecovery />} />
           <Route path="/auth" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

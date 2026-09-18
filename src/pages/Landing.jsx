@@ -86,10 +86,10 @@ const MODEL_PRICING = [
   {
     tier: 'Flash Lite (Fastest)',
     cost: '0.5 Credits',
-    desc: 'Instant synthesis for standard API pages & simple guides. Free for public guest sandbox.',
+    desc: 'Synthesis for standard API pages & simple guides. Free for public guest sandbox.',
     badge: 'Guest 3/3 & Beta',
     trialLabel: 'Included in Guest 3/3 Trial & Beta',
-    speed: '~0.8s'
+    speed: 'Time varies'
   },
   {
     tier: 'Gemini 3.5 Lite',
@@ -97,15 +97,15 @@ const MODEL_PRICING = [
     desc: 'Balanced reasoning with detailed implementation instructions and test commands.',
     badge: 'Beta Required',
     trialLabel: 'Approved Beta Account Required',
-    speed: '~1.5s'
+    speed: 'Time varies'
   },
   {
     tier: 'Gemini 3.6 Flash',
     cost: '2.0 Credits',
-    desc: 'Deep multi-step structuring with verified code syntax and architectural notes.',
+    desc: 'Deep multi-step structuring with code examples and architectural notes.',
     badge: 'Beta Required',
     trialLabel: 'Approved Beta Account Required',
-    speed: '~2.2s'
+    speed: 'Time varies'
   },
   {
     tier: 'Gemini 3.7 Flash',
@@ -113,7 +113,7 @@ const MODEL_PRICING = [
     desc: 'Maximum technical depth for intricate framework specs and complex scans.',
     badge: 'Pro Beta',
     trialLabel: 'Approved Beta Account Required',
-    speed: '~3.5s'
+    speed: 'Time varies'
   }
 ];
 

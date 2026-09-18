@@ -186,7 +186,7 @@ export default function Profile() {
       await requestPasswordReset(user.email);
       setNotification({
         type: 'success',
-        message: `Password reset email dispatched to ${user.email} via Resend! Check your inbox.`
+        message: `Password recovery link requested for ${user.email} via Appwrite. Check your inbox.`
       });
     } catch (err) {
       setNotification({

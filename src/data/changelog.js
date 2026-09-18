@@ -1,9 +1,25 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.14.0 LIVE Beta',
+    date: 'September 18, 2026',
+    title: 'Private Learning Workflows and Durable Source History',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Explicit Course Privacy', desc: 'Signed-in courses default to Private, with separate Community and Public choices enforced by the API.' },
+      { title: 'Focused Documentation Discovery', desc: 'Choose a relevant section from bounded same-site documentation suggestions before generation.' },
+      { title: 'Private OCR Source History', desc: 'Signed-in image sources can be saved privately and previewed from course details or history.' }
+    ],
+    notes: [
+      'Guest quota now reads the shared server counter; admin metrics recover recorded generation facts from durable account and guest histories.',
+      'Admin distinguishes Appwrite Auth accounts from application profiles and displays unavailable when Auth enumeration is not configured.',
+      'Email verification UI, safer dialogs, and opt-in Sentry monitoring are included; live provider, storage, and monitoring checks remain pending.',
+      'Old OCR originals and historical token facts that were never recorded cannot be recovered; exact-once accounting is not yet implemented.'
+    ]
+  },
+  {
     version: 'v1.13.2 LIVE Beta',
     date: 'September 18, 2026',
     title: 'Production Safety and Account Recovery',
-    badge: 'Latest Release',
     highlights: [
       { title: 'Safer Documentation Fetches', desc: 'Rejects private and local hosts, checks DNS and redirects, and caps fetched HTML size.' },
       { title: 'Real Password Recovery', desc: 'Uses Appwrite recovery links and a password update page instead of an unusable email code.' },

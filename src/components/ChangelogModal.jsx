@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import useModalViewport from './useModalViewport';
 import { X, Sparkles, UploadCloud, ShieldCheck, Mail, Zap, CheckCircle2, Bot, Layers, Trash2, Archive, Compass, History, BrainCircuit, FileDown, Cpu } from 'lucide-react';
 import { CHANGELOG_DATA } from '../data/changelog';
 import { CURRENT_VERSION_LABEL } from '../constants/version';
 
 export default function ChangelogModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('whatsNew'); // 'whatsNew' | 'history'
+  const dialogRef = useModalViewport(isOpen, onClose);
 
   if (!isOpen) return null;
 
   const latest = CHANGELOG_DATA[0];
 
   return createPortal(
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-      <div className="glass-panel w-full max-w-2xl rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[90] flex items-start sm:items-center justify-center p-4 overflow-y-auto bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Release notes" className="glass-panel w-full max-w-2xl rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-y-auto max-h-[calc(100dvh-2rem)]">
         <div className="absolute -right-20 -top-20 w-60 h-60 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* Header */}

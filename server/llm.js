@@ -37,7 +37,7 @@ Output strictly valid JSON with this exact schema:
  * @param {string} fallbackTitle - Title extracted from HTML metadata
  * @returns {Promise<{ title: string, steps: Array<{ step_number: number, title: string, time_estimate: string, summary: string }> }>}
  */
-export async function summarizeWithLLM(rawText, fallbackTitle = 'Documentation Learning Path', customModel = null) {
+export async function summarizeWithLLM(rawText, fallbackTitle = 'Documentation Learning Path', customModel = null, learningTopic = null) {
   const provider = (process.env.LLM_PROVIDER || 'gemini').toLowerCase();
   const apiKey = process.env.LLM_API_KEY || process.env.GEMINI_API_KEY;
 
@@ -46,16 +46,16 @@ export async function summarizeWithLLM(rawText, fallbackTitle = 'Documentation L
   }
 
   if (provider === 'gemini') {
-    return await callGemini(rawText, fallbackTitle, apiKey, customModel);
+    return await callGemini(rawText, fallbackTitle, apiKey, customModel, learningTopic);
   } else if (provider === 'openai') {
-    return await callOpenAI(rawText, fallbackTitle, apiKey, customModel);
+    return await callOpenAI(rawText, fallbackTitle, apiKey, learningTopic);
   } else {
     // Default to Gemini
-    return await callGemini(rawText, fallbackTitle, apiKey, customModel);
+    return await callGemini(rawText, fallbackTitle, apiKey, customModel, learningTopic);
   }
 }
 
-async function callGemini(rawText, fallbackTitle, apiKey, customModel = null) {
+async function callGemini(rawText, fallbackTitle, apiKey, customModel = null, learningTopic = null) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
   // Tested models in order of speed and stability; prioritizes customModel / GEMINI_MODEL if specified
@@ -63,7 +63,7 @@ async function callGemini(rawText, fallbackTitle, apiKey, customModel = null) {
   const modelsToTry = [...new Set([preferred, 'gemini-flash-lite-latest'])];
   const deadline = Date.now() + 42000;
 
-  const prompt = `Documentation Topic / Page Title: ${fallbackTitle}\n\nDocumentation Content:\n${rawText.slice(0, 35000)}`;
+  const prompt = `Documentation Topic / Page Title: ${fallbackTitle}\nRequested learning focus: ${learningTopic || 'Follow the source page'}\nUse only evidence in the source. If the requested topic is absent, say so rather than inventing steps.\n\nDocumentation Content:\n${rawText.slice(0, 35000)}`;
 
   let lastError;
   for (const modelName of modelsToTry) {
@@ -118,7 +118,7 @@ async function callGemini(rawText, fallbackTitle, apiKey, customModel = null) {
   throw lastError;
 }
 
-async function callOpenAI(rawText, fallbackTitle, apiKey) {
+async function callOpenAI(rawText, fallbackTitle, apiKey, learningTopic = null) {
   const endpoint = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions';
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
@@ -135,7 +135,7 @@ async function callOpenAI(rawText, fallbackTitle, apiKey) {
       temperature: 0.2,
       messages: [
         { role: 'system', content: SYSTEM_INSTRUCTION },
-        { role: 'user', content: `Documentation Topic / Page Title: ${fallbackTitle}\n\nDocumentation Content:\n${rawText.slice(0, 35000)}` }
+        { role: 'user', content: `Documentation Topic / Page Title: ${fallbackTitle}\nRequested learning focus: ${learningTopic || 'Follow the source page'}\nUse only evidence in the source. If the requested topic is absent, say so.\n\nDocumentation Content:\n${rawText.slice(0, 35000)}` }
       ]
     })
   });

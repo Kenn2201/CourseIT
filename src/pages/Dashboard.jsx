@@ -125,6 +125,8 @@ export default function Dashboard() {
           },
           body: JSON.stringify({
             url: targetUrl,
+            inputUrl: inputPayload.inputUrl || targetUrl,
+            topic: inputPayload.topic || '',
             model: targetModel,
             userId,
             userEmail,
@@ -142,16 +144,30 @@ export default function Dashboard() {
 
       if (data.quota) {
         setQuota(data.quota);
-        window.dispatchEvent(new Event('courseit_quota_updated'));
+        window.dispatchEvent(new CustomEvent('courseit_quota_updated', { detail: { quota: data.quota } }));
       }
 
       const newCourse = data.course;
+      let sourceNotice = null;
+      if (inputPayload.type === 'document' && inputPayload.sourceFile && isAuthenticated) {
+        try {
+          const sourceResponse = await authenticatedFetch(`/api/courses/${encodeURIComponent(newCourse.$id)}/source`, {
+            method: 'PUT',
+            headers: { 'Content-Type': inputPayload.sourceFile.type || 'application/octet-stream',
+              'x-source-filename': inputPayload.sourceFile.name },
+            body: inputPayload.sourceFile
+          });
+          await readApiResponse(sourceResponse);
+        } catch (sourceError) {
+          sourceNotice = `Course generated, but the original image could not be saved: ${sourceError.message}`;
+        }
+      }
       saveLocalCourse(newCourse);
       await loadCourses();
 
       setIsGenerating(false);
       setSuccessQuota(data.quota);
-      setSuccessFallback(data.fallbackNotice || null);
+      setSuccessFallback([data.fallbackNotice, sourceNotice].filter(Boolean).join(' ') || null);
       setSuccessCourse(newCourse);
     } catch (err) {
       console.error('Generation failed:', err);
@@ -197,6 +213,7 @@ export default function Dashboard() {
   };
 
   const handlePublish = async (course) => {
+    if (!window.confirm(`Make "${course.title}" public? Anyone with its link can read the course and it may appear in the anonymous showcase.`)) return;
     try {
       await publishCourse(course.$id);
       await loadCourses();
@@ -367,7 +384,12 @@ export default function Dashboard() {
                   </div>
                 ) : (() => {
                   const curatedCourses = filteredCourses.filter(c => c.is_curated || c.$id?.startsWith('starter-'));
-                  const communityCourses = filteredCourses.filter(c => !c.is_curated && !c.$id?.startsWith('starter-'));
+                  const generatedCourses = filteredCourses.filter(c => !c.is_curated && !c.$id?.startsWith('starter-'));
+                  const courseSections = [
+                    { title: 'Public Showcase', visibility: 'public', description: 'Readable without signing in' },
+                    { title: 'Community', visibility: 'community', description: 'Readable by signed-in CourseIT users' },
+                    { title: 'Private Workspace', visibility: 'private', description: 'Only the owner and administrators can read these courses' }
+                  ];
 
                   return (
                     <div className="space-y-10">
@@ -403,32 +425,22 @@ export default function Dashboard() {
                         </div>
                       )}
 
-                      {/* SECTION 2: COMMUNITY & GENERATED COURSES */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
-                              Community & Custom Generations
-                            </span>
-                            <span className="text-xs text-slate-400 hidden sm:inline">
-                              Live courses distilled from developer docs & scans
-                            </span>
-                          </div>
-                          <span className="text-xs font-mono text-slate-500">
-                            {communityCourses.length} courses
-                          </span>
+                      {generatedCourses.length === 0 && (
+                        <div className="glass-panel p-8 rounded-2xl border border-dashed border-slate-800 text-center text-sm text-slate-400">
+                          No generated courses yet. Choose a documentation page or upload a scan above.
                         </div>
-
-                        {communityCourses.length === 0 ? (
-                          <div className="glass-panel p-8 rounded-2xl border border-dashed border-slate-800 text-center space-y-2">
-                            <p className="text-sm font-semibold text-slate-300">No custom courses generated yet</p>
-                            <p className="text-xs text-slate-500 max-w-md mx-auto">
-                              Paste any developer documentation URL or drop a tutorial scan above to synthesize your first action-first course!
-                            </p>
+                      )}
+                      {courseSections.map(section => {
+                        const sectionCourses = generatedCourses.filter(course => (course.visibility || 'private') === section.visibility);
+                        if (!sectionCourses.length) return null;
+                        return <div key={section.visibility} className="space-y-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
+                            <div><h3 className="text-xs font-mono font-bold uppercase text-emerald-300">{section.title}</h3>
+                              <p className="text-xs text-slate-500">{section.description}</p></div>
+                            <span className="text-xs font-mono text-slate-500">{sectionCourses.length} courses</span>
                           </div>
-                        ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {communityCourses.map((course) => (
+                            {sectionCourses.map((course) => (
                               <CourseCard
                                 key={course.$id}
                                 course={course}
@@ -439,8 +451,8 @@ export default function Dashboard() {
                               />
                             ))}
                           </div>
-                        )}
-                      </div>
+                        </div>;
+                      })}
                     </div>
                   );
                 })()}
@@ -712,7 +724,7 @@ export default function Dashboard() {
                     <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5">
                       <h4 className="font-semibold text-slate-200">Why are custom courses private?</h4>
                       <p className="text-slate-400">
-                        Courses you generate are tied strictly to your account and protected by server-side verification. Only curated starter templates are public.
+                        Your courses default to private. Community courses require sign-in; public courses can be read by anyone. Access is enforced by the server.
                       </p>
                     </div>
                     <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5">

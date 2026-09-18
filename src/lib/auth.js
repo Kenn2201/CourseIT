@@ -150,7 +150,8 @@ export async function loginWithEmail(email, password) {
       user: {
         id: user.$id,
         email: user.email,
-        name: user.name || user.email.split('@')[0]
+        name: user.name || user.email.split('@')[0],
+        emailVerification: user.emailVerification === true
       },
       quota
     };
@@ -239,7 +240,8 @@ export async function handleOAuthSuccess(userId, secret) {
     user: {
       id: user.$id,
       email: user.email,
-      name: user.name || user.email.split('@')[0]
+      name: user.name || user.email.split('@')[0],
+      emailVerification: user.emailVerification === true
     },
     quota
   };
@@ -261,6 +263,22 @@ export async function completePasswordReset(userId, secret, password) {
   if (!acc) throw new Error('Authentication is unavailable. Please try again later.');
   await acc.updateRecovery(userId, secret, password);
   return { success: true };
+}
+
+export async function requestEmailVerification() {
+  const acc = ensureAccount();
+  if (!acc) throw new Error('Authentication is unavailable. Please try again later.');
+  const current = await acc.get();
+  if (current.emailVerification) return { alreadyVerified: true };
+  await acc.createVerification(`${window.location.origin}/auth/verify`);
+  return { alreadyVerified: false };
+}
+
+export async function completeEmailVerification(userId, secret) {
+  const acc = ensureAccount();
+  if (!acc) throw new Error('Authentication is unavailable. Please try again later.');
+  await acc.updateVerification(userId, secret);
+  return checkAppwriteSession();
 }
 
 /**
@@ -293,6 +311,7 @@ export async function checkAppwriteSession() {
           id: user.$id,
           email: user.email,
           name: user.name || user.email.split('@')[0],
+          emailVerification: user.emailVerification === true,
           prefs: user.prefs || {}
         },
         quota

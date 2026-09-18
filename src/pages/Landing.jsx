@@ -174,7 +174,7 @@ export default function Landing({ onLaunchApp }) {
               ⚡ Built for developers with ADHD, documentation fatigue, or low attention spans. Zero AI fluff.
             </p>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Developers spend 40% of their time decoding 40-page API documentation. CourseIT Ai distills documentation URLs and tutorial scans into progressive numbered steps with clean code snippets (TypeScript, GDScript, Rust, Python) and zero-fluff pro-tips.
+              CourseIT Ai turns a documentation page or extracted scan text into a focused learning path. Enter a topic to inspect matching sections on one documentation page, choose the relevant source, and generate concise steps with practical examples.
             </p>
           </div>
 
@@ -323,9 +323,9 @@ export default function Landing({ onLaunchApp }) {
             <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold font-mono text-sm">
               01
             </div>
-            <h3 className="text-base font-bold text-white">Input Any Doc or Scan</h3>
+            <h3 className="text-base font-bold text-white">Choose a Source and Focus</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Paste a documentation URL from React, Next.js, Rust, Docker, Godot, PyTorch, or any web framework. Or drop an architectural diagram or scanned tutorial page for client-side OCR extraction.
+              Paste a public documentation URL and optionally enter a learning topic. CourseIT inspects one page for relevant same-site sections, then you choose the source. You can also extract text from an image or document on your device.
             </p>
           </SpotlightCard>
 
@@ -335,7 +335,7 @@ export default function Landing({ onLaunchApp }) {
             </div>
             <h3 className="text-base font-bold text-white">Action Extraction</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Our multi-tier models filter out introductory fluff, extract core concepts, and construct sequential 5–10 minute bite-sized tasks with time estimates.
+              The selected source is extracted and the model builds a concise sequence of learning steps, explanations, examples, and time estimates. It does not crawl an entire site.
             </p>
           </SpotlightCard>
 

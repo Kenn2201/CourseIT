@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import useModalViewport from './useModalViewport';
 import { X, ShieldCheck, Mail, Lock, User, LogOut, CheckCircle2, AlertCircle, ArrowRight, KeyRound, Sparkles, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import {
   loginWithEmail,
@@ -21,18 +22,13 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange, i
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const dialogRef = useModalViewport(isOpen, loading ? null : onClose);
 
   useEffect(() => {
     if (isOpen) {
       setTab(initialMode || 'login');
       setError('');
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [isOpen, initialMode]);
 
   if (!isOpen) return null;
@@ -127,7 +123,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange, i
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-      <div className="glass-panel w-full max-w-md my-auto rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Account" className="glass-panel w-full max-w-md my-auto max-h-[calc(100dvh-2rem)] rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-y-auto">
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-mono mb-2">

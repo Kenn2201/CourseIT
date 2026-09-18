@@ -32,10 +32,12 @@ globalThis.fetch = async (input, options = {}) => {
 };
 after(async () => { globalThis.fetch = originalFetch; await rm(temporary, { recursive: true, force: true }); });
 const { handler } = await import('../server/api.js');
-const { writeState, readState, updateState } = await import('../server/state.js');
-const { listCatalog, readCourse, cleanupGuestCourses, publishCourse, listDocumentsAll } = await import('../server/catalog.js');
-const { getUserQuota, topUpUserCredits, deductCredit, getCreditHistory, processDocumentText, processDocumentationUrl, listAllUsers, reserveGeneration, releaseGeneration } = await import('../server/handler.js');
-const { normalizeCourse, canReadCourse } = await import('../shared/courses.js');
+const { writeState, readState, updateState, listState, deleteState } = await import('../server/state.js');
+const { listCatalog, readCourse, cleanupGuestCourses, publishCourse, listDocumentsAll, addPublicCourseToFeed } = await import('../server/catalog.js');
+const { getUserQuota, topUpUserCredits, deductCredit, getCreditHistory, getTokenMetrics, processDocumentText, processDocumentationUrl, listAllUsers, reserveGeneration, releaseGeneration, deleteCourse } = await import('../server/handler.js');
+const { handleApiRequest } = await import('../server/request.js');
+const { normalizeCourse, canReadCourse, publicCourse } = await import('../shared/courses.js');
+const { discoverDocumentationSections } = await import('../server/discover.js');
 const { readApiResponse } = await import('../src/lib/api.js');
 const api = (route, method = 'GET', body, token) => handler({ path: '/api' + route, httpMethod: method,
   body: body ? JSON.stringify(body) : '', queryStringParameters: {}, headers: token ? { 'x-appwrite-jwt': token } : {} });
@@ -178,6 +180,128 @@ test('account OCR defaults private and records token and credit history', async 
   assert.equal(result.course.visibility, 'private');
   assert.equal(result.quota.remaining, 1.5);
   assert.ok((await getCreditHistory('author')).some(h => h.courseId === result.course.$id && h.credits === -0.5 && h.totalTokens === 30));
+});
+test('non-owner course views omit author email and URL query secrets', () => {
+  const course = fixture('redacted', { visibility: 'community',
+    source_url: 'https://docs.test/guide?token=secret#part',
+    input_url: 'https://docs.test/index?key=secret', creator_name: 'Author' });
+  const publicView = publicCourse(course, 'newbie', false);
+  assert.equal(publicView.creator_email, undefined);
+  assert.equal(publicView.creator_id, undefined);
+  assert.equal(publicView.source_url, 'https://docs.test/guide');
+  assert.equal(publicView.input_url, 'https://docs.test/index');
+  assert.equal(publicCourse(course, 'author', false).source_url, course.source_url);
+});
+test('bounded topic discovery ranks same-host documentation and ignores unsafe links', async () => {
+  const page = `<nav><a href="/en/stable/tutorials/audio/index.html">Audio</a>
+    <a href="/en/stable/tutorials/audio/audio_buses.html">Audio buses</a>
+    <a href="https://evil.test/audio">Audio elsewhere</a>
+    <a href="http://127.0.0.1/audio">Audio local</a></nav>`;
+  const result = await discoverDocumentationSections('https://docs.godotengine.org/en/stable/index.html',
+    'I want to learn audio', async url => ({ html: page, url }));
+  assert.equal(result.candidates[0].url, 'https://docs.godotengine.org/en/stable/tutorials/audio/index.html');
+  assert.equal(result.candidates.length, 2);
+  assert.ok(result.candidates.every(candidate => new URL(candidate.url).hostname === 'docs.godotengine.org'));
+  await assert.rejects(discoverDocumentationSections('http://127.0.0.1/', 'audio', async () => ({ html: page })), { status: 422 });
+});
+test('admin identity counts distinguish Auth availability from application records', async () => {
+  const response = await api('/admin/users', 'GET', undefined, 'admin');
+  assert.equal(response.statusCode, 200);
+  const data = JSON.parse(response.body);
+  assert.equal(data.count, data.users.length);
+  assert.equal(data.auth.available, false);
+  assert.equal(data.auth.total, null);
+  assert.equal((await api('/admin/users', 'GET', undefined, 'author')).statusCode, 403);
+});
+test('signed-in generations default private and direct URLs enforce ownership', async () => {
+  const generated = await api('/summarize-text', 'POST', { title: 'Private notes', text: 'Example source' }, 'author');
+  assert.equal(generated.statusCode, 200);
+  const course = JSON.parse(generated.body).course;
+  assert.equal(course.visibility, 'private');
+  assert.ok(!(await listCatalog()).some(item => item.$id === course.$id));
+  assert.ok(!((await readState('indexes/public-feed'))?.entries || []).some(item => item.id === course.$id));
+  assert.equal((await api('/courses/' + course.$id)).statusCode, 401);
+  assert.equal((await api('/courses/' + course.$id, 'GET', undefined, 'newbie')).statusCode, 403);
+  assert.equal((await api('/courses/' + course.$id, 'GET', undefined, 'author')).statusCode, 200);
+  assert.equal((await api('/summarize-text', 'POST', { text: 'Example source', visibility: 'unlisted' }, 'author')).statusCode, 400);
+});
+test('community course requires a signed-in reader and is not in anonymous discovery', async () => {
+  const generated = await api('/summarize-text', 'POST', { title: 'Community notes', text: 'Example source', visibility: 'community' }, 'author');
+  assert.equal(generated.statusCode, 200);
+  const course = JSON.parse(generated.body).course;
+  assert.equal(course.visibility, 'community');
+  assert.equal((await api('/courses/' + course.$id)).statusCode, 401);
+  assert.equal((await api('/courses/' + course.$id, 'GET', undefined, 'newbie')).statusCode, 200);
+  assert.ok(!(await listCatalog()).some(item => item.$id === course.$id));
+  assert.ok((await listCatalog({ userId: 'newbie' })).some(item => item.$id === course.$id));
+  assert.equal((await readState('courses/' + course.$id)).visibility, 'community');
+});
+test('OCR source image persists privately for its owner and is removed with the course', async () => {
+  const course = fixture('source-fixture', { source_type: 'document', source_url: 'upload://scan', visibility: 'public' });
+  await writeState('courses/' + course.$id, course);
+  const image = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);
+  const endpoint = `https://courseit.test/api/courses/${course.$id}/source`;
+  const upload = (jwt, body = image) => handleApiRequest(new Request(endpoint, { method: 'PUT',
+    headers: { 'x-appwrite-jwt': jwt, 'x-source-filename': 'scan.png' }, body }));
+  assert.equal((await upload('newbie')).status, 403);
+  assert.equal((await upload('author', Buffer.from('not an image'))).status, 415);
+  assert.equal((await upload('author')).status, 201);
+  const saved = await readState('courses/' + course.$id);
+  assert.equal(saved.source_mime_type, 'image/png');
+  assert.equal(saved.source_filename, 'scan.png');
+  assert.equal(publicCourse(saved, 'newbie', false).source_file_id, undefined);
+  const ownerRead = await handleApiRequest(new Request(endpoint, { headers: { 'x-appwrite-jwt': 'author' } }));
+  assert.equal(ownerRead.status, 200);
+  assert.deepEqual(Buffer.from(await ownerRead.arrayBuffer()), image);
+  assert.equal((await handleApiRequest(new Request(endpoint, { headers: { 'x-appwrite-jwt': 'newbie' } }))).status, 403);
+  assert.equal((await handleApiRequest(new Request(endpoint))).status, 401);
+  await deleteCourse(course.$id, 'author', 'author@example.test');
+  assert.equal(await readState('courses/' + course.$id), null);
+  assert.equal((await handleApiRequest(new Request(endpoint, { headers: { 'x-appwrite-jwt': 'author' } }))).status, 404);
+});
+test('admin analytics survive a missing secondary usage blob for a charged account generation', async () => {
+  const courseId = (await getCreditHistory('author')).find(event => event.type === 'generation')?.courseId;
+  const usage = (await listState('usage/')).find(event => event.courseId === courseId);
+  assert.ok(usage);
+  await deleteState('usage/' + usage.id);
+  const metrics = await getTokenMetrics();
+  assert.ok(metrics.history.some(event => event.courseId === courseId && event.ledgerSource === 'credit-transaction'));
+  assert.ok(metrics.totalTokens >= 30);
+  assert.ok(metrics.creditsUsed >= 0.5);
+  assert.ok(metrics.totalGenerations >= 1);
+  assert.ok(metrics.promptTokens >= 10);
+  assert.ok(metrics.candidateTokens >= 20);
+});
+test('guest quota and analytics retain the same generation transaction without its usage blob', async () => {
+  const generated = await api('/summarize-text', 'POST', { title: 'Guest notes', text: 'Example source' });
+  assert.equal(generated.statusCode, 200);
+  const courseId = JSON.parse(generated.body).course.$id;
+  const quota = await readState('settings/guest-quota');
+  assert.ok(quota.generationHistory.some(event => event.courseId === courseId && event.totalTokens === 30));
+  const usage = (await listState('usage/')).find(event => event.courseId === courseId);
+  if (usage) await deleteState('usage/' + usage.id);
+  const metrics = await getTokenMetrics();
+  assert.ok(metrics.history.some(event => event.courseId === courseId && event.ledgerSource === 'credit-transaction'));
+  assert.ok(metrics.perUser.public_guest.generations >= 1);
+});
+test('indexed anonymous discovery returns three public courses without reading legacy Appwrite', async () => {
+  for (let i = 0; i < 3; i++) {
+    const course = fixture('feed-' + i, { visibility: 'public', $createdAt: new Date(Date.now() + i * 1000).toISOString() });
+    await writeState('courses/' + course.$id, course);
+    await addPublicCourseToFeed(course);
+  }
+  process.env.APPWRITE_API_KEY = 'invalid-test-key';
+  process.env.APPWRITE_DATABASE_ID = 'legacy-test-db';
+  process.env.APPWRITE_COLLECTION_ID = 'legacy-test-courses';
+  try {
+    const publicCourses = await listCatalog();
+    assert.equal(publicCourses.length, 3);
+    assert.ok(publicCourses.every(course => course.$id.startsWith('feed-')));
+  } finally {
+    delete process.env.APPWRITE_API_KEY;
+    delete process.env.APPWRITE_DATABASE_ID;
+    delete process.env.APPWRITE_COLLECTION_ID;
+  }
 });
 test('provider failure has a useful error and does not charge credits', async () => {
   providerFailure = true;

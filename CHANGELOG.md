@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-09-18 — Private Learning Workflows and Durable Source History (LIVE Beta)
+
+### Security and Privacy
+- Default signed-in courses to Private; validate Private, Community, and Public permissions on the server and redact non-owner metadata.
+- Add authenticated owner/admin access for newly saved OCR source images; anonymous catalog responses remain limited to three public courses.
+
+### Added and Changed
+- Offer bounded, same-site documentation section discovery and record original, selected, and resolved source URLs.
+- Preserve new signed-in PNG/JPEG/WebP OCR originals in a private binary store with course/history previews and normal course-deletion cleanup.
+- Reconstruct admin generation metrics from durable account and guest transaction histories, separate Auth-account totals from application profiles, and show unknown totals honestly.
+- Add Appwrite email-verification UI, opt-in privacy-filtered Sentry, a React error boundary, and viewport-aware modal behavior.
+- Read guest quota from the server on startup and after generation; clarify global guest/public-trial behavior.
+
+### Verification and Limits
+- Local regression tests, frontend build, and Netlify function bundle pass. Live OAuth, email, Sentry, storage persistence, responsive dialogs, and production accounting still require controlled checks.
+- Historical OCR originals and unrecorded token history cannot be recovered. Exact-once generation accounting and full legacy catalog indexing are not included.
+
 ## [1.13.2] - 2026-09-18 — Production Safety and Account Recovery (LIVE Beta)
 
 ### Security

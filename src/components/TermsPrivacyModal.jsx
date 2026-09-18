@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import useModalViewport from './useModalViewport';
 import { X, Shield, FileText, CheckCircle2, Lock, Eye, BookOpen } from 'lucide-react';
 import { CURRENT_VERSION_LABEL, RELEASE_DATE } from '../constants/version';
 
 export default function TermsPrivacyModal({ isOpen, onClose, initialTab = 'terms' }) {
   const [tab, setTab] = useState(initialTab); // 'terms' | 'privacy'
+  const dialogRef = useModalViewport(isOpen, onClose);
 
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-      <div className="glass-panel w-full max-w-2xl rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-4 overflow-y-auto bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Terms and privacy" className="glass-panel w-full max-w-2xl rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-y-auto max-h-[calc(100dvh-2rem)]">
         <div className="flex items-start justify-between gap-4 mb-4 relative z-10">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-mono mb-2">

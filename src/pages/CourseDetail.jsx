@@ -8,6 +8,7 @@ import AdminModal from '../components/AdminModal';
 import { getCourse } from '../lib/appwrite';
 import { getCompletedSteps, toggleStep, resetCourseProgress } from '../lib/storage';
 import { useAuth } from '../context/AuthContext';
+import SourceImagePreview from '../components/SourceImagePreview';
 
 export default function CourseDetail() {
   const { id } = useParams();
@@ -350,7 +351,7 @@ export default function CourseDetail() {
                 <strong className="text-white font-semibold">
                   {Boolean(course.is_curated || course.$id?.startsWith('starter-'))
                     ? 'CourseIT Team'
-                    : Boolean(course.is_guest || course.creator_id === 'public_guest' || (!course.creator_id))
+                    : Boolean(course.is_guest || course.creator_id === 'public_guest')
                     ? 'Guest (30 min)'
                     : (course.creator_name || course.creator_email?.split('@')[0] || 'Member')}
                 </strong>
@@ -383,6 +384,16 @@ export default function CourseDetail() {
                 {course.overview}
               </p>
             )}
+
+            {(course.learning_topic || (course.input_url && course.input_url !== course.source_url)) && (
+              <div className="mb-4 space-y-1 text-xs text-slate-400">
+                {course.learning_topic && <p>Learning focus: <span className="text-slate-200">{course.learning_topic}</span></p>}
+                {course.input_url && course.input_url !== course.source_url && <p>Started from: <span className="break-all font-mono">{course.input_url}</span></p>}
+              </div>
+            )}
+            {course.source_type === 'document' && (course.source_file_id ?
+              <div className="mb-4"><SourceImagePreview course={course} /></div> :
+              <p className="mb-4 text-xs text-slate-500">No original source image is stored for this course.</p>)}
 
             <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-slate-400 pt-4 border-t border-slate-800/80">
               <div className="flex items-center gap-1.5">

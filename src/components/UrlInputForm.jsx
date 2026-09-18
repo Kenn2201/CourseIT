@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import useModalViewport from './useModalViewport';
 import { Sparkles, ArrowRight, Link2, Gamepad2, Layers, Radio, Code2, UploadCloud, FileText, CheckCircle, AlertCircle, RefreshCw, Lock, Boxes, Flame, Container } from 'lucide-react';
 import { extractTextFromFile } from '../lib/ocr';
+import { readApiResponse } from '../lib/api';
 
 import { useUserCredits } from '../context/CreditContext';
 
@@ -43,7 +45,11 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
   const { credits, formatCredits } = useUserCredits();
   const [inputMode, setInputMode] = useState('url'); // 'url' | 'document'
   const [url, setUrl] = useState('');
-  const [publishToBoard, setPublishToBoard] = useState(true);
+  const [learningTopic, setLearningTopic] = useState('');
+  const [discoverySeed, setDiscoverySeed] = useState(null);
+  const [discoveryCandidates, setDiscoveryCandidates] = useState([]);
+  const [discoveryLoading, setDiscoveryLoading] = useState(false);
+  const [visibility, setVisibility] = useState('private');
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedModel, setSelectedModel] = useState(() => {
     try {
@@ -58,6 +64,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
   const [ocrProgress, setOcrProgress] = useState(null);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [showTrialModal, setShowTrialModal] = useState(false);
+  const trialDialogRef = useModalViewport(showTrialModal, () => setShowTrialModal(false));
   const fileInputRef = useRef(null);
   const modelDropdownRef = useRef(null);
 
@@ -91,9 +98,9 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
 
   const guestRemaining = typeof quota?.remaining === 'number'
     ? quota.remaining
-    : (quota?.quota_remaining ?? 3);
-  const isGuestExhausted = !isAuthenticated && guestRemaining <= 0;
-  const isQuotaUnavailable = isAuthenticated && !isAdmin && !quota;
+    : (typeof quota?.quota_remaining === 'number' ? quota.quota_remaining : null);
+  const isGuestExhausted = !isAuthenticated && typeof guestRemaining === 'number' && guestRemaining <= 0;
+  const isQuotaUnavailable = !isAdmin && (!quota || (isAuthenticated && !Number.isFinite(credits)));
   const isOutOfQuota = isAuthenticated ? (!isAdmin && Number.isFinite(credits) && credits <= 0) : isGuestExhausted;
 
   const handleSelectModel = (model) => {
@@ -112,6 +119,11 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
 
     if (isPending) {
       setError('Your account is pending admin approval. You will receive an email once approved!');
+      return;
+    }
+
+    if (isQuotaUnavailable) {
+      setError('Trial or credit status is unavailable. Refresh and try again.');
       return;
     }
 
@@ -140,7 +152,31 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
 
     // Double check model permission
     const modelToUse = isAuthenticated ? selectedModel : 'gemini-flash-lite-latest';
-    onSubmit({ type: 'url', url: trimmed, model: modelToUse, visibility: publishToBoard ? 'public' : 'private' });
+    onSubmit({ type: 'url', url: trimmed, inputUrl: discoverySeed || trimmed,
+      topic: learningTopic.trim(), model: modelToUse,
+      visibility: isAuthenticated ? visibility : 'public' });
+  };
+
+  const handleDiscover = async () => {
+    setError('');
+    setDiscoveryCandidates([]);
+    if (!url.trim() || !learningTopic.trim()) {
+      setError('Enter a documentation URL and a specific topic first.');
+      return;
+    }
+    setDiscoveryLoading(true);
+    try {
+      const response = await fetch('/api/documentation/discover', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url.trim(), topic: learningTopic.trim() })
+      });
+      const data = await readApiResponse(response);
+      setDiscoveryCandidates(data.candidates || []);
+      if (!data.candidates?.length) setError('No matching section was found on this page. Enter a more specific documentation URL.');
+      else setDiscoverySeed(data.sourceUrl);
+    } catch (err) {
+      setError(err.message || 'Could not inspect the documentation sections.');
+    } finally { setDiscoveryLoading(false); }
   };
 
   const handleFileDrop = (e) => {
@@ -168,6 +204,11 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
       return;
     }
 
+    if (isQuotaUnavailable) {
+      setError('Trial or credit status is unavailable. Refresh and try again.');
+      return;
+    }
+
     if (isGuestExhausted) {
       setShowTrialModal(true);
       return;
@@ -183,21 +224,31 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
       return;
     }
 
+    const isImageFile = selectedFile.type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|gif|tiff?)$/i.test(selectedFile.name);
+    if (isAuthenticated && isImageFile && !/\.(png|jpe?g|webp)$/i.test(selectedFile.name)) {
+      setError('Private source-image retention supports PNG, JPEG, and WebP. Convert this image before generating.');
+      return;
+    }
+    if (isAuthenticated && isImageFile && selectedFile.size > 4 * 1024 * 1024) {
+      setError('The original image must be 4 MB or smaller to save it privately with your course.');
+      return;
+    }
+
     try {
       // 1. Run client-side extraction / OCR via Tesseract.js
       const extracted = await extractTextFromFile(selectedFile, (prog) => {
         setOcrProgress(prog);
       });
 
-      // The source file stays on this device; only extracted text is submitted.
-      // 3. Pass extracted text to parent pipeline with model
+      // Generation receives extracted text; a signed-in image is uploaded privately after the course is created.
       const modelToUse = isAuthenticated ? selectedModel : 'gemini-flash-lite-latest';
       onSubmit({
         type: 'document',
         title: extracted.title,
         text: extracted.text,
+        sourceFile: isAuthenticated && isImageFile ? selectedFile : null,
         model: modelToUse,
-        visibility: publishToBoard ? 'public' : 'private'
+        visibility: isAuthenticated ? visibility : 'public'
       });
     } catch (err) {
       setError(err.message || 'Failed to extract text from document.');
@@ -207,16 +258,23 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
   };
 
   const handlePresetClick = (presetUrl) => {
+    if (isQuotaUnavailable) {
+      setError('Trial or credit status is unavailable. Refresh and try again.');
+      return;
+    }
     if (isGuestExhausted) {
       setShowTrialModal(true);
       return;
     }
     setInputMode('url');
     setUrl(presetUrl);
+    setDiscoverySeed(null);
+    setDiscoveryCandidates([]);
     setError('');
-    if (!isOutOfQuota) {
+    if (!isOutOfQuota && !isQuotaUnavailable) {
       const modelToUse = isAuthenticated ? selectedModel : 'gemini-flash-lite-latest';
-      onSubmit({ type: 'url', url: presetUrl, model: modelToUse, visibility: publishToBoard ? 'public' : 'private' });
+      onSubmit({ type: 'url', url: presetUrl, inputUrl: presetUrl, topic: learningTopic.trim(), model: modelToUse,
+        visibility: isAuthenticated ? visibility : 'public' });
     }
   };
 
@@ -245,7 +303,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
             type="button"
             onClick={() => {
               setInputMode('document');
-              setPublishToBoard(false);
+              setVisibility('private');
               setError('');
             }}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
@@ -275,7 +333,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
                   type="text"
                   placeholder="https://docs.godotengine.org/en/stable/... or any dev docs"
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={(e) => { setUrl(e.target.value); setDiscoverySeed(null); setDiscoveryCandidates([]); }}
                   disabled={isLoading}
                   className="w-full py-3.5 pl-4 pr-4 bg-slate-900/90 border border-slate-700/80 rounded-2xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono"
                 />
@@ -381,6 +439,33 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
                 )}
               </button>
             </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-3 space-y-3">
+              <label className="block text-xs text-slate-300" htmlFor="learning-topic">What do you want to learn? (optional)</label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input id="learning-topic" type="text" maxLength={120} value={learningTopic}
+                  onChange={event => { setLearningTopic(event.target.value); setDiscoveryCandidates([]); }}
+                  placeholder="For example: Godot audio buses"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500" />
+                <button type="button" onClick={handleDiscover} disabled={discoveryLoading || isLoading}
+                  className="rounded-xl border border-indigo-500/50 px-3 py-2 text-xs font-semibold text-indigo-200 hover:bg-indigo-500/10 disabled:opacity-50">
+                  {discoveryLoading ? 'Inspecting one page…' : 'Find relevant sections'}
+                </button>
+              </div>
+              {discoveryCandidates.length > 0 && (
+                <div className="space-y-1" aria-label="Matching documentation sections">
+                  <p className="text-xs text-slate-400">Choose a section; then generate your learning path.</p>
+                  {discoveryCandidates.map(candidate => (
+                    <button key={candidate.url} type="button" onClick={() => {
+                      setUrl(candidate.url); setDiscoveryCandidates([]);
+                    }} className="block w-full rounded-lg border border-slate-700 px-3 py-2 text-left text-xs text-slate-200 hover:border-indigo-500">
+                      <span className="font-semibold">{candidate.title}</span>
+                      <span className="block truncate font-mono text-slate-500">{candidate.url}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {discoverySeed && !discoveryCandidates.length && <p className="text-[11px] text-indigo-300">Selected section will be used as the source; the original documentation URL is recorded.</p>}
+            </div>
           </form>
         ) : (
           <form onSubmit={handleDocumentSubmit} className="space-y-4 relative z-10">
@@ -481,7 +566,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
 
               <button
                 type="submit"
-                disabled={isLoading || isOutOfQuota || !selectedFile || Boolean(ocrProgress) || isPending}
+                disabled={isLoading || isOutOfQuota || isQuotaUnavailable || !selectedFile || Boolean(ocrProgress) || isPending}
                 className="btn-primary py-3 px-6 rounded-2xl flex items-center justify-center gap-2 text-sm sm:text-base font-semibold shadow-lg shadow-indigo-600/25 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
                 {isLoading || ocrProgress ? (
@@ -506,9 +591,14 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
         )}
 
         {isAuthenticated ? (
-          <label className="mt-4 flex items-center gap-2 text-xs text-slate-300">
-            <input type="checkbox" checked={publishToBoard} onChange={e => setPublishToBoard(e.target.checked)} />
-            Publish this course on the public board (anyone can read it).
+          <label className="mt-4 flex flex-col gap-2 text-xs text-slate-300">
+            <span>Who can read this course?</span>
+            <select value={visibility} onChange={e => setVisibility(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100">
+              <option value="private">Private — only you and administrators</option>
+              <option value="community">Community — signed-in CourseIT users</option>
+              <option value="public">Public — anyone with the link</option>
+            </select>
+            {inputMode === 'document' && <span className="text-slate-500">For signed-in PNG/JPEG/WebP scans, the original image is saved privately for your history. Only you and administrators can preview it, even if the generated course is shared. Extracted text is sent for AI generation.</span>}
           </label>
         ) : (
           <p className="mt-4 text-xs text-amber-300">Guest courses appear on the public board and expire 30 minutes after creation. Source files stay on your device.</p>
@@ -530,7 +620,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
               {isAuthenticated ? (
                 <>Account Credits: <strong className="text-slate-200">{formatCredits(credits)} Cr Remaining</strong></>
               ) : (
-                <>Shared Guest Trial: <strong className="text-indigo-400">{guestRemaining}/3 remaining</strong> (URL + OCR shared • 24h Window)</>
+                <>Shared Guest Trial: <strong className="text-indigo-400">{guestRemaining ?? '—'}/3 remaining</strong> (URL + OCR shared • 24h Window)</>
               )}
             </span>
           </div>
@@ -549,8 +639,8 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
 
       {/* 3/3 Trial Limit Exhausted / Beta Access Modal */}
       {showTrialModal && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative overflow-hidden text-center">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div ref={trialDialogRef} role="dialog" aria-modal="true" aria-label="Beta access required" className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full max-h-[calc(100dvh-2rem)] shadow-2xl relative overflow-y-auto text-center">
             <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
             <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
               <Lock className="w-7 h-7" />

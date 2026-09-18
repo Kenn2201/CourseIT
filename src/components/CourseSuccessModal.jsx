@@ -1,9 +1,12 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
+import useModalViewport from './useModalViewport';
 import { X, Sparkles, CheckCircle2, ArrowRight, Clock, Layers, Zap, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function CourseSuccessModal({ isOpen, onClose, course, quotaResult, fallbackNotice = null }) {
   const navigate = useNavigate();
+  const dialogRef = useModalViewport(isOpen && Boolean(course), onClose);
 
   if (!isOpen || !course) return null;
 
@@ -17,9 +20,9 @@ export default function CourseSuccessModal({ isOpen, onClose, course, quotaResul
     navigate(`/course/${course.$id}`);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-      <div className="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border border-emerald-500/30 shadow-2xl relative overflow-hidden text-center space-y-6">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Course generated" className="glass-panel w-full max-w-md max-h-[calc(100dvh-2rem)] rounded-3xl p-6 sm:p-8 border border-emerald-500/30 shadow-2xl relative overflow-y-auto text-center space-y-6">
         <div className="absolute -top-20 -right-20 w-52 h-52 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -70,6 +73,12 @@ export default function CourseSuccessModal({ isOpen, onClose, course, quotaResul
               <p className="text-[10px] text-slate-500">Credits</p>
             </div>
           </div>
+          {Number.isFinite(quotaResult?.cost) && (
+            <p className="text-xs text-slate-400">
+              {quotaResult.isPublicSandbox ? 'Guest trial: one shared generation used.' :
+                `${quotaResult.cost.toFixed(1)} CourseIT credits charged for the model used. Credits are fixed per generation, not equal to API dollars.`}
+            </p>
+          )}
 
           <div className="pt-2 flex flex-col gap-2.5">
             <button
@@ -89,6 +98,6 @@ export default function CourseSuccessModal({ isOpen, onClose, course, quotaResul
           </div>
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 }

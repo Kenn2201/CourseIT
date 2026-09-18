@@ -25,7 +25,7 @@ import {
   Layers,
   Trash2
 } from 'lucide-react';
-import { requestPasswordReset } from '../lib/auth';
+import { requestPasswordReset, requestEmailVerification } from '../lib/auth';
 import { listCourses } from '../lib/appwrite';
 import { useAuth } from '../context/AuthContext';
 import { AVATAR_PRESETS } from '../constants/presets';
@@ -49,6 +49,7 @@ export default function Profile() {
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [notification, setNotification] = useState(null);
   const [resettingPass, setResettingPass] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   
@@ -203,9 +204,9 @@ export default function Profile() {
     navigate('/');
   };
 
-  const remainingCredits = typeof credits === 'number' ? credits : 250;
+  const remainingCredits = typeof credits === 'number' ? credits : null;
   const maxCredits = 250;
-  const creditsPercentage = Math.min(100, Math.max(0, (remainingCredits / maxCredits) * 100));
+  const creditsPercentage = remainingCredits === null ? 0 : Math.min(100, Math.max(0, (remainingCredits / maxCredits) * 100));
 
   const activePreset = AVATAR_PRESETS.find(a => a.id === selectedAvatarId) || AVATAR_PRESETS[0];
 
@@ -348,6 +349,26 @@ export default function Profile() {
                   <Mail className="w-3.5 h-3.5 text-slate-500" />
                   <span>{user?.email || ''}</span>
                 </p>
+                <div className="mt-2 text-xs text-slate-300">
+                  {user?.emailVerification === true ? (
+                    <span className="text-emerald-300">Email verified by Appwrite</span>
+                  ) : user?.emailVerification === false ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-amber-300">Email not verified</span>
+                      <button type="button" disabled={sendingVerification} onClick={async () => {
+                        setSendingVerification(true);
+                        try {
+                          const result = await requestEmailVerification();
+                          setNotification({ type: 'success', message: result.alreadyVerified ? 'Email is already verified. Refresh the page to update its status.' : 'Verification email requested. Check your inbox.' });
+                        } catch (err) {
+                          setNotification({ type: 'error', message: err.message || 'Could not request verification email.' });
+                        } finally { setSendingVerification(false); }
+                      }} className="rounded-lg border border-amber-500/40 px-2 py-1 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50">
+                        {sendingVerification ? 'Sending…' : 'Send verification email'}
+                      </button>
+                    </div>
+                  ) : <span>Email verification status unavailable</span>}
+                </div>
               </div>
             </div>
 
@@ -482,7 +503,7 @@ export default function Profile() {
                 Remaining Course Credits
               </span>
               <span className="font-mono font-bold text-white text-sm">
-                {remainingCredits.toFixed(1)} / {maxCredits}
+                {remainingCredits === null ? 'Unavailable' : `${remainingCredits.toFixed(1)} / ${maxCredits}`}
               </span>
             </div>
             <div className="w-full h-3 rounded-full bg-slate-950 border border-slate-800 overflow-hidden p-0.5">
@@ -582,7 +603,7 @@ export default function Profile() {
               <Zap className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-white">
-              {remainingCredits.toFixed(1)} <span className="text-xs font-normal text-slate-400">/ {maxCredits}</span>
+              {remainingCredits === null ? 'Unavailable' : remainingCredits.toFixed(1)} <span className="text-xs font-normal text-slate-400">/ {maxCredits}</span>
             </div>
             <p className="text-[11px] text-slate-500">
               Available balance refreshed upon session renewal.
@@ -595,7 +616,7 @@ export default function Profile() {
               <Cpu className="w-4 h-4 text-violet-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-white">
-              {authState?.quota?.tokens_used ? authState.quota.tokens_used.toLocaleString() : '14,250'}
+              {Number.isFinite(authState?.quota?.tokens_used) ? authState.quota.tokens_used.toLocaleString() : 'Unavailable'}
             </div>
             <p className="text-[11px] text-slate-500">
               Gemini LLM context tokens ingested across sessions.

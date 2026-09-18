@@ -4,6 +4,7 @@ import {
   getUserQuota,
   registerUserSignup,
   listAllUsers,
+  getAuthIdentityOverview,
   approveUserAndSendEmail,
   topUpUserCredits,
   deleteCourse,
@@ -21,6 +22,9 @@ import {
 
 import { listCatalog, readCourse, publishCourse, readMaintenance, writeMaintenance } from './catalog.js';
 import { apiError } from './errors.js';
+import { captureUnexpectedError } from './observability.js';
+import { discoverDocumentationSections } from './discover.js';
+import { validateDocumentUrl } from './safeFetch.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -134,6 +138,14 @@ export async function handler(event) {
       return jsonResponse(410, { success: false, error: 'Update the app and request an Appwrite password recovery link.' });
     }
 
+    // Bounded discovery: one SSRF-checked index page, no crawler or provider call.
+    if (subpath === '/documentation/discover') {
+      if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
+      const { url, topic } = body;
+      if (typeof url !== 'string' || url.length > 2048) return jsonResponse(400, { error: 'Enter a documentation URL under 2048 characters.' });
+      return jsonResponse(200, { success: true, ...(await discoverDocumentationSections(url, topic)) });
+    }
+
     // 5. Documentation summarization (URL)
     if (subpath === '/summarize') {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
@@ -143,6 +155,9 @@ export async function handler(event) {
 
       const session = await authenticate(headers);
       if (body.userId && !session) return jsonResponse(401, { error: 'Sign in again before generating a course.' });
+      if (session && body.visibility !== undefined && !['private', 'community', 'public'].includes(body.visibility)) {
+        return jsonResponse(400, { error: 'Choose private, community, or public course visibility.' });
+      }
       if (!session?.isAdmin && await readMaintenance()) return jsonResponse(503, { error: 'Course generation is paused for maintenance. Please try later.' });
       const effectiveUserId = session?.userId || 'public_guest';
       const effectiveUserEmail = session?.userEmail || '';
@@ -153,6 +168,17 @@ export async function handler(event) {
         targetModel = 'gemini-flash-lite-latest';
       }
 
+      let inputUrl = url;
+      if (body.inputUrl !== undefined) {
+        if (typeof body.inputUrl !== 'string' || body.inputUrl.length > 2048 ||
+            validateDocumentUrl(body.inputUrl).origin !== validateDocumentUrl(url).origin) {
+          return jsonResponse(400, { error: 'Original documentation URL must use the selected section host.' });
+        }
+        inputUrl = body.inputUrl;
+      }
+      if (body.topic !== undefined && (typeof body.topic !== 'string' || body.topic.length > 120)) {
+        return jsonResponse(400, { error: 'Learning topic must be under 120 characters.' });
+      }
       const result = await processDocumentationUrl(
         url,
         targetModel,
@@ -160,7 +186,8 @@ export async function handler(event) {
         false,
         effectiveUserId,
         effectiveUserEmail,
-        body.visibility
+        body.visibility,
+        { inputUrl, topic: body.topic?.trim() || null, userName: session?.userName || null }
       );
       return jsonResponse(200, { success: true, ...result });
     }
@@ -176,6 +203,9 @@ export async function handler(event) {
 
       const session = await authenticate(headers);
       if (body.userId && !session) return jsonResponse(401, { error: 'Sign in again before generating a course.' });
+      if (session && body.visibility !== undefined && !['private', 'community', 'public'].includes(body.visibility)) {
+        return jsonResponse(400, { error: 'Choose private, community, or public course visibility.' });
+      }
       if (!session?.isAdmin && await readMaintenance()) return jsonResponse(503, { error: 'Course generation is paused for maintenance. Please try later.' });
       const effectiveUserId = session?.userId || 'public_guest';
       const effectiveUserEmail = session?.userEmail || '';
@@ -193,6 +223,7 @@ export async function handler(event) {
         isAdmin: effectiveIsAdmin,
         userId: effectiveUserId,
         userEmail: effectiveUserEmail,
+        userName: session?.userName || null,
         visibility: body.visibility
       });
       return jsonResponse(200, { success: true, ...result });
@@ -266,8 +297,8 @@ export async function handler(event) {
       if (!session || !session.isAdmin) {
         return jsonResponse(403, { error: 'Forbidden: Admin access required.' });
       }
-      const users = await listAllUsers();
-      return jsonResponse(200, { success: true, count: users.length, users });
+      const [users, auth] = await Promise.all([listAllUsers(), getAuthIdentityOverview()]);
+      return jsonResponse(200, { success: true, count: users.length, users, auth });
     }
 
     // 11. Admin approve
@@ -337,7 +368,6 @@ export async function handler(event) {
         return jsonResponse(403, { error: 'Forbidden: Admin access required.' });
       }
       const metrics = await getTokenMetrics();
-      metrics.creditHistory = await getCreditHistory();
       return jsonResponse(200, { success: true, metrics });
     }
 
@@ -345,6 +375,7 @@ export async function handler(event) {
   } catch (err) {
     console.error(`[Netlify Function Error at ${subpath}]:`, err);
     const failure = apiError(err);
+    if (failure.status === 500) captureUnexpectedError(err);
     return jsonResponse(failure.status, failure.body);
   }
 }

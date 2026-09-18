@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import useModalViewport from './useModalViewport';
 import { User, Mail, Zap, Clock, ShieldCheck, X, CheckCircle2, Archive, RotateCcw, Plus, Trash2 } from 'lucide-react';
 
 export default function UserDetailsModal({ isOpen, user, onClose, onTopUp, onApprove, onReactivate }) {
-  if (!isOpen || !user) return null;
-
   const [topUpAmount, setTopUpAmount] = useState(250);
   const [isProcessing, setIsProcessing] = useState(false);
+  const dialogRef = useModalViewport(isOpen && Boolean(user), onClose);
+
+  if (!isOpen || !user) return null;
 
   const handleTopUp = async () => {
     setIsProcessing(true);
@@ -31,9 +34,9 @@ export default function UserDetailsModal({ isOpen, user, onClose, onTopUp, onApp
   const isPending = user.status === 'pending';
   const isApproved = user.status === 'approved';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="relative w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="User details" className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
         <button
           type="button"
           onClick={onClose}
@@ -83,12 +86,16 @@ export default function UserDetailsModal({ isOpen, user, onClose, onTopUp, onApp
           <div className="space-y-1">
             <span className="text-slate-500 font-mono">Quota Balance:</span>
             <p className="text-indigo-400 font-mono font-bold text-sm">
-              {user.quota_remaining ?? 250} Credits
+              {typeof user.quota_remaining === 'number' ? `${user.quota_remaining} credits` : 'Unavailable'}
             </p>
           </div>
           <div className="space-y-1">
             <span className="text-slate-500 font-mono">Account Type:</span>
             <p className="text-slate-300">{user.isAdmin ? 'Master Administrator' : 'Standard User'}</p>
+          </div>
+          <div className="space-y-1 col-span-2">
+            <span className="text-slate-500 font-mono">Email Verification:</span>
+            <p className="text-slate-300">{user.emailVerification === true ? 'Verified in Appwrite Auth' : user.emailVerification === false ? 'Unverified in Appwrite Auth' : 'Unavailable from Auth API'}</p>
           </div>
         </div>
 
@@ -196,6 +203,6 @@ export default function UserDetailsModal({ isOpen, user, onClose, onTopUp, onApp
           </button>
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 }

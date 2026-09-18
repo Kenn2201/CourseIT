@@ -46,6 +46,7 @@ export default function Admin() {
   const [authState, setAuthState] = useState(getAuthState());
   const [activeTab, setActiveTab] = useState('users'); // 'users' | 'archived' | 'courses' | 'feedback' | 'emails' | 'tokens'
   const [users, setUsers] = useState([]);
+  const [authOverview, setAuthOverview] = useState(null);
   const [courses, setCourses] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
   const [tokenMetrics, setTokenMetrics] = useState(null);
@@ -121,7 +122,11 @@ export default function Admin() {
       const res = await authenticatedFetch('/api/admin/users');
       const data = await readApiResponse(res);
       if (data.success) {
-        setUsers(data.users || []);
+        setAuthOverview(data.auth || null);
+        const authById = new Map((data.auth?.users || []).map(identity => [identity.id, identity]));
+        setUsers((data.users || []).map(record => ({ ...record,
+          emailVerification: authById.get(record.user_id)?.emailVerification ?? null
+        })));
       }
     } catch (err) {
       setNotification({ type: 'error', message: 'Could not load accounts: ' + err.message });
@@ -493,10 +498,15 @@ export default function Admin() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <div className="glass-panel p-5 rounded-2xl border border-sky-500/20">
+          <p className="text-xs text-slate-400 font-medium">Total Appwrite Auth Accounts</p>
+          <p className="text-2xl font-bold text-white mt-1">{authOverview?.available ? authOverview.total : 'Unavailable'}</p>
+          {!authOverview?.available && <p className="text-[10px] text-amber-300 mt-1">Users API access required</p>}
+        </div>
         <div className="glass-panel p-5 rounded-2xl border border-indigo-500/20 flex items-center justify-between">
           <div>
-            <p className="text-xs text-slate-400 font-medium">Registered Accounts</p>
+            <p className="text-xs text-slate-400 font-medium">CourseIT Application Records</p>
             <p className="text-2xl font-bold text-white mt-1">{users.length}</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
@@ -534,6 +544,19 @@ export default function Admin() {
           </div>
         </div>
       </div>
+
+      {authOverview?.available && (
+        <div className="glass-panel rounded-2xl border border-slate-800 p-4 text-xs text-slate-300">
+          <p className="font-semibold text-white">Identity reconciliation</p>
+          <p className="mt-1">Auth identities without an application record in the inspected page: {
+            authOverview.users.filter(identity => !users.some(record => record.user_id === identity.id)).length
+          }. No profile was created automatically.</p>
+          {authOverview.partial && <p className="mt-1 text-amber-300">Only the first 100 Auth identities were inspected; the total count comes from Appwrite.</p>}
+          {authOverview.users.filter(identity => !users.some(record => record.user_id === identity.id)).map(identity => (
+            <p key={identity.id} className="mt-1 font-mono">{identity.name || identity.email || identity.id} — {identity.emailVerification ? 'email verified' : 'email unverified'}</p>
+          ))}
+        </div>
+      )}
 
       {/* Platform Status & Maintenance Mode Banner */}
       <div className="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -750,6 +773,9 @@ export default function Admin() {
                                 )}
                               </p>
                               <p className="text-slate-500 font-mono text-[11px] truncate">{u.email}</p>
+                              <p className="text-[10px] text-slate-500">
+                                {u.emailVerification === true ? 'Email verified' : u.emailVerification === false ? 'Email unverified' : 'Verification status unavailable'}
+                              </p>
                             </div>
                           </div>
                         </td>
@@ -767,7 +793,7 @@ export default function Admin() {
                         </td>
 
                         <td className="px-6 py-4 font-mono font-bold text-slate-200">
-                          {u.quota_remaining ?? 250} credits
+                          {typeof u.quota_remaining === 'number' ? `${u.quota_remaining} credits` : 'Unavailable'}
                         </td>
 
                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -1381,6 +1407,12 @@ export default function Admin() {
               </div>
             </div>
 
+            {(tokenMetrics?.unknownTokenGenerations > 0 || tokenMetrics?.unknownBreakdownGenerations > 0) && (
+              <p className="text-xs text-amber-300" role="status">
+                Some older generation events lack token details. Totals show recorded values only; missing historical data was not estimated.
+              </p>
+            )}
+
             {/* Per-User Consumption Table */}
             <div className="space-y-3 pt-2">
               <h4 className="text-xs font-bold text-slate-300 font-mono uppercase tracking-wider">
@@ -1390,7 +1422,7 @@ export default function Admin() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-900/80 text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-slate-800">
                     <tr>
-                      <th className="px-5 py-3">User Identifier</th>
+                      <th className="px-5 py-3">User</th>
                       <th className="px-5 py-3">Total Tokens</th>
                       <th className="px-5 py-3">Generations</th>
                       <th className="px-5 py-3">Credits Used</th>
@@ -1406,7 +1438,10 @@ export default function Admin() {
                     ) : (
                       Object.entries(tokenMetrics.perUser).map(([uKey, stats]) => (
                         <tr key={uKey} className="hover:bg-slate-800/30">
-                          <td className="px-5 py-3 font-mono text-slate-300">{uKey}</td>
+                          <td className="px-5 py-3 text-slate-300">
+                            <span className="block font-semibold">{stats.displayName || uKey}</span>
+                            {stats.email && <span className="block text-[10px] text-slate-500">{stats.email}</span>}
+                          </td>
                           <td className="px-5 py-3 font-mono font-bold text-white">
                             {stats.totalTokens?.toLocaleString()}
                           </td>
@@ -1441,16 +1476,17 @@ export default function Admin() {
                       <div className="min-w-0">
                         <p className="font-semibold text-white truncate">{h.courseTitle}</p>
                         <p className="text-[11px] text-slate-500 font-mono">
-                          {h.model} &bull; {new Date(h.timestamp).toLocaleTimeString()}
+                          {h.userEmail || h.userId || 'Unknown user'} &bull; {h.model} &bull; {new Date(h.timestamp).toLocaleString()}
                         </p>
+                        {h.courseId && <a className="text-[11px] text-indigo-300 hover:underline" href={`/course/${encodeURIComponent(h.courseId)}`}>View course</a>}
                       </div>
                       <div className="flex items-center gap-4 font-mono text-xs">
                         <span className="text-slate-400">
-                          P: <strong className="text-slate-200">{h.promptTokens}</strong> / C:{' '}
-                          <strong className="text-slate-200">{h.candidateTokens}</strong>
+                          P: <strong className="text-slate-200">{h.promptTokens ?? 'Unknown'}</strong> / C:{' '}
+                          <strong className="text-slate-200">{h.candidateTokens ?? 'Unknown'}</strong>
                         </span>
                         <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">
-                          {h.totalTokens} tokens
+                          {h.totalTokens ?? 'Unknown'} tokens &bull; {Math.abs(Number(h.credits) || 0).toFixed(1)} credits
                         </span>
                       </div>
                     </div>

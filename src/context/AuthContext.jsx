@@ -69,8 +69,7 @@ export function AuthProvider({ children }) {
         setCredits(typeof liveState.quota?.quota_remaining === 'number'
           ? liveState.quota.quota_remaining : null);
       } else {
-        setQuota(null);
-        setCredits(3);
+        await fetchQuota(null);
       }
       return liveState;
     } catch (err) {
@@ -78,12 +77,12 @@ export function AuthProvider({ children }) {
       const cleanState = { isAuthenticated: false, isAdmin: false, user: null, quota: null };
       setAuthState(cleanState);
       setQuota(null);
-      setCredits(3);
+      setCredits(null);
       return cleanState;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchQuota]);
 
   const refreshCredits = useCallback(async () => {
     if (authState?.user) {
@@ -134,10 +133,9 @@ export function AuthProvider({ children }) {
   const handleLogout = useCallback(async () => {
     const res = await logoutUser();
     setAuthState(res);
-    setQuota(null);
-    setCredits(3);
+    await fetchQuota(null);
     return res;
-  }, []);
+  }, [fetchQuota]);
 
   const handleLogin = useCallback(async (email, password) => {
     const res = await loginWithEmail(email, password);
@@ -167,7 +165,7 @@ export function AuthProvider({ children }) {
         isAuthenticated: Boolean(authState?.isAuthenticated),
         isAdmin,
         isPending,
-        quota: quota || authState?.quota || null,
+        quota,
         credits,
         loading,
         formatCredits,

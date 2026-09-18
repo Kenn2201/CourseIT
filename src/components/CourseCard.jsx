@@ -9,7 +9,7 @@ export default function CourseCard({ course, onDelete, onPublish, currentUser = 
   const isComplete = steps.length > 0 && completedSteps.length >= steps.length;
 
   const isStarter = Boolean(course.is_curated || course.$id?.startsWith('starter-'));
-  const isGuest = Boolean(course.is_guest || course.creator_id === 'public_guest' || (!course.creator_id && !isStarter));
+  const isGuest = Boolean(course.is_guest || course.creator_id === 'public_guest');
   const isOwner = Boolean(currentUser?.id && course.creator_id && course.creator_id === currentUser.id);
   const canDelete = isAdmin || (isOwner && !isStarter);
 

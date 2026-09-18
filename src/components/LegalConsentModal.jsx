@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import useModalViewport from './useModalViewport';
 import { ShieldCheck, Check, Sparkles, ExternalLink, Lock, FileText, Cookie } from 'lucide-react';
 import { recordUserConsent } from '../lib/auth';
 import TermsPrivacyModal from './TermsPrivacyModal';
@@ -10,6 +11,7 @@ export default function LegalConsentModal({ isOpen, user, onConsentAccepted }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [legalModalOpen, setLegalModalOpen] = useState(false);
   const [legalTab, setLegalTab] = useState('terms');
+  const dialogRef = useModalViewport(isOpen && Boolean(user), null);
 
   if (!isOpen || !user) return null;
 
@@ -36,8 +38,8 @@ export default function LegalConsentModal({ isOpen, user, onConsentAccepted }) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
-      <div className="glass-panel w-full max-w-lg rounded-3xl p-6 sm:p-8 border border-indigo-500/40 shadow-2xl relative overflow-hidden text-slate-100">
+    <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-4 overflow-y-auto bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Legal consent" className="glass-panel w-full max-w-lg max-h-[calc(100dvh-2rem)] rounded-3xl p-6 sm:p-8 border border-indigo-500/40 shadow-2xl relative overflow-y-auto text-slate-100">
         <div className="absolute -right-16 -top-16 w-48 h-48 bg-indigo-500/15 rounded-full blur-2xl pointer-events-none" />
 
         {/* Icon & Heading */}

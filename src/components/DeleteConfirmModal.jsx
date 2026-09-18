@@ -1,12 +1,15 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
+import useModalViewport from './useModalViewport';
 import { Trash2, AlertCircle, X, Loader2 } from 'lucide-react';
 
 export default function DeleteConfirmModal({ isOpen, course, onClose, onConfirm, isDeleting }) {
+  const dialogRef = useModalViewport(isOpen && Boolean(course), isDeleting ? null : onClose);
   if (!isOpen || !course) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
+      <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-label="Delete course" className="relative w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
         {/* Close Button */}
         <button
           type="button"
@@ -75,6 +78,6 @@ export default function DeleteConfirmModal({ isOpen, course, onClose, onConfirm,
           </button>
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 }

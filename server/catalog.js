@@ -1,6 +1,25 @@
 import { Client, Databases, Query } from 'node-appwrite';
-import { readState, writeState, listState, deleteState } from './state.js';
+import { readState, writeState, listState, deleteState, updateState } from './state.js';
 import { normalizeCourse, canReadCourse, isExpiredCourse, isSystemCourse, publicCourse } from '../shared/courses.js';
+
+const PUBLIC_FEED_KEY = 'indexes/public-feed';
+
+export async function addPublicCourseToFeed(course) {
+  if (course.visibility !== 'public' || isSystemCourse(course)) return;
+  await updateState(PUBLIC_FEED_KEY, current => {
+    const entries = (current?.entries || []).filter(entry => entry.id !== course.$id &&
+      (!entry.expiresAt || Date.parse(entry.expiresAt) > Date.now()));
+    entries.push({ id: course.$id, createdAt: course.$createdAt, expiresAt: course.expires_at || null });
+    entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return { entries: entries.slice(0, 200) };
+  });
+}
+
+export async function removePublicCourseFromFeed(id) {
+  const current = await readState(PUBLIC_FEED_KEY);
+  if (!current?.entries?.some(entry => entry.id === id)) return;
+  await updateState(PUBLIC_FEED_KEY, value => ({ entries: (value?.entries || []).filter(entry => entry.id !== id) }));
+}
 
 export function courseDatabase() {
   const e = process.env;
@@ -31,6 +50,7 @@ export async function cleanupGuestCourses() {
   for (const doc of courses) {
     if (isExpiredCourse(normalizeCourse(doc))) {
       await deleteState(`courses/${doc.$id}`);
+      await removePublicCourseFromFeed(doc.$id);
       removed++;
     }
   }
@@ -38,6 +58,16 @@ export async function cleanupGuestCourses() {
 }
 
 export async function listCatalog(session = null, scope = 'catalog') {
+  if (!session && scope === 'catalog') {
+    const feed = await readState(PUBLIC_FEED_KEY);
+    if (feed?.entries?.length >= 3) {
+      const indexed = await Promise.all(feed.entries.slice(0, 20).map(entry => readState(`courses/${entry.id}`)));
+      const recent = indexed.filter(Boolean).map(normalizeCourse)
+        .filter(course => canReadCourse(course))
+        .slice(0, 3).map(course => publicCourse(course));
+      if (recent.length === 3) return recent;
+    }
+  }
   const config = courseDatabase();
   const [stored, remote] = await Promise.all([
     listState('courses/'),
@@ -45,10 +75,12 @@ export async function listCatalog(session = null, scope = 'catalog') {
   ]);
   const map = new Map(remote.filter(d => !isSystemCourse(d)).map(d => [d.$id, normalizeCourse(d)]));
   stored.forEach(d => map.set(d.$id, normalizeCourse(d)));
-  return Array.from(map.values()).filter(c => canReadCourse(c, session?.userId, session?.isAdmin))
+  const visible = Array.from(map.values()).filter(c => canReadCourse(c, session?.userId, session?.isAdmin))
     .filter(c => scope !== 'mine' || c.creator_id === session?.userId)
     .map(c => publicCourse(c, session?.userId, session?.isAdmin))
     .sort((a, b) => b.$createdAt.localeCompare(a.$createdAt));
+  // Keep anonymous discovery small. A storage-level index is still needed to avoid scanning legacy records.
+  return !session && scope === 'catalog' ? visible.slice(0, 3) : visible;
 }
 
 export async function readCourse(id, session) {
@@ -75,6 +107,7 @@ export async function publishCourse(id, session) {
   }
   const published = { ...course, visibility: 'public' };
   // Store the sharing decision behind the API; no public write permissions are needed.
+  await addPublicCourseToFeed(published);
   await writeState(`courses/${id}`, published);
   return published;
 }

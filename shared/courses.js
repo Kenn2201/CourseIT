@@ -29,7 +29,8 @@ export function isExpiredCourse(course, now = Date.now()) {
 
 export function canReadCourse(course, userId = null, isAdmin = false) {
   if (isExpiredCourse(course)) return false;
-  return course.is_curated || course.visibility === 'public' || isAdmin ||
+  return course.is_curated || course.visibility === 'public' ||
+    (course.visibility === 'community' && Boolean(userId)) || isAdmin ||
     Boolean(userId && course.creator_id === userId && userId !== 'public_guest');
 }
 
@@ -40,6 +41,17 @@ export function isSystemCourse(doc) {
 
 export function publicCourse(course, userId, isAdmin) {
   if (isAdmin || (userId && userId === course.creator_id)) return course;
-  const { creator_email, ...safe } = course;
+  const { creator_email, creator_id, generation_request_id,
+    source_file_id, source_filename, source_mime_type, source_file_bytes, source_saved_at, ...safe } = course;
+  for (const field of ['source_url', 'input_url']) {
+    if (typeof safe[field] === 'string' && /^https?:\/\//i.test(safe[field])) {
+      try {
+        const url = new URL(safe[field]);
+        url.search = '';
+        url.hash = '';
+        safe[field] = url.href;
+      } catch { delete safe[field]; }
+    }
+  }
   return { ...safe, creator_name: course.creator_name || (course.is_guest ? 'Guest' : 'Community member') };
 }

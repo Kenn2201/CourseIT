@@ -4,7 +4,7 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.13.2--LIVE--Beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.14.0--LIVE--Beta-indigo.svg)
 [![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple&cacheSeconds=60)](https://github.com/Kenn2201/CourseIT/commit/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
@@ -21,12 +21,18 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.13.2 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.14.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
 * **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT/commit/master)
 
 ### Recent Release Notes
+
+* **v1.14.0 LIVE Beta (September 18, 2026)** — *Private Learning Workflows and Durable Source History*:
+  * Signed-in courses default to Private, with explicit Community/Public choices and backend access checks.
+  * Topic-based documentation discovery and private signed-in OCR image previews are available; old originals cannot be restored.
+  * Guest quota and admin generation history use durable server records, while Auth totals distinguish identities from application profiles.
+  * Local tests/build pass; live OAuth, email, storage, Sentry, and production accounting checks remain pending.
 
 * **v1.13.2 LIVE Beta (September 18, 2026)** — *Production Safety and Account Recovery*:
   * Public documentation fetches reject local/private destinations and unsafe redirects, with DNS pinning and a 1 MB HTML limit.
@@ -131,6 +137,48 @@ Standard technical documentation is often filled with introductory scene-setting
 | **Application State** | Netlify Blobs | Persistent courses, credits, approvals, history, feedback and maintenance |
 | **Email Delivery** | Resend API | Transactional emails dispatched from `CourseIT <hello@courseit.kenncode.me>` |
 | **Hosting & CI/CD** | Netlify | Automated continuous deployment directly connected to GitHub |
+
+---
+
+## Runtime Architecture (Source-Verified; Deployment Checks Pending)
+
+```text
+Namecheap DNS (provider reported by owner)
+  └─ courseitai.kenncode.me → Netlify CDN → React/Vite browser app
+                                      │          ├─ Appwrite Auth (sessions, OAuth, verification)
+                                      │          └─ optional Sentry browser errors
+                                      └─ /api/* → Netlify Functions
+                                                   ├─ Appwrite JWT verification
+                                                   ├─ Netlify Blobs (courseit-state)
+                                                   ├─ legacy Appwrite Database reads
+                                                   ├─ Gemini generation
+                                                   ├─ Resend emails
+                                                   └─ optional Sentry server errors
+```
+
+Doppler is available as a local development command; production secret synchronization with Netlify has not been verified. Signed-in OCR source images now use a separate private Netlify Blobs store, not Appwrite Storage; production persistence still needs an authenticated deployment test. Previously generated OCR originals were never stored and cannot be recovered. Sentry sends no events unless its DSNs are configured. The local Appwrite API key returned `401` during this audit, so live Auth totals, provider settings, collections, and buckets still require console access.
+
+| Data | Current source of truth | Important limit |
+| :--- | :--- | :--- |
+| Identity, email verification, OAuth sessions | Appwrite Auth | Total Auth count requires a server key with Users read scope. |
+| Approval, credits, account generation transactions | Netlify Blobs `users/<id>` | Legacy Appwrite quota records may be read for migration. Embedded transaction arrays are not a separate immutable ledger. |
+| Guest trial and guest transaction history | Netlify Blobs `settings/guest-quota` | One global shared three-per-24-hour allowance. |
+| New courses, feedback, maintenance, secondary usage logs | Netlify Blobs | Course, charge, and secondary log are separate writes; production reconciliation remains necessary. |
+| Older course records | Appwrite Database | Read-only catalog fallback, currently scanned rather than indexed by visibility. |
+| New signed-in OCR source images | Netlify Blobs `courseit-sources` (local binary files in development) | PNG/JPEG/WebP up to 4 MB; owner/admin read, owner-only write. Upload happens after generation, so a failed upload leaves the course but no original. Guests retain images only on-device; older originals are unavailable. |
+| UI preferences/cache | Browser `localStorage` | Not an authorization or credit-balance authority. |
+
+Signed-in courses default to **Private** (owner/admin). **Community** requires a signed-in account; **Public** is readable without login. Guest courses are public and expire after 30 minutes. Anonymous catalog responses are capped at three recent public generated courses; a Blob feed index avoids a full scan once it contains three active courses. Older public records fall back to a legacy scan until an index migration is completed. Curated starter examples are separate client-side content.
+
+The optional topic workflow inspects one SSRF-checked documentation page, ranks same-origin links, asks the user to choose a section, and then generates from that section. It does not crawl a site or guarantee that every navigation item will be found.
+
+### Manual service setup
+
+- In GitHub, create an OAuth App under **Settings → Developer settings → OAuth apps**. Set Homepage URL to `https://courseitai.kenncode.me`; copy the **exact Authorization callback URL shown by Appwrite's GitHub provider**. Do not use CourseIT's `/auth/success` URL as GitHub's callback.
+- In Appwrite Auth, enable the GitHub provider and enter its Client ID/Secret; register `courseitai.kenncode.me` as a Web platform. No repository scope is required for basic sign-in. Keep the GitHub secret in Appwrite, not a `VITE_` variable or this repository.
+- For Admin's **Total Appwrite Auth Accounts**, give the server-only Appwrite API key the required Users read permission. Until then the dashboard intentionally says **Unavailable**; it never substitutes application-profile count.
+- For email verification, ensure the Appwrite Web platform accepts `https://courseitai.kenncode.me/auth/verify`, then test a disposable email/password account end to end.
+- To enable error monitoring, set `VITE_SENTRY_DSN` at frontend build time and `SENTRY_DSN` for Functions. Verify test events and privacy scrubbing in Sentry before relying on it. Do not put a Sentry auth token in browser variables.
 
 ---
 

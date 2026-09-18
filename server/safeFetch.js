@@ -45,7 +45,8 @@ async function resolvePublicHost(url, resolveHost) {
   return addresses[0];
 }
 
-export async function fetchDocumentHtml(raw, { resolveHost = lookup, request = null } = {}) {
+export async function fetchDocumentHtml(raw, { resolveHost = lookup, request = null, maxBytes = MAX_BYTES } = {}) {
+  const byteLimit = Math.min(Math.max(1, maxBytes), 2 * 1024 * 1024);
   let url = validateDocumentUrl(raw);
   const deadline = Date.now() + 10000;
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
@@ -56,7 +57,9 @@ export async function fetchDocumentHtml(raw, { resolveHost = lookup, request = n
     const response = await new Promise((resolve, reject) => {
       const req = transport(url, {
         method: 'GET', signal: AbortSignal.timeout(remaining),
-        lookup: (_hostname, _options, callback) => callback(null, address.address, address.family),
+        lookup: (_hostname, lookupOptions, callback) => lookupOptions?.all
+          ? callback(null, [address])
+          : callback(null, address.address, address.family),
         headers: { 'User-Agent': USER_AGENT, Accept: 'text/html,application/xhtml+xml', 'Accept-Encoding': 'identity' }
       }, res => {
         const status = res.statusCode || 0;
@@ -79,8 +82,8 @@ export async function fetchDocumentHtml(raw, { resolveHost = lookup, request = n
         const chunks = [];
         res.on('data', chunk => {
           bytes += chunk.length;
-          if (bytes > MAX_BYTES) {
-            req.destroy(inputError('The documentation page is too large (1 MB limit).'));
+          if (bytes > byteLimit) {
+            req.destroy(inputError(`The documentation page is too large (${Math.ceil(byteLimit / 1024 / 1024)} MB limit).`));
           } else chunks.push(chunk);
         });
         res.on('end', () => resolve({ html: Buffer.concat(chunks).toString('utf8') }));

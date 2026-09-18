@@ -62,7 +62,7 @@ export async function uploadFileToAppwrite(file) {
 }
 
 // Course ACLs and expiry are enforced again on the server for every cloud read.
-import { normalizeCourse, isExpiredCourse, canReadCourse } from '../../shared/courses.js';
+import { normalizeCourse, isExpiredCourse, canReadCourse, publicCourse } from '../../shared/courses.js';
 import { authenticatedFetch } from './auth';
 import { STARTER_COURSES } from '../data/starterCourses';
 import { readApiResponse } from './api';
@@ -91,7 +91,7 @@ export async function listCourses(userId = null, isAdmin = false, includeCurated
   // Keep locally generated results from older versions, scoped to their owner.
   for (const course of getLocalCourses()) {
     if (canReadCourse(course, userId, isAdmin) && (includeCurated || isAdmin || course.creator_id === userId)) {
-      courses.set(course.$id, course);
+      courses.set(course.$id, publicCourse(course, userId, isAdmin));
     }
   }
   for (const course of data.courses) courses.set(course.$id, course);
@@ -105,7 +105,9 @@ export async function getCourse(id, user = null, isAdmin = false) {
   if (response.status === 404) {
     // Only legacy local IDs may use a local fallback; cloud ACL errors never do.
     const local = getLocalCourses().find(c => c.$id === id);
-    if ((id.startsWith('course_') || id.startsWith('doc_')) && local && canReadCourse(local, user?.id, isAdmin)) return local;
+    if ((id.startsWith('course_') || id.startsWith('doc_')) && local && canReadCourse(local, user?.id, isAdmin)) {
+      return publicCourse(local, user?.id, isAdmin);
+    }
   }
   return (await readApiResponse(response)).course;
 }

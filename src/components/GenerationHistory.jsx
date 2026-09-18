@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { History, Link2, UploadCloud, Trash2, ArrowUpRight, Search, Clock, Layers, Sparkles, Filter } from 'lucide-react';
+import SourceImagePreview from './SourceImagePreview';
 
 export default function GenerationHistory({ courses = [], onDeleteCourse, currentUser = null, isAdmin = false }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -156,11 +157,26 @@ export default function GenerationHistory({ courses = [], onDeleteCourse, curren
                       {item.source_url}
                     </p>
 
+                    {item.input_url && item.input_url !== item.source_url && (
+                      <p className="text-[11px] text-slate-500 font-mono truncate max-w-xl" title={item.input_url}>
+                        Started from: {item.input_url}
+                      </p>
+                    )}
+
                     <div className="flex items-center gap-3 pt-1 text-xs text-slate-500 font-mono">
                       <span>{stepsCount} action steps</span>
                       <span>&bull;</span>
                       <span>Created by: <strong className="text-slate-400 font-semibold">{item.creator_email || item.creator_name || (item.is_curated ? 'CourseIT Team' : 'Guest (30 min)')}</strong></span>
                     </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 font-mono">
+                      <span>Visibility: {item.visibility || 'private'}</span>
+                      <span>Model: {item.actual_model || 'Unavailable'}</span>
+                      <span>Tokens: {Number.isFinite(item.total_tokens) ? item.total_tokens : 'Unavailable'}</span>
+                      <span>Credits: {Number.isFinite(item.credits_charged) ? item.credits_charged : 'Unavailable'}</span>
+                      <span>Status: {item.generation_status || 'Historical record'}</span>
+                    </div>
+                    {isDoc && (item.source_file_id ? <SourceImagePreview course={item} /> :
+                      <p className="text-[11px] text-slate-500">Original source file not available for this record.</p>)}
                   </div>
                 </div>
 

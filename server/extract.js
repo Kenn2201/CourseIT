@@ -50,6 +50,7 @@ export async function extractDocumentation(url, options = {}) {
     if (bodyText.length > 50) {
       return {
         title: doc.title || parsedUrl.hostname,
+        resolvedUrl: finalUrl || url,
         content: bodyText.slice(0, 30000), // Cap reasonable payload for LLM
         excerpt: bodyText.slice(0, 200),
         siteName: parsedUrl.hostname
@@ -60,6 +61,7 @@ export async function extractDocumentation(url, options = {}) {
 
   return {
     title: article.title || doc.title || parsedUrl.hostname,
+    resolvedUrl: finalUrl || url,
     content: article.textContent.replace(/\s+/g, ' ').trim().slice(0, 35000),
     excerpt: article.excerpt || article.textContent.slice(0, 200).trim(),
     siteName: article.siteName || parsedUrl.hostname

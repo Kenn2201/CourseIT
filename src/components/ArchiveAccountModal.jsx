@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import useModalViewport from './useModalViewport';
 import { Archive, AlertTriangle, X, Loader2, CheckCircle2, Heart } from 'lucide-react';
 import { archiveAccount } from '../lib/auth';
 
@@ -16,6 +18,7 @@ export default function ArchiveAccountModal({ isOpen, onClose, userEmail, onArch
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isDone, setIsDone] = useState(false);
+  const dialogRef = useModalViewport(isOpen, isSubmitting ? null : onClose);
 
   if (!isOpen) return null;
 
@@ -37,9 +40,9 @@ export default function ArchiveAccountModal({ isOpen, onClose, userEmail, onArch
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="relative w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Archive account" className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
         <button
           type="button"
           onClick={onClose}
@@ -163,6 +166,6 @@ export default function ArchiveAccountModal({ isOpen, onClose, userEmail, onArch
           </form>
         )}
       </div>
-    </div>
+    </div>, document.body
   );
 }

@@ -44,6 +44,10 @@ test('DNS and redirects are checked before each request, with vetted address pin
     if (error) reject(error);
     else { assert.equal(address, '93.184.215.14'); resolve(); }
   }));
+  await new Promise((resolve, reject) => calls[0].options.lookup('docs.example.com', { all: true }, (error, addresses) => {
+    if (error) reject(error);
+    else { assert.deepEqual(addresses, [{ address: '93.184.215.14', family: 4 }]); resolve(); }
+  }));
 });
 
 test('public HTML succeeds but binary and oversized responses fail', async () => {

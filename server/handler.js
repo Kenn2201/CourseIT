@@ -1,14 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { Client, Databases, ID, Query, Account as ServerAccount } from 'node-appwrite';
+import { Client, Databases, Users, ID, Query, Account as ServerAccount } from 'node-appwrite';
 import { Resend } from 'resend';
 import { extractDocumentation } from './extract.js';
 import { summarizeWithLLM } from './llm.js';
 import { randomUUID } from 'node:crypto';
 import { readState, writeState, listState, updateState, deleteState } from './state.js';
-import { listDocumentsAll, readCourse, courseDatabase } from './catalog.js';
+import { listDocumentsAll, readCourse, courseDatabase, addPublicCourseToFeed, removePublicCourseFromFeed } from './catalog.js';
 import { normalizeCourse } from '../shared/courses.js';
+import { deleteSourceFile } from './sourceStore.js';
 
 // In serverless / AWS Lambda / Netlify environments, the root file system is read-only.
 // Use os.tmpdir() for runtime fallback files.
@@ -46,6 +47,29 @@ try {
 
 // 250 credits default trial quota
 export const DEFAULT_CREDITS = 250;
+
+export async function getAuthIdentityOverview() {
+  const e = process.env;
+  const project = e.APPWRITE_PROJECT_ID || e.VITE_APPWRITE_PROJECT_ID;
+  if (!e.APPWRITE_API_KEY || !project) {
+    return { available: false, total: null, users: [], reason: 'Appwrite Users API credentials unavailable.' };
+  }
+  try {
+    const client = new Client().setEndpoint(e.APPWRITE_ENDPOINT || e.VITE_APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1')
+      .setProject(project).setKey(e.APPWRITE_API_KEY);
+    const page = await new Users(client).list([Query.limit(100)]);
+    return { available: true, total: page.total, users: page.users.map(user => ({
+      id: user.$id, email: user.email, name: user.name,
+      emailVerification: user.emailVerification === true,
+      createdAt: user.$createdAt
+    })), partial: page.total > page.users.length };
+  } catch (error) {
+    if ([401, 403].includes(error.code)) {
+      return { available: false, total: null, users: [], reason: 'Appwrite API key lacks Users read access.' };
+    }
+    throw error;
+  }
+}
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'kenn.nacario12@gmail.com';
 
 /**
@@ -102,18 +126,55 @@ export async function recordTokenUsage({ userId, model, usage, courseTitle, cost
 }
 
 export async function getTokenMetrics(userId = null) {
-  const entries = (await listState('usage/')).filter(e => !userId || e.userId === userId)
+  const [users, usage, guestQuota] = await Promise.all([
+    userId ? [await readState('users/' + userId)] : listState('users/'),
+    listState('usage/'),
+    !userId || userId === 'public_guest' ? readState('settings/guest-quota') : null
+  ]);
+  const records = users.filter(Boolean);
+  const identities = new Map(records.map(record => [record.user_id, {
+    displayName: record.name || record.email || record.user_id,
+    email: record.email || null
+  }]));
+  const creditHistory = [...records.flatMap(record => record.creditHistory || []),
+    ...(guestQuota?.generationHistory || [])]
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  const stats = { totalTokens: 0, promptTokens: 0, candidateTokens: 0, totalGenerations: 0, creditsUsed: 0, perUser: {}, history: entries };
+  const usageEntries = usage.filter(entry => !userId || entry.userId === userId);
+  const usageByCourse = new Map(usageEntries.filter(entry => entry.courseId).map(entry => [entry.courseId, entry]));
+  const chargedCourses = new Set();
+  const chargedEntries = creditHistory.filter(entry => entry.type === 'generation').map(entry => {
+    if (entry.courseId) chargedCourses.add(entry.courseId);
+    const supplement = usageByCourse.get(entry.courseId);
+    return { ...supplement, ...entry,
+      promptTokens: entry.promptTokens ?? supplement?.promptTokens ?? null,
+      candidateTokens: entry.candidateTokens ?? supplement?.candidateTokens ?? null,
+      totalTokens: entry.totalTokens ?? supplement?.totalTokens ?? null,
+      credits: entry.credits ?? supplement?.credits ?? 0,
+      ledgerSource: 'credit-transaction' };
+  });
+  const unmatchedUsage = usageEntries.filter(entry => !entry.courseId || !chargedCourses.has(entry.courseId))
+    .map(entry => ({ ...entry, ledgerSource: 'usage-only' }));
+  const entries = [...chargedEntries, ...unmatchedUsage]
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  const stats = { totalTokens: 0, promptTokens: 0, candidateTokens: 0, totalGenerations: 0,
+    creditsUsed: 0, unknownTokenGenerations: 0, unknownBreakdownGenerations: 0,
+    perUser: {}, history: entries, creditHistory };
   for (const e of entries) {
-    stats.totalTokens += e.totalTokens || 0;
-    stats.promptTokens += e.promptTokens || 0;
-    stats.candidateTokens += e.candidateTokens || 0;
+    if (Number.isFinite(e.totalTokens)) stats.totalTokens += e.totalTokens;
+    else stats.unknownTokenGenerations++;
+    if (Number.isFinite(e.promptTokens) && Number.isFinite(e.candidateTokens)) {
+      stats.promptTokens += e.promptTokens;
+      stats.candidateTokens += e.candidateTokens;
+    } else stats.unknownBreakdownGenerations++;
     if (e.type !== 'generation') continue;
     stats.totalGenerations++;
     stats.creditsUsed += Math.max(0, -(e.credits || 0));
-    const user = stats.perUser[e.userId] ||= { totalTokens: 0, generations: 0, creditsUsed: 0 };
-    user.totalTokens += e.totalTokens || 0;
+    const user = stats.perUser[e.userId] ||= {
+      totalTokens: 0, generations: 0, creditsUsed: 0,
+      displayName: identities.get(e.userId)?.displayName || (e.userId === 'public_guest' ? 'Guest trial' : e.userId),
+      email: identities.get(e.userId)?.email || null
+    };
+    user.totalTokens += Number(e.totalTokens) || 0;
     user.generations++;
     user.creditsUsed += Math.max(0, -(e.credits || 0));
   }
@@ -430,13 +491,19 @@ export async function deleteCourse(courseId, requestingUserId = null, requesting
   if (!requestingUserId || (!isAdmin && course.creator_id !== requestingUserId)) {
     throw Object.assign(new Error('Only the author or administrator can delete this course.'), { status: 403 });
   }
-  const db = getAppwriteDb();
+  const isBlobCourse = Boolean(await readState('courses/' + courseId));
+  const db = isBlobCourse ? null : getAppwriteDb();
   if (db && !course.is_guest) {
     try { await db.deleteDocument(process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID,
       process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID, courseId); }
     catch (error) { if (error.code !== 404) throw error; }
   }
   await deleteState('courses/' + courseId);
+  await removePublicCourseFromFeed(courseId);
+  if (course.source_file_id) {
+    try { await deleteSourceFile(course.source_file_id); }
+    catch (error) { console.error('Source image cleanup failed:', error.message); }
+  }
   return { success: true, deleted: true, courseId };
 }
 
@@ -822,7 +889,7 @@ export async function reserveGeneration(userId, isAdmin, model) {
     if (model !== 'gemini-flash-lite-latest') throw Object.assign(new Error('Sign in to use this model.'), { status: 403 });
     await updateState('settings/guest-quota', current => {
       const state = current && Date.now() - current.lastReset < 86400000
-        ? current : { totalGenerations: 0, lastReset: Date.now() };
+        ? current : { ...current, totalGenerations: 0, lastReset: Date.now(), reservations: {} };
       const reservations = activeReservations(state.reservations);
       if (state.totalGenerations + Object.keys(reservations).length >= 3) {
         throw Object.assign(new Error('The shared guest trial is exhausted. Try after the 24-hour reset or sign in.'), { status: 429 });
@@ -868,7 +935,8 @@ export async function deductCredit(userId = null, isAdmin = false, model = 'gemi
       if (!isAdmin && current.quota_remaining - otherReserved < cost) throw Object.assign(new Error('Insufficient credits. Please request a top-up.'), { status: 402 });
       const balance = Math.max(0, current.quota_remaining - cost);
       const event = { id: randomUUID(), timestamp: new Date().toISOString(), type: 'generation',
-        userId, credits: balance - current.quota_remaining, balance, model, ...details };
+        userId, credits: balance - current.quota_remaining,
+        balanceBefore: current.quota_remaining, balanceAfter: balance, balance, model, ...details };
       if (reservation) delete reservations[reservation.id];
       const tokensUsed = current.tokens_used ?? (current.creditHistory || []).reduce(
         (sum, item) => sum + (Number(item.totalTokens) || 0), 0
@@ -881,14 +949,19 @@ export async function deductCredit(userId = null, isAdmin = false, model = 'gemi
   }
   const quota = await updateState('settings/guest-quota', current => {
     const state = current && Date.now() - current.lastReset < 86400000
-      ? current : { totalGenerations: 0, lastReset: Date.now() };
+      ? current : { ...current, totalGenerations: 0, lastReset: Date.now(), reservations: {} };
     const reservations = activeReservations(state.reservations);
     if (reservation && !reservations[reservation.id]) throw Object.assign(new Error('Generation reservation expired. Please retry.'), { status: 409 });
     if (state.totalGenerations + Object.keys(reservations).length - (reservation ? 1 : 0) >= 3) {
       throw Object.assign(new Error('The shared guest trial is exhausted. Try after the 24-hour reset or sign in.'), { status: 429 });
     }
     if (reservation) delete reservations[reservation.id];
-    return { ...state, reservations, totalGenerations: state.totalGenerations + 1 };
+    const event = { id: randomUUID(), timestamp: new Date().toISOString(), type: 'generation',
+      userId: 'public_guest', credits: 0, balanceBefore: 3 - state.totalGenerations,
+      balanceAfter: 2 - state.totalGenerations, balance: 2 - state.totalGenerations,
+      model, ...details };
+    return { ...state, reservations, totalGenerations: state.totalGenerations + 1,
+      generationHistory: [...(state.generationHistory || []), event] };
   });
   return { remaining: Math.max(0, 3 - quota.totalGenerations), deducted: true, cost: 0, isPublicSandbox: true };
 }
@@ -903,33 +976,36 @@ export async function getCreditHistory(userId = null) {
 /**
  * Process Documentation URL
  */
-export async function processDocumentationUrl(url, customModel = 'gemini-flash-lite-latest', isAdmin = false, forceRefresh = false, userId = null, userEmail = '', visibility = 'public', options = {}) {
+export async function processDocumentationUrl(url, customModel = 'gemini-flash-lite-latest', isAdmin = false, forceRefresh = false, userId = null, userEmail = '', visibility = 'private', options = {}) {
+  const startedAt = Date.now();
   const reservation = await reserveGeneration(userId, isAdmin, customModel);
   let charged = false;
   try {
     const extracted = await extractDocumentation(url, options);
-    const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel);
-    const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation,
-      source_url: url, source_type: 'url' });
+    const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel, options.topic);
+    const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation, startedAt,
+      source_url: extracted.resolvedUrl || url, input_url: options.inputUrl || url, learning_topic: options.topic || null,
+      creator_name: options.userName || null, source_type: 'url' });
     charged = true;
     return result;
   } finally { if (!charged) await releaseGeneration(userId, reservation); }
 }
 
-export async function processDocumentText({ title, text, customModel = 'gemini-flash-lite-latest', isAdmin = false, userId = null, userEmail = '', visibility = 'private' }) {
+export async function processDocumentText({ title, text, customModel = 'gemini-flash-lite-latest', isAdmin = false, userId = null, userEmail = '', userName = null, visibility = 'private' }) {
   if (!text || !text.trim()) throw Object.assign(new Error('Document text content is empty.'), { status: 400 });
+  const startedAt = Date.now();
   const reservation = await reserveGeneration(userId, isAdmin, customModel);
   let charged = false;
   try {
     const summarized = await summarizeWithLLM(text, title || 'Uploaded Document', customModel);
-    const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation,
-      source_url: 'upload://' + encodeURIComponent(title || 'document'), source_type: 'document' });
+    const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation, startedAt,
+      source_url: 'upload://' + encodeURIComponent(title || 'document'), creator_name: userName, source_type: 'document' });
     charged = true;
     return result;
   } finally { if (!charged) await releaseGeneration(userId, reservation); }
 }
 
-async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, source_type, reservation }) {
+async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, input_url = null, learning_topic = null, creator_name = null, source_type, reservation, startedAt }) {
   const actualModel = summarized.actualModel || customModel;
   const isGuest = !userId || userId === 'public_guest';
   const course = normalizeCourse({
@@ -937,15 +1013,28 @@ async function saveGeneration({ summarized, customModel, isAdmin, userId, userEm
     title: summarized.title, overview: summarized.overview || '',
     recommended_next_step: summarized.recommended_next_step || '', steps: summarized.steps,
     creator_id: isGuest ? 'public_guest' : userId, creator_email: userEmail || null,
-    is_guest: isGuest, visibility: isGuest ? 'public' : (visibility === 'public' ? 'public' : 'private'),
-    source_url, source_type, actual_model: actualModel
+    creator_name: isGuest ? 'Guest' : (creator_name || null),
+    is_guest: isGuest, visibility: isGuest ? 'public' : (['public', 'community'].includes(visibility) ? visibility : 'private'),
+    source_url, input_url, learning_topic, source_type, actual_model: actualModel,
+    generation_request_id: reservation.id,
+    prompt_tokens: summarized.usage?.promptTokens ?? null,
+    output_tokens: summarized.usage?.candidateTokens ?? null,
+    total_tokens: summarized.usage?.totalTokens ?? null,
+    credits_charged: isGuest ? 0 : getModelCost(actualModel),
+    generation_status: 'completed'
   });
   // Every run gets its own ID; a URL cache must never return another author's private course.
+  await addPublicCourseToFeed(course);
   await writeState('courses/' + course.$id, course);
   let quota;
   try {
     quota = await deductCredit(userId, isAdmin, actualModel, source_type === 'document', {
-      courseId: course.$id, courseTitle: course.title, totalTokens: summarized.usage?.totalTokens || 0
+      requestId: reservation.id, courseId: course.$id, courseTitle: course.title,
+      sourceType: source_type, sourceUrl: source_url, userEmail: userEmail || null,
+      promptTokens: summarized.usage?.promptTokens ?? null,
+      candidateTokens: summarized.usage?.candidateTokens ?? null,
+      totalTokens: summarized.usage?.totalTokens ?? null,
+      durationMs: Date.now() - startedAt, generationStatus: 'completed'
     }, reservation);
   } catch (error) {
     await deleteState('courses/' + course.$id);

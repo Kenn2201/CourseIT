@@ -84,7 +84,7 @@ export default function TermsPrivacyModal({ isOpen, onClose, initialTab = 'terms
                   2. Document Processing & Synthesis
                 </h4>
                 <p className="text-slate-400">
-                  CourseIT processes developer documentation URLs and uploaded scans/diagrams using client-side OCR and multi-tier Gemini Flash models. Users retain all rights to original tutorials and custom code. CourseIT provides distilled educational learning paths and does not claim ownership of third-party documentation.
+                  CourseIT processes developer documentation URLs and uploaded scans/diagrams using client-side OCR and Gemini models. If Gemini is temporarily limited or unavailable, configured server-side fallbacks may use Mistral, Groq, or OpenRouter free models. Users retain all rights to original tutorials and custom code. CourseIT provides distilled educational learning paths and does not claim ownership of third-party documentation.
                 </p>
               </section>
 
@@ -106,7 +106,7 @@ export default function TermsPrivacyModal({ isOpen, onClose, initialTab = 'terms
                   1. Client-Side Document Security
                 </h4>
                 <p className="text-slate-400">
-                  Document OCR is performed directly in your browser using client-side Tesseract.js workers. Extracted text is used solely to generate action-first curriculum steps and is not sold, shared, or used to train public machine learning models.
+                  Document OCR is performed directly in your browser using client-side Tesseract.js workers. The extracted text is sent to CourseIT's server and then to the AI provider used to generate the learning path. On a temporary Gemini failure, it may be sent to Mistral, Groq, or an OpenRouter free-model provider, which process it under their own policies. CourseIT does not sell your content.
                 </p>
               </section>
 

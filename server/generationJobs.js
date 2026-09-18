@@ -7,7 +7,8 @@ import { captureUnexpectedError } from './observability.js';
 const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const STALE_MS = 2 * 60 * 1000;
 const STAGES = new Set(['Preparing request', 'Inspecting source', 'Extracting documentation',
-  'Generating with Gemini', 'Saving course', 'Recording usage', 'Complete']);
+  'Generating with Gemini', 'Generating with Cerebras', 'Generating with Groq',
+  'Generating with Mistral', 'Generating with OpenRouter', 'Saving course', 'Recording usage', 'Complete']);
 const keyFor = id => `generation-jobs/${id}`;
 
 export function validGenerationId(id) {

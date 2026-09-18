@@ -29,7 +29,7 @@ export function apiError(error) {
     status = 429;
     code = 'RATE_LIMITED';
     retryAfterSeconds = providerRetrySeconds(error);
-    userMessage = 'Gemini temporarily limited this request. Wait for the countdown before retrying.';
+    userMessage = 'The AI service temporarily limited this request. Wait for the countdown before retrying.';
   } else if (provider && (status === 408 || status === 504 || /timeout|timed out|aborted/i.test(message) ||
       ['TimeoutError', 'AbortError'].includes(error?.name))) {
     status = 504;
@@ -40,7 +40,7 @@ export function apiError(error) {
     code = 'PROVIDER_UNAVAILABLE';
     retryAfterSeconds = providerRetrySeconds(error);
     userMessage = 'The AI provider is temporarily unavailable. Please retry shortly.';
-  } else if (/LLM_API_KEY|API.key|401.*Google|403.*Google/i.test(message)) {
+  } else if ((provider && [401, 403].includes(status)) || /LLM_API_KEY|API.key|401.*Google|403.*Google/i.test(message)) {
     status = 503;
     code = 'PROVIDER_UNAVAILABLE';
     userMessage = 'The AI service credentials need attention. An administrator must check the server configuration.';

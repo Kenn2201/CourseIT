@@ -237,9 +237,12 @@ cp .env.example .env
 Open `.env` and fill in your credentials:
 
 ```env
-# LLM Configuration (Google Gemini)
+# Server-only LLM configuration (Gemini primary; optional free-tier fallbacks)
 LLM_PROVIDER=gemini
 LLM_API_KEY=your_gemini_api_key_here
+MISTRAL_API_KEY=your_mistral_api_key
+GROQ_API_KEY=your_groq_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key
 
 # Appwrite Cloud (Sydney syd1)
 VITE_APPWRITE_ENDPOINT=https://syd.cloud.appwrite.io/v1
@@ -284,7 +287,7 @@ To connect and deploy the repository to Netlify:
    * **Build command**: `npm run build`
    * **Publish directory**: `dist`
    * **Functions directory**: `netlify/functions` (auto-detected via `netlify.toml`)
-3. **Environment Variables**: Under **Site configuration > Environment variables**, add all environment variables listed above.
+3. **Environment Variables**: Under **Site configuration > Environment variables**, add all environment variables listed above. The AI keys are server-only: use the exact uppercase names, make them available to Functions in Production, and never prefix them with `VITE_`. If Doppler supplies Netlify's variables, confirm they reach the deployed function runtime, not just the build. Gemini remains primary; on a temporary provider limit or outage the server tries configured Mistral, Groq, then OpenRouter free. Missing fallback keys are skipped. CourseIT records the actual provider/model and charges a fallback generation at the Flash Lite credit tier.
 4. **Trigger Clean Deploy**: If environment variables are added or changed, click **Deploys > Trigger deploy > Clear cache and deploy site** to ensure Vite compiles the frontend bundle with the latest values.
 5. **Authorize Appwrite Web Platform (CORS)**:
    * Open your [Appwrite Cloud Console](https://syd.cloud.appwrite.io) (Sydney `syd1`).

@@ -4,7 +4,7 @@ import os from 'os';
 import { Client, Databases, Users, ID, Query, Account as ServerAccount } from 'node-appwrite';
 import { Resend } from 'resend';
 import { extractDocumentation } from './extract.js';
-import { summarizeWithLLM } from './llm.js';
+import { summarizeWithLLM } from './llm/manager.js';
 import { randomUUID } from 'node:crypto';
 import { readState, writeState, listState, updateState, deleteState } from './state.js';
 import { listDocumentsAll, readCourse, courseDatabase, addPublicCourseToFeed, removePublicCourseFromFeed } from './catalog.js';
@@ -1001,7 +1001,7 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
     const extracted = await extractDocumentation(url, options);
     await options.onStage?.('Extracting documentation');
     await options.onStage?.('Generating with Gemini');
-    const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel, options.topic);
+    const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel, options.topic, options.onStage);
     const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation, startedAt,
       source_url: extracted.resolvedUrl || url, input_url: options.inputUrl || url, learning_topic: options.topic || null,
       creator_name: options.userName || null, source_type: 'url', onStage: options.onStage, requestId: options.requestId });
@@ -1018,7 +1018,7 @@ export async function processDocumentText({ title, text, customModel = 'gemini-f
   try {
     await onStage?.('Extracting documentation');
     await onStage?.('Generating with Gemini');
-    const summarized = await summarizeWithLLM(text, title || 'Uploaded Document', customModel);
+    const summarized = await summarizeWithLLM(text, title || 'Uploaded Document', customModel, null, onStage);
     const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation, startedAt,
       source_url: 'upload://' + encodeURIComponent(title || 'document'), creator_name: userName, source_type: 'document', onStage, requestId });
     charged = true;
@@ -1028,6 +1028,10 @@ export async function processDocumentText({ title, text, customModel = 'gemini-f
 
 async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, input_url = null, learning_topic = null, creator_name = null, source_type, reservation, startedAt, onStage, requestId }) {
   const actualModel = summarized.actualModel || customModel;
+  // A fallback model is recorded accurately, but never charges more than the
+  // lowest selectable tier. The original reservation still covers that charge.
+  const billingModel = Object.hasOwn(MODEL_CREDIT_COSTS, actualModel) ? actualModel :
+    (summarized.isFallback ? 'gemini-flash-lite-latest' : customModel || 'gemini-flash-lite-latest');
   const isGuest = !userId || userId === 'public_guest';
   const course = normalizeCourse({
     $id: ID.unique(), $createdAt: new Date().toISOString(),
@@ -1041,7 +1045,7 @@ async function saveGeneration({ summarized, customModel, isAdmin, userId, userEm
     prompt_tokens: summarized.usage?.promptTokens ?? null,
     output_tokens: summarized.usage?.candidateTokens ?? null,
     total_tokens: summarized.usage?.totalTokens ?? null,
-    credits_charged: isGuest ? 0 : getModelCost(actualModel),
+    credits_charged: isGuest ? 0 : getModelCost(billingModel),
     generation_status: 'completed'
   });
   // Every run gets its own ID; a URL cache must never return another author's private course.
@@ -1049,9 +1053,9 @@ async function saveGeneration({ summarized, customModel, isAdmin, userId, userEm
   await writeState('courses/' + course.$id, course);
   let quota;
   try {
-    quota = await deductCredit(userId, isAdmin, actualModel, source_type === 'document', {
+    quota = await deductCredit(userId, isAdmin, billingModel, source_type === 'document', {
       requestId: requestId || reservation.id, courseId: course.$id, courseTitle: course.title,
-      sourceType: source_type, sourceUrl: source_url, userEmail: userEmail || null,
+      sourceType: source_type, sourceUrl: source_url, userEmail: userEmail || null, actualModel,
       promptTokens: summarized.usage?.promptTokens ?? null,
       candidateTokens: summarized.usage?.candidateTokens ?? null,
       totalTokens: summarized.usage?.totalTokens ?? null,

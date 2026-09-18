@@ -7,13 +7,17 @@ import { randomUUID } from 'node:crypto';
 
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'courseit-tests-'));
 for (const key of Object.keys(process.env)) {
-  if (/^(APPWRITE_|VITE_APPWRITE_|NETLIFY|AWS_LAMBDA_|VITE_MAINTENANCE|RESEND_)/.test(key)) delete process.env[key];
+  if (/^(APPWRITE_|VITE_APPWRITE_|NETLIFY|AWS_LAMBDA_|VITE_MAINTENANCE|RESEND_|MISTRAL_|GROQ_|OPENROUTER_|CEREBRAS_|GEMINI_)/.test(key)) delete process.env[key];
 }
 Object.assign(process.env, { COURSEIT_DATA_DIR: temporary, APPWRITE_ENDPOINT: 'https://auth.test/v1',
   APPWRITE_PROJECT_ID: 'test-project', ADMIN_EMAIL: 'admin@example.test', LLM_API_KEY: 'test-only', LLM_PROVIDER: 'gemini' });
 let providerCalls = 0;
 let providerFailure = false;
 let providerRateLimited = false;
+let providerAuthFailure = false;
+let providerBadRequest = false;
+let fallbackCalls = [];
+let fallbackStatuses = {};
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input, options = {}) => {
   const url = typeof input === 'string' ? input : input.url || String(input);
@@ -30,12 +34,27 @@ globalThis.fetch = async (input, options = {}) => {
   ] });
   if (url.includes('generativelanguage.googleapis.com')) {
     providerCalls++;
+    if (providerAuthFailure) return Response.json({ error: { message: 'Invalid API key', code: 401 } }, { status: 401 });
+    if (providerBadRequest) return Response.json({ error: { message: 'Bad Request: Invalid argument', code: 400 } }, { status: 400 });
     if (providerRateLimited) return Response.json({ error: { message: 'RESOURCE_EXHAUSTED: Retry in 2 seconds', code: 429 } },
       { status: 429, headers: { 'Retry-After': '2' } });
     if (providerFailure) return Response.json({ error: { message: 'Service Unavailable', code: 503 } }, { status: 503 });
     const course = { title: 'Test generated course', steps: [{ title: 'Build a test', summary: 'Run the test.' }] };
     return Response.json({ candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify(course) }] }, finishReason: 'STOP' }],
       usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 20, totalTokenCount: 30 } });
+  }
+  const fallback = url.includes('api.cerebras.ai') ? 'Cerebras' :
+    url.includes('api.groq.com') ? 'Groq' :
+    url.includes('api.mistral.ai') ? 'Mistral' :
+    url.includes('openrouter.ai/api') ? 'OpenRouter' : null;
+  if (fallback) {
+    const request = JSON.parse(options.body);
+    fallbackCalls.push({ provider: fallback, request });
+    if (fallbackStatuses[fallback]) return Response.json({ error: { message: 'Provider unavailable' } },
+      { status: fallbackStatuses[fallback], headers: { 'Retry-After': '3' } });
+    return Response.json({ model: request.model, choices: [{ message: { content: JSON.stringify({
+      title: 'Fallback course', steps: [{ title: 'Build a fallback', summary: 'Run the command.' }] }) } }],
+      usage: { prompt_tokens: 12, completion_tokens: 24, total_tokens: 36 } });
   }
   if (url === 'https://docs.test/guide') return new Response('<html><head><title>Example docs</title></head><body><article><h1>Build a test</h1><p>Install the package, create a test file and run the test command to check your application. These instructions provide enough text for extraction.</p></article></body></html>');
   throw new Error('Unexpected external request: ' + url);
@@ -300,6 +319,199 @@ test('Gemini 429 does not call a fallback model or deduct credits twice on retry
     assert.equal((await getUserQuota('author')).quota_remaining, beforeBalance - 0.5);
     assert.equal((await getCreditHistory('author')).filter(event => event.courseId === generated.course.$id).length, 1);
   } finally { providerRateLimited = false; }
+});
+test('1. Gemini success -> stop', async () => {
+  const beforeCalls = fallbackCalls.length;
+  providerRateLimited = false;
+  const { summarizeWithLLM } = await import('../server/llm/manager.js');
+  const result = await summarizeWithLLM('Example source', 'Primary test');
+  assert.equal(result.actualModel, 'gemini-flash-lite-latest');
+  assert.equal(Boolean(result.isFallback), false);
+  assert.equal(fallbackCalls.length, beforeCalls);
+});
+test('2. Gemini 429 -> Cerebras', async () => {
+  process.env.CEREBRAS_API_KEY = 'test-cerebras-key';
+  providerRateLimited = true;
+  const beforeCalls = fallbackCalls.length;
+  try {
+    const { summarizeWithLLM } = await import('../server/llm/manager.js');
+    const result = await summarizeWithLLM('Example source', 'Cerebras test');
+    assert.equal(result.actualModel, 'cerebras:llama3.1-8b');
+    assert.equal(result.isFallback, true);
+    assert.match(result.fallbackNotice, /Cerebras/);
+    assert.equal(fallbackCalls.length, beforeCalls + 1);
+    assert.equal(fallbackCalls.at(-1).provider, 'Cerebras');
+  } finally {
+    providerRateLimited = false;
+    delete process.env.CEREBRAS_API_KEY;
+  }
+});
+test('3. Cerebras temporary failure -> Groq', async () => {
+  process.env.CEREBRAS_API_KEY = 'test-cerebras-key';
+  process.env.GROQ_API_KEY = 'test-groq-key';
+  providerRateLimited = true;
+  fallbackStatuses = { Cerebras: 503 };
+  try {
+    const { summarizeWithLLM } = await import('../server/llm/manager.js');
+    const result = await summarizeWithLLM('a'.repeat(35000), 'Long documentation');
+    assert.equal(result.actualModel, 'groq:openai/gpt-oss-20b');
+    assert.match(result.fallbackNotice, /shorter source excerpt/);
+    assert.deepEqual(fallbackCalls.slice(-2).map(call => call.provider), ['Cerebras', 'Groq']);
+    assert.ok(fallbackCalls.at(-1).request.messages[1].content.length < 13000);
+  } finally {
+    providerRateLimited = false;
+    fallbackStatuses = {};
+    delete process.env.CEREBRAS_API_KEY;
+    delete process.env.GROQ_API_KEY;
+  }
+});
+test('4. Groq temporary failure -> Mistral', async () => {
+  process.env.CEREBRAS_API_KEY = 'test-cerebras-key';
+  process.env.GROQ_API_KEY = 'test-groq-key';
+  process.env.MISTRAL_API_KEY = 'test-mistral-key';
+  providerRateLimited = true;
+  fallbackStatuses = { Cerebras: 503, Groq: 504 };
+  try {
+    const { summarizeWithLLM } = await import('../server/llm/manager.js');
+    const result = await summarizeWithLLM('Example source', 'Mistral fallback test');
+    assert.equal(result.actualModel, 'mistral:mistral-small-latest');
+    assert.match(result.fallbackNotice, /Mistral/);
+    assert.deepEqual(fallbackCalls.slice(-3).map(call => call.provider), ['Cerebras', 'Groq', 'Mistral']);
+  } finally {
+    providerRateLimited = false;
+    fallbackStatuses = {};
+    delete process.env.CEREBRAS_API_KEY;
+    delete process.env.GROQ_API_KEY;
+    delete process.env.MISTRAL_API_KEY;
+  }
+});
+test('5. Mistral temporary failure -> OpenRouter', async () => {
+  process.env.CEREBRAS_API_KEY = 'test-cerebras-key';
+  process.env.GROQ_API_KEY = 'test-groq-key';
+  process.env.MISTRAL_API_KEY = 'test-mistral-key';
+  process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
+  providerRateLimited = true;
+  fallbackStatuses = { Cerebras: 503, Groq: 504, Mistral: 429 };
+  try {
+    const { summarizeWithLLM } = await import('../server/llm/manager.js');
+    const result = await summarizeWithLLM('Example source', 'OpenRouter fallback test');
+    assert.equal(result.actualModel, 'openrouter:openrouter/free');
+    assert.deepEqual(fallbackCalls.slice(-4).map(call => call.provider), ['Cerebras', 'Groq', 'Mistral', 'OpenRouter']);
+    assert.equal(fallbackCalls.at(-1).request.model, 'openrouter/free');
+  } finally {
+    providerRateLimited = false;
+    fallbackStatuses = {};
+    delete process.env.CEREBRAS_API_KEY;
+    delete process.env.GROQ_API_KEY;
+    delete process.env.MISTRAL_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+  }
+});
+test('6. missing key -> skip provider', async () => {
+  delete process.env.CEREBRAS_API_KEY;
+  process.env.GROQ_API_KEY = 'test-groq-key';
+  providerRateLimited = true;
+  const beforeCalls = fallbackCalls.length;
+  try {
+    const { summarizeWithLLM } = await import('../server/llm/manager.js');
+    const result = await summarizeWithLLM('Example source', 'Skip missing key test');
+    assert.equal(result.actualModel, 'groq:openai/gpt-oss-20b');
+    assert.equal(fallbackCalls.length, beforeCalls + 1);
+    assert.equal(fallbackCalls.at(-1).provider, 'Groq');
+    assert.ok(!fallbackCalls.slice(beforeCalls).some(call => call.provider === 'Cerebras'));
+  } finally {
+    providerRateLimited = false;
+    delete process.env.GROQ_API_KEY;
+  }
+});
+test('7. bad request -> no fallback', async () => {
+  process.env.CEREBRAS_API_KEY = 'test-cerebras-key';
+  process.env.GROQ_API_KEY = 'test-groq-key';
+  process.env.MISTRAL_API_KEY = 'test-mistral-key';
+  process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
+  providerBadRequest = true;
+  const beforeCalls = fallbackCalls.length;
+  try {
+    const { summarizeWithLLM } = await import('../server/llm/manager.js');
+    await assert.rejects(summarizeWithLLM('Example source'), error => Number(error.status) === 400);
+    assert.equal(fallbackCalls.length, beforeCalls);
+  } finally {
+    providerBadRequest = false;
+    delete process.env.CEREBRAS_API_KEY;
+    delete process.env.GROQ_API_KEY;
+    delete process.env.MISTRAL_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+  }
+});
+test('8. fallback success -> exactly one course, one credit deduction, one usage record', async () => {
+  process.env.CEREBRAS_API_KEY = 'test-cerebras-key';
+  await topUpUserCredits('author', 10);
+  const beforeBalance = (await getUserQuota('author')).quota_remaining;
+  const beforeCalls = fallbackCalls.length;
+  providerRateLimited = true;
+  const requestId = randomUUID();
+  try {
+    const result = await processDocumentText({
+      title: 'Cerebras fallback notes',
+      text: 'Example source documentation for testing learning steps.',
+      customModel: 'gemini-3.7-flash',
+      userId: 'author',
+      userEmail: 'author@example.test',
+      requestId
+    });
+    assert.equal(result.course.actual_model, 'cerebras:llama3.1-8b');
+    assert.equal(result.course.credits_charged, 0.5);
+    assert.equal(result.quota.remaining, beforeBalance - 0.5);
+    assert.match(result.fallbackNotice, /Cerebras/);
+    assert.equal(result.course.generation_request_id, requestId);
+    assert.equal(fallbackCalls.length, beforeCalls + 1);
+    assert.equal(fallbackCalls.at(-1).provider, 'Cerebras');
+
+    // Exactly one course created
+    const courses = (await listState('courses/')).filter(c => c.$id === result.course.$id);
+    assert.equal(courses.length, 1);
+
+    // Exactly one credit deduction event
+    const historyEvents = (await getCreditHistory('author')).filter(event => event.courseId === result.course.$id);
+    assert.equal(historyEvents.length, 1);
+    assert.equal(historyEvents[0].actualModel, 'cerebras:llama3.1-8b');
+
+    // Exactly one usage entry
+    const usageEntries = (await listState('usage/')).filter(entry => entry.courseId === result.course.$id);
+    assert.equal(usageEntries.length, 1);
+  } finally {
+    providerRateLimited = false;
+    delete process.env.CEREBRAS_API_KEY;
+  }
+});
+test('Gemini 429 uses configured Mistral and charges the Flash Lite tier once', async () => {
+  process.env.MISTRAL_API_KEY = 'test-mistral-key';
+  await topUpUserCredits('author', 10);
+  const beforeBalance = (await getUserQuota('author')).quota_remaining;
+  const beforeCalls = fallbackCalls.length;
+  providerRateLimited = true;
+  try {
+    const result = await processDocumentText({ title: 'Fallback notes', text: 'Example source',
+      customModel: 'gemini-3.7-flash', userId: 'author', userEmail: 'author@example.test' });
+    assert.equal(result.course.actual_model, 'mistral:mistral-small-latest');
+    assert.equal(result.course.credits_charged, 0.5);
+    assert.equal(result.quota.remaining, beforeBalance - 0.5);
+    assert.match(result.fallbackNotice, /Mistral/);
+    assert.equal(fallbackCalls.length, beforeCalls + 1);
+    assert.equal(fallbackCalls.at(-1).provider, 'Mistral');
+    assert.equal((await getCreditHistory('author')).find(event => event.courseId === result.course.$id).actualModel,
+      'mistral:mistral-small-latest');
+  } finally { providerRateLimited = false; delete process.env.MISTRAL_API_KEY; }
+});
+test('Gemini credential errors do not send documentation to fallback providers', async () => {
+  process.env.MISTRAL_API_KEY = 'test-mistral-key';
+  providerAuthFailure = true;
+  const beforeCalls = fallbackCalls.length;
+  try {
+    const { summarizeWithLLM } = await import('../server/llm.js');
+    await assert.rejects(summarizeWithLLM('Example source'), error => Number(error.status) === 401);
+    assert.equal(fallbackCalls.length, beforeCalls);
+  } finally { providerAuthFailure = false; delete process.env.MISTRAL_API_KEY; }
 });
 test('signed-in generations default private and direct URLs enforce ownership', async () => {
   const generated = await api('/summarize-text', 'POST', { title: 'Private notes', text: 'Example source' }, 'author');

@@ -1,0 +1,91 @@
+import { Client, Databases, Query } from 'node-appwrite';
+import { readState, writeState, listState, deleteState } from './state.js';
+import { normalizeCourse, canReadCourse, isExpiredCourse, isSystemCourse, publicCourse } from '../shared/courses.js';
+
+export function courseDatabase() {
+  const e = process.env;
+  const project = e.APPWRITE_PROJECT_ID || e.VITE_APPWRITE_PROJECT_ID;
+  const databaseId = e.APPWRITE_DATABASE_ID || e.VITE_APPWRITE_DATABASE_ID;
+  const collectionId = e.APPWRITE_COLLECTION_ID || e.VITE_APPWRITE_COLLECTION_ID;
+  if (!e.APPWRITE_API_KEY || !project || !databaseId || !collectionId) return null;
+  const client = new Client().setEndpoint(e.APPWRITE_ENDPOINT || e.VITE_APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1')
+    .setProject(project).setKey(e.APPWRITE_API_KEY);
+  return { db: new Databases(client), databaseId, collectionId };
+}
+
+export async function listDocumentsAll(db, databaseId, collectionId, queries = []) {
+  const documents = [];
+  let cursor;
+  while (true) {
+    const page = await db.listDocuments(databaseId, collectionId, [...queries, Query.limit(100),
+      ...(cursor ? [Query.cursorAfter(cursor)] : [])]);
+    documents.push(...page.documents);
+    if (page.documents.length < 100) return documents;
+    cursor = page.documents.at(-1).$id;
+  }
+}
+
+export async function cleanupGuestCourses() {
+  const courses = await listState('courses/');
+  let removed = 0;
+  for (const doc of courses) {
+    if (isExpiredCourse(normalizeCourse(doc))) {
+      await deleteState(`courses/${doc.$id}`);
+      removed++;
+    }
+  }
+  return removed;
+}
+
+export async function listCatalog(session = null, scope = 'catalog') {
+  const config = courseDatabase();
+  const stored = await listState('courses/');
+  const remote = config ? await listDocumentsAll(config.db, config.databaseId, config.collectionId) : [];
+  const map = new Map(remote.filter(d => !isSystemCourse(d)).map(d => [d.$id, normalizeCourse(d)]));
+  stored.forEach(d => map.set(d.$id, normalizeCourse(d)));
+  return Array.from(map.values()).filter(c => canReadCourse(c, session?.userId, session?.isAdmin))
+    .filter(c => scope !== 'mine' || c.creator_id === session?.userId)
+    .map(c => publicCourse(c, session?.userId, session?.isAdmin))
+    .sort((a, b) => b.$createdAt.localeCompare(a.$createdAt));
+}
+
+export async function readCourse(id, session) {
+  let course = await readState(`courses/${id}`);
+  const config = courseDatabase();
+  if (!course && config) {
+    try { course = await config.db.getDocument(config.databaseId, config.collectionId, id); }
+    catch (error) { if (error.code !== 404) throw error; }
+  }
+  if (!course || isSystemCourse(course)) throw Object.assign(new Error('Course not found.'), { status: 404 });
+  course = normalizeCourse(course);
+  if (isExpiredCourse(course)) throw Object.assign(new Error('This guest course expired after 30 minutes. Generate a new course to continue.'), { status: 410 });
+  if (!canReadCourse(course, session?.userId, session?.isAdmin)) {
+    throw Object.assign(new Error(session ? 'Access Denied: This course is private to its author.' :
+      'Authentication Required: Sign in to view this private course.'), { status: session ? 403 : 401 });
+  }
+  return publicCourse(course, session?.userId, session?.isAdmin);
+}
+
+export async function publishCourse(id, session) {
+  const course = await readCourse(id, session);
+  if (!session || (!session.isAdmin && course.creator_id !== session.userId)) {
+    throw Object.assign(new Error('Only the author or administrator can publish a course.'), { status: 403 });
+  }
+  const published = { ...course, visibility: 'public' };
+  // Store the sharing decision behind the API; no public write permissions are needed.
+  await writeState(`courses/${id}`, published);
+  return published;
+}
+
+export async function readMaintenance() {
+  if (process.env.VITE_MAINTENANCE_MODE === 'true') return true;
+  return Boolean((await readState('settings/maintenance'))?.enabled);
+}
+
+export async function writeMaintenance(enabled) {
+  if (process.env.VITE_MAINTENANCE_MODE === 'true' && !enabled) {
+    throw Object.assign(new Error('VITE_MAINTENANCE_MODE forces maintenance on. Remove that override in the deployment settings first.'), { status: 409 });
+  }
+  await writeState('settings/maintenance', { enabled, updatedAt: new Date().toISOString() });
+  return enabled;
+}

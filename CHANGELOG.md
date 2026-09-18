@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-09-18 — Public Course Sharing, Durable Credits & Reliable AI Jobs (LIVE Beta)
+
+### Added
+- Public community courses with explicit sharing controls, author/admin publication of older courses, and recent generated-course links below the Studio prompt.
+- Persistent credit transaction history in Profile and Admin, including fractional deductions, top-ups, balances and generation token totals.
+- Netlify Blobs storage for courses, accounts, approvals, feedback, usage and maintenance settings, with conditional writes protecting concurrent credit updates.
+
+### Fixed
+- Removed cross-account URL-cache reuse that could return another author's private course or overwrite their content.
+- Read legacy creator metadata from serialized course steps, paginate all Appwrite results, preserve distinct account IDs and remove synthetic account placeholders.
+- Maintenance changes now require verified admin identity, persist server-side, and report write failures instead of showing false success.
+- Share one API implementation between local development and modern Netlify Functions; verify session identity for privileged requests.
+- Bound AI retries and source-fetch timeouts, surface useful provider/gateway errors, and charge only after successful generation and course persistence.
+- Validate account-session JWTs during the initial quota fetch instead of relying on stale browser auth state.
+
+### Changed
+- Guest course access expires after 30 minutes, with physical cleanup scheduled every 5 minutes. Signed-in saved courses are retained.
+- OCR source images remain on the user's device; generated course text follows the selected visibility policy.
+- Existing private courses remain private until explicitly published. The shared guest trial remains three generations per 24-hour reset.
+- Legacy Appwrite courses remain available. Missing temporary account records may be recovered from known course authors or sign-in, but lost balances and historical usage are not fabricated.
+- Added automated regression coverage for authorization, expiry, maintenance, pagination, generation failures and conditional credit updates.
+
 ## [1.12.2] - 2026-09-18 — Email Suite Crash, Course Visibility, Admin Dedup & Loop Fixes (LIVE Beta)
 
 ### Fixed & Hardened

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import CreditHistory from '../components/CreditHistory';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   User,
@@ -494,6 +495,8 @@ export default function Profile() {
               Each URL or document course generation costs between 0.5 and 5.0 credits depending on model choice.
             </p>
           </div>
+
+          <CreditHistory />
 
           {/* Actions */}
           <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center gap-3">

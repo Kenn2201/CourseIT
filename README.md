@@ -4,8 +4,8 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.12.2--LIVE--Beta-indigo.svg)
-[![Last Commit](https://img.shields.io/badge/last%20commit-ea2b579-purple.svg)](https://github.com/Kenn2201/CourseIT/commits/master)
+![Version](https://img.shields.io/badge/version-v1.13.0--LIVE--Beta-indigo.svg)
+[![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple)](https://github.com/Kenn2201/CourseIT/commit/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
@@ -21,12 +21,20 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.12.2 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.13.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
-* **Latest Production Commit**: [`ea2b579`](https://github.com/Kenn2201/CourseIT/commits/master)
+* **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT/commit/master)
 
 ### Recent Release Notes
+
+* **v1.13.0 LIVE Beta (September 18, 2026)** — *Public Course Sharing, Durable Credits & Reliable AI Jobs*:
+  * **Public sharing**: Guest courses appear on the community board for 30 minutes; signed-in authors choose visibility and can publish existing private courses.
+  * **Persistent state**: Netlify Blobs retains credits, approvals, courses, feedback and maintenance settings across cold starts. Legacy Appwrite courses remain readable.
+  * **Usage history**: Profile and Admin display actual credit transactions and token totals. Studio retains recent generated-course links below the prompt.
+  * **Reliable failures**: Bounded AI attempts, actionable gateway/provider errors, verified sessions and conditional credit deductions.
+  * **Retention**: Guest access ends at 30 minutes; cleanup runs every 5 minutes. Original OCR images stay on-device. The shared guest quota still resets after 24 hours.
+  * **Recovery limits**: Previously lost temporary records and usage history cannot be fully restored. Known course authors can be recovered, but lost approvals/balances require administrator review.
 
 * **v1.12.2 LIVE Beta (September 18, 2026)** — *Email Suite Crash, Course Visibility, Admin Dedup & Loop Fixes*:
   * **Email Suite ReferenceError Fixed**: `customEmailBody` state was never declared — clicking Email Suite tab crashed the entire admin panel. Fixed.
@@ -109,7 +117,8 @@ Standard technical documentation is often filled with introductory scene-setting
 | **Extraction** | Mozilla Readability + JSDOM | High-speed server-side HTML scraping and article isolation |
 | **OCR** | Tesseract.js | In-browser client-side optical character recognition |
 | **AI Models** | Google Gemini SDK (`@google/generative-ai`) | Multi-tier reasoning: Flash Lite, Gemini 3.5, 3.6, and 3.7 Flash |
-| **Auth & Database** | Appwrite Cloud (Sydney `syd1`) | OAuth2 (Google & GitHub), email auth, quotas, document storage |
+| **Authentication & Legacy Courses** | Appwrite Cloud (Sydney `syd1`) | OAuth2 (Google & GitHub), email auth and existing course documents |
+| **Application State** | Netlify Blobs | Persistent courses, credits, approvals, history, feedback and maintenance |
 | **Email Delivery** | Resend API | Transactional emails dispatched from `CourseIT <hello@courseit.kenncode.me>` |
 | **Hosting & CI/CD** | Netlify | Automated continuous deployment directly connected to GitHub |
 
@@ -117,10 +126,16 @@ Standard technical documentation is often filled with introductory scene-setting
 
 ## 🚀 Getting Started
 
+### Storage and regression checks
+
+Production uses a site-wide `courseit-state` Netlify Blobs store through modern Netlify Functions. Runtime credentials are supplied by Netlify; no extra storage key is required. Credit updates use [strong consistency and conditional writes](https://docs.netlify.com/build/data-and-storage/netlify-blobs/). Local development stores state in ignored `server/data/state/` (override with `COURSEIT_DATA_DIR`). Do not place secrets or this local state in Git.
+
+Run `npm test` for isolated regression checks (mock AI/auth, no real emails) and `npm run build` before deployment. Credit history begins with this release; old temporary data cannot be recreated. Existing Appwrite source-image uploads are not deleted by the new guest-course cleanup.
+
 ### 1. Prerequisites
 
 Ensure you have the following installed on your machine:
-* [Node.js](https://nodejs.org/) `>= 18.0.0` (Recommended: `v22.x`)
+* [Node.js](https://nodejs.org/) `>= 22.20.0` (Netlify uses `v22.x`)
 * [npm](https://www.npmjs.com/) `>= 9.x`
 * [Git](https://git-scm.com/)
 

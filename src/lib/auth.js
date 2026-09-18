@@ -126,7 +126,7 @@ export async function loginWithEmail(email, password) {
     // 2. Check quota & approval status
     let quota = null;
     try {
-      const quotaRes = await fetch(`/api/user/quota?userId=${encodeURIComponent(user.$id)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}`);
+      const quotaRes = await fetchSessionQuota();
       const quotaData = await quotaRes.json();
       if (quotaData.success) {
         quota = quotaData.quota;
@@ -218,7 +218,7 @@ export async function handleOAuthSuccess(userId, secret) {
   // Register in quota system or fetch existing
   let quota = null;
   try {
-    const qRes = await fetch(`/api/user/quota?userId=${encodeURIComponent(user.$id)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}`);
+    const qRes = await fetchSessionQuota();
     const qData = await qRes.json();
     if (qData.success) {
       quota = qData.quota;
@@ -271,7 +271,7 @@ export async function checkAppwriteSession() {
       // Fetch fresh quota
       let quota = null;
       try {
-        const quotaRes = await fetch(`/api/user/quota?userId=${encodeURIComponent(user.$id)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}`);
+        const quotaRes = await fetchSessionQuota();
         const quotaData = await quotaRes.json();
         if (quotaData.success) {
           quota = quotaData.quota;
@@ -314,6 +314,12 @@ let jwtExpiry = 0;
 /**
  * Creates or retrieves a valid Appwrite session JWT for server-side verification
  */
+async function fetchSessionQuota() {
+  const acc = ensureAccount();
+  const { jwt } = await acc.createJWT();
+  return fetch('/api/user/quota', { headers: { 'x-appwrite-jwt': jwt } });
+}
+
 export async function getAuthJwt() {
   const authState = getAuthState();
   const acc = ensureAccount();
@@ -354,6 +360,7 @@ export async function authenticatedFetch(url, options = {}) {
   // Strictly skip JWT creation for guests and unauthenticated visitors
   if (authState.isAuthenticated && authState.user?.id) {
     const jwt = await getAuthJwt();
+    if (!jwt) throw new Error('Your session expired. Sign in again.');
     if (jwt) {
       headers['x-appwrite-jwt'] = jwt;
       headers['authorization'] = `Bearer ${jwt}`;
@@ -400,7 +407,7 @@ export async function archiveAccount(reason, feedback) {
   const current = getAuthState();
   if (!current.user?.id) throw new Error('You must be logged in to archive your account');
 
-  const res = await fetch('/api/user/archive', {
+  const res = await authenticatedFetch('/api/user/archive', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

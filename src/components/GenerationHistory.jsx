@@ -159,7 +159,7 @@ export default function GenerationHistory({ courses = [], onDeleteCourse, curren
                     <div className="flex items-center gap-3 pt-1 text-xs text-slate-500 font-mono">
                       <span>{stepsCount} action steps</span>
                       <span>&bull;</span>
-                      <span>Created by: <strong className="text-slate-400 font-semibold">{item.creator_email || item.creator_name || (item.is_curated ? 'CourseIT Team' : 'Guest User (24h)')}</strong></span>
+                      <span>Created by: <strong className="text-slate-400 font-semibold">{item.creator_email || item.creator_name || (item.is_curated ? 'CourseIT Team' : 'Guest (30 min)')}</strong></span>
                     </div>
                   </div>
                 </div>

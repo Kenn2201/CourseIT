@@ -5,6 +5,10 @@ import { Client, Databases, ID, Query, Account as ServerAccount } from 'node-app
 import { Resend } from 'resend';
 import { extractDocumentation } from './extract.js';
 import { summarizeWithLLM } from './llm.js';
+import { randomUUID } from 'node:crypto';
+import { readState, writeState, listState, updateState, deleteState } from './state.js';
+import { listDocumentsAll, readCourse, courseDatabase } from './catalog.js';
+import { normalizeCourse } from '../shared/courses.js';
 
 // In serverless / AWS Lambda / Netlify environments, the root file system is read-only.
 // Use os.tmpdir() for runtime fallback files.
@@ -16,6 +20,7 @@ const isServerless = Boolean(
 );
 
 const getLocalDataDir = () => {
+  if (process.env.COURSEIT_DATA_DIR) return process.env.COURSEIT_DATA_DIR;
   const defaultPath = path.join(process.cwd(), 'server', 'data');
   if (fs.existsSync(defaultPath)) return defaultPath;
   const directPath = path.join(process.cwd(), 'data');
@@ -28,9 +33,7 @@ const DATA_DIR = isServerless
   : getLocalDataDir();
 
 const USERS_QUOTA_FILE = path.join(DATA_DIR, 'users_quota.json');
-const PUBLIC_SANDBOX_FILE = path.join(DATA_DIR, 'public_sandbox.json');
 const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
-const TOKEN_USAGE_FILE = path.join(DATA_DIR, 'token_usage.json');
 
 // Ensure persistent local fallback data directory exists safely
 try {
@@ -87,84 +90,34 @@ export async function verifyAppwriteSession(jwt) {
   }
 }
 
-function loadTokenUsage() {
-  try {
-    if (fs.existsSync(TOKEN_USAGE_FILE)) {
-      const raw = fs.readFileSync(TOKEN_USAGE_FILE, 'utf-8');
-      return JSON.parse(raw || '{}');
-    }
-  } catch {}
-  return {
-    totalTokens: 0,
-    promptTokens: 0,
-    candidateTokens: 0,
-    estimatedCostUsd: 0,
-    totalGenerations: 0,
-    perUser: {},
-    history: []
+export async function recordTokenUsage({ userId, model, usage, courseTitle, cost = 0, balance = null, courseId }) {
+  const entry = {
+    id: randomUUID(), timestamp: new Date().toISOString(), type: 'generation',
+    userId: userId || 'public_guest', model, courseTitle, courseId,
+    promptTokens: usage?.promptTokens || 0, candidateTokens: usage?.candidateTokens || 0,
+    totalTokens: usage?.totalTokens || 0, credits: -cost, balance
   };
+  await writeState('usage/' + entry.id, entry);
+  return entry;
 }
 
-function saveTokenUsage(data) {
-  try {
-    fs.writeFileSync(TOKEN_USAGE_FILE, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Failed to save token usage file:', err.message);
+export async function getTokenMetrics(userId = null) {
+  const entries = (await listState('usage/')).filter(e => !userId || e.userId === userId)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  const stats = { totalTokens: 0, promptTokens: 0, candidateTokens: 0, totalGenerations: 0, creditsUsed: 0, perUser: {}, history: entries };
+  for (const e of entries) {
+    stats.totalTokens += e.totalTokens || 0;
+    stats.promptTokens += e.promptTokens || 0;
+    stats.candidateTokens += e.candidateTokens || 0;
+    if (e.type !== 'generation') continue;
+    stats.totalGenerations++;
+    stats.creditsUsed += Math.max(0, -(e.credits || 0));
+    const user = stats.perUser[e.userId] ||= { totalTokens: 0, generations: 0, creditsUsed: 0 };
+    user.totalTokens += e.totalTokens || 0;
+    user.generations++;
+    user.creditsUsed += Math.max(0, -(e.credits || 0));
   }
-}
-
-export function recordTokenUsage({ userId, model, usage, courseTitle }) {
-  if (!usage) return null;
-  const stats = loadTokenUsage();
-  if (!stats.perUser) stats.perUser = {};
-  if (!stats.history) stats.history = [];
-
-  const pTokens = usage.promptTokens || 0;
-  const cTokens = usage.candidateTokens || 0;
-  const tTokens = usage.totalTokens || (pTokens + cTokens);
-
-  // Gemini pricing: Flash Lite ($0.075 / 1M prompt, $0.30 / 1M completion)
-  // Others: approx ($0.15 / 1M prompt, $0.60 / 1M completion)
-  const isLite = (model || '').includes('lite');
-  const pRate = isLite ? 0.075 : 0.15;
-  const cRate = isLite ? 0.30 : 0.60;
-  const costUsd = ((pTokens * pRate) + (cTokens * cRate)) / 1000000;
-
-  stats.totalTokens = (stats.totalTokens || 0) + tTokens;
-  stats.promptTokens = (stats.promptTokens || 0) + pTokens;
-  stats.candidateTokens = (stats.candidateTokens || 0) + cTokens;
-  stats.estimatedCostUsd = Number(((stats.estimatedCostUsd || 0) + costUsd).toFixed(6));
-  stats.totalGenerations = (stats.totalGenerations || 0) + 1;
-
-  const uKey = userId || 'public_guest';
-  if (!stats.perUser[uKey]) {
-    stats.perUser[uKey] = { totalTokens: 0, generations: 0, estimatedCostUsd: 0 };
-  }
-  stats.perUser[uKey].totalTokens += tTokens;
-  stats.perUser[uKey].generations += 1;
-  stats.perUser[uKey].estimatedCostUsd = Number(((stats.perUser[uKey].estimatedCostUsd || 0) + costUsd).toFixed(6));
-
-  stats.history.unshift({
-    timestamp: new Date().toISOString(),
-    userId: uKey,
-    model: model || 'gemini-flash-lite-latest',
-    promptTokens: pTokens,
-    candidateTokens: cTokens,
-    totalTokens: tTokens,
-    costUsd: Number(costUsd.toFixed(6)),
-    courseTitle: courseTitle || 'Generated Course'
-  });
-
-  if (stats.history.length > 100) {
-    stats.history = stats.history.slice(0, 100);
-  }
-
-  saveTokenUsage(stats);
-  return { ...usage, costUsd };
-}
-
-export function getTokenMetrics() {
-  return loadTokenUsage();
+  return stats;
 }
 
 // Model Credit Pricing Tiers
@@ -197,22 +150,6 @@ function saveLocalUsersQuota(data) {
   } catch (err) {
     console.warn('Failed to save local users quota file:', err.message);
   }
-}
-
-function loadPublicSandbox() {
-  try {
-    if (fs.existsSync(PUBLIC_SANDBOX_FILE)) {
-      const raw = fs.readFileSync(PUBLIC_SANDBOX_FILE, 'utf-8');
-      return JSON.parse(raw || '{}');
-    }
-  } catch {}
-  return { urlGenerations: 0, docGenerations: 0, lastReset: Date.now() };
-}
-
-function savePublicSandbox(data) {
-  try {
-    fs.writeFileSync(PUBLIC_SANDBOX_FILE, JSON.stringify(data, null, 2), 'utf-8');
-  } catch {}
 }
 
 // Initialize Appwrite Server Client
@@ -279,154 +216,50 @@ export async function sendEmail({ to, subject, html }) {
 /**
  * Get or initialize user quota record (250 credits default)
  */
-export async function getUserQuota(userId, email = '', name = '') {
+export async function getUserQuota(userId, email = '', name = '', verifiedAdmin = false) {
   if (!userId || userId === 'public_guest') {
-    const sandbox = loadPublicSandbox();
-    const now = Date.now();
-    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-    if (!sandbox.lastReset || now - sandbox.lastReset > TWENTY_FOUR_HOURS) {
-      sandbox.totalGenerations = 0;
-      sandbox.lastReset = now;
-      savePublicSandbox(sandbox);
-    }
-    const used = sandbox.totalGenerations || 0;
-    const remaining = Math.max(0, 3 - used);
-    return {
-      user_id: 'public_guest',
-      quota_remaining: remaining,
-      remaining,
-      used,
-      total: 3,
-      isPublicSandbox: true
-    };
+    const sandbox = await readState('settings/guest-quota');
+    const used = sandbox && Date.now() - sandbox.lastReset < 86400000 ? sandbox.totalGenerations : 0;
+    return { user_id: 'public_guest', quota_remaining: Math.max(0, 3 - used),
+      remaining: Math.max(0, 3 - used), used, total: 3, isPublicSandbox: true };
   }
-
-  const localData = loadLocalUsersQuota();
-  const db = getAppwriteDb();
-  const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-
-  const isAdmin = Boolean(email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
-
-  const tokenStats = loadTokenUsage();
-  const tokensUsed = tokenStats.perUser?.[userId]?.totalTokens || 0;
-
-  // 1. Check Appwrite FIRST — it is the persistent source of truth
-  if (db && databaseId) {
-    try {
-      const existing = await Promise.race([
-        db.listDocuments(databaseId, 'users_quota', [
-          Query.equal('user_id', userId)
-        ]),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Appwrite listDocuments timeout')), 3000))
-      ]);
-      if (existing.documents && existing.documents.length > 0) {
-        const doc = existing.documents[0];
-        const record = {
-          user_id: doc.user_id,
-          name: doc.name,
-          email: doc.email,
-          quota_remaining: doc.quota_remaining ?? DEFAULT_CREDITS,
-          status: isAdmin ? 'approved' : doc.status,
-          isAdmin: Boolean(isAdmin),
-          tokens_used: tokensUsed,
-          $id: doc.$id,
-          $createdAt: doc.$createdAt
-        };
-        // Keep local cache fresh so fast reads work between cold-starts
-        localData[userId] = record;
-        saveLocalUsersQuota(localData);
-        return record;
+  const key = 'users/' + userId;
+  let record = await readState(key);
+  if (!record) {
+    const db = getAppwriteDb();
+    const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
+    if (db && databaseId) {
+      try {
+        const result = await db.listDocuments(databaseId, 'users_quota', [Query.equal('user_id', userId)]);
+        record = result.documents[0] || null;
+      } catch (error) {
+        if (error.code !== 404) throw error;
       }
-    } catch (err) {
-      console.warn('Appwrite user quota fetch notice:', err.message);
-      // Fall through to local cache
     }
+    record ||= loadLocalUsersQuota()[userId] || {
+      user_id: userId, name: name || 'User', email, status: verifiedAdmin ? 'approved' : 'pending',
+      quota_remaining: verifiedAdmin ? DEFAULT_CREDITS : 0, $createdAt: new Date().toISOString()
+    };
+    record = await updateState(key, current => current || record);
   }
-
-  // 2. Local cache fallback (used when Appwrite is unreachable or times out)
-  if (localData[userId]) {
-    if (isAdmin) {
-      localData[userId].status = 'approved';
-      localData[userId].isAdmin = true;
-    }
-    localData[userId].tokens_used = tokensUsed;
-    return localData[userId];
+  if ((email && record.email !== email) || (name && record.name !== name) ||
+      (verifiedAdmin && record.status !== 'approved')) {
+    record = await updateState(key, current => ({ ...current,
+      email: email || current.email, name: name || current.name,
+      status: verifiedAdmin ? 'approved' : current.status }));
   }
-
-  // 3. Initialize new quota record (250 credits for admin, 0 for pending non-admin)
-  const initialStatus = isAdmin ? 'approved' : 'pending';
-  const initialQuota = isAdmin ? DEFAULT_CREDITS : 0;
-  const newRecord = {
-    user_id: userId,
-    name: name || (isAdmin ? 'Kenn Nacario' : 'User'),
-    email: email || '',
-    quota_remaining: initialQuota,
-    status: initialStatus,
-    isAdmin: Boolean(isAdmin),
-    tokens_used: tokensUsed,
-    $createdAt: new Date().toISOString()
-  };
-
-  // Try creating in Appwrite
-  if (db && databaseId) {
-    try {
-      const created = await Promise.race([
-        db.createDocument(databaseId, 'users_quota', ID.unique(), {
-          user_id: newRecord.user_id,
-          name: newRecord.name,
-          email: newRecord.email,
-          quota_remaining: newRecord.quota_remaining,
-          status: newRecord.status
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Appwrite createDocument timeout')), 3000))
-      ]);
-      newRecord.$id = created.$id;
-    } catch (err) {
-      console.warn('Appwrite user quota create notice:', err.message);
-    }
-  }
-
-  localData[userId] = newRecord;
-  saveLocalUsersQuota(localData);
-
-  // Send signup request received confirmation via Resend for newly registered pending users
-  if (!isAdmin && email && !email.endsWith('@example.com')) {
-    try {
-      sendEmail({
-        to: email,
-        subject: 'CourseIT - Beta Access Request Received',
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background: #0b0f19; color: #f1f5f9; border-radius: 16px; border: 1px solid #1e293b;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <span style="font-size: 32px;">⚡</span>
-              <h1 style="color: #6366f1; font-size: 24px; margin: 8px 0 0;">CourseIT</h1>
-              <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Zero AI Fluff &bull; Action-First Learning</p>
-            </div>
-            <div style="background: #131c2e; padding: 20px; border-radius: 12px; border: 1px solid #1e293b;">
-              <h2 style="color: #e2e8f0; font-size: 18px; margin-top: 0;">Beta Access Request Submitted!</h2>
-              <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
-                Hi <strong>${name || 'there'}</strong>, your request for <strong>250 CourseIT credits</strong> has been received by our administrator.
-              </p>
-              <p style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
-                Your account is currently in the approval queue. You will receive an approval email shortly once your account has been approved by the administrator.
-              </p>
-            </div>
-            <p style="color: #64748b; font-size: 12px; text-align: center; margin-top: 20px;">
-              CourseIT &bull; Built with ❤️ by Kenn Nacario
-            </p>
-          </div>
-        `
-      }).catch(mailErr => console.warn('Could not dispatch signup email:', mailErr.message));
-    } catch {}
-  }
-
-  return newRecord;
+  const metrics = await getTokenMetrics(userId);
+  return { ...record, isAdmin: verifiedAdmin, tokens_used: metrics.totalTokens };
 }
+
 
 /**
  * Register user signup and dispatch signup confirmation email
  */
 export async function registerUserSignup(userId, name, email) {
+  if (!userId || !email) throw Object.assign(new Error('User ID and email are required.'), { status: 400 });
+  const existing = await readState('users/' + userId);
+  if (existing) return { user_id: userId, status: 'registered' };
   const record = await getUserQuota(userId, email, name);
 
   // Send signup request received confirmation via Resend
@@ -492,134 +325,51 @@ export async function sendPasswordResetEmail(email) {
  * List all users from users_quota for Admin dashboard
  */
 export async function listAllUsers() {
-  const localData = loadLocalUsersQuota();
   const db = getAppwriteDb();
   const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-
-  let records = Object.values(localData);
-
+  const records = new Map(Object.values(loadLocalUsersQuota()).map(r => [r.user_id, r]));
   if (db && databaseId) {
     try {
-      const list = await db.listDocuments(databaseId, 'users_quota', [
-        Query.orderDesc('$createdAt')
-      ]);
-      if (list.documents && list.documents.length > 0) {
-        const appwriteUsers = list.documents
-          // Exclude system documents (maintenance flag, etc.)
-          .filter(d => d.user_id && !d.user_id.startsWith('system'))
-          .map(d => ({
-            user_id: d.user_id,
-            name: d.name,
-            email: d.email,
-            quota_remaining: d.quota_remaining ?? DEFAULT_CREDITS,
-            status: d.status,
-            $id: d.$id,
-            $createdAt: d.$createdAt
-          }));
-
-        // Deduplicate by EMAIL (not user_id) — same person may have 2 user_id records
-        const mergedMap = new Map();
-        // Local records first (keyed by email)
-        records.forEach(r => { if (r.email) mergedMap.set(r.email.toLowerCase(), r); });
-        // Appwrite wins for any matching email
-        appwriteUsers.forEach(r => { if (r.email) mergedMap.set(r.email.toLowerCase(), r); });
-        records = Array.from(mergedMap.values());
+      const remote = await listDocumentsAll(db, databaseId, 'users_quota', [Query.orderDesc('$createdAt')]);
+      // Preserve distinct auth accounts even when email is blank or shared.
+      for (const record of remote) if (record.user_id && !records.has(record.user_id)) records.set(record.user_id, record);
+    } catch (error) { if (error.code !== 404) throw error; }
+  }
+  for (const record of await listState('users/')) records.set(record.user_id, record);
+  const courses = courseDatabase();
+  if (courses) {
+    for (const raw of await listDocumentsAll(courses.db, courses.databaseId, courses.collectionId)) {
+      const course = normalizeCourse(raw);
+      if (course.creator_id && course.creator_id !== 'public_guest' && course.creator_email && !records.has(course.creator_id)) {
+        records.set(course.creator_id, { user_id: course.creator_id, email: course.creator_email,
+          name: course.creator_name || 'Recovered course author', status: 'pending', quota_remaining: 0,
+          recovered: true, $createdAt: course.$createdAt });
       }
-    } catch {}
+    }
   }
-
-  // Ensure Admin is present
-  const hasAdmin = records.some(r => r.email && r.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
-  if (!hasAdmin) {
-    const adminRecord = {
-      user_id: process.env.ADMIN_USER_ID || 'admin_master_account',
-      name: 'Kenn Nacario',
-      email: ADMIN_EMAIL,
-      quota_remaining: DEFAULT_CREDITS,
-      status: 'approved',
-      isAdmin: true,
-      $createdAt: new Date().toISOString()
-    };
-    records.unshift(adminRecord);
-    localData[adminRecord.user_id] = adminRecord;
-    saveLocalUsersQuota(localData);
-  }
-
-  // Ensure unique sample test account on yopmail.com is present
-  const hasSample = records.some(r => r.email && r.email.toLowerCase() === 'courseit.kenn.test@yopmail.com');
-  if (!hasSample) {
-    const sampleRecord = {
-      user_id: 'user_yopmail_kenn_2026',
-      name: 'Kenn Beta Tester',
-      email: 'courseit.kenn.test@yopmail.com',
-      quota_remaining: DEFAULT_CREDITS,
-      status: 'approved',
-      $createdAt: new Date().toISOString()
-    };
-    records.push(sampleRecord);
-    localData[sampleRecord.user_id] = sampleRecord;
-    saveLocalUsersQuota(localData);
-  }
-
-  return records;
+  // No fabricated sample accounts or admin identities.
+  return Array.from(records.values()).filter(r => r.user_id && !r.user_id.startsWith('system') &&
+    !['admin_master_account', 'user_yopmail_kenn_2026'].includes(r.user_id));
 }
+
 
 /**
  * Approve a user and send approval email via Resend
  */
 export async function approveUserAndSendEmail(userId, customEmail = null, credits = DEFAULT_CREDITS) {
-  const localData = loadLocalUsersQuota();
-  const user = localData[userId] || Object.values(localData).find(u => u.user_id === userId || u.email === customEmail);
+  if (!userId || !Number.isFinite(credits) || credits < 0) throw new Error('Invalid approval credit amount.');
+  const user = await getUserQuota(userId, customEmail || '');
+  const targetEmail = customEmail || user.email;
+  const targetName = user.name || 'there';
+  if (!targetEmail) throw new Error('User email not found for approval');
+  const updated = await updateState('users/' + userId, current => {
+    const event = { id: randomUUID(), timestamp: new Date().toISOString(), type: 'approval', userId,
+      credits: credits - current.quota_remaining, balance: credits, courseTitle: 'Account approved' };
+    return { ...current, email: targetEmail, status: 'approved', quota_remaining: credits,
+      creditHistory: [...(current.creditHistory || []), event] };
+  });
+  const localData = { [userId]: updated };
 
-  const targetEmail = customEmail || user?.email;
-  const targetName = user?.name || 'there';
-
-  if (!targetEmail) {
-    throw new Error('User email not found for approval');
-  }
-
-  // 1. Update local cache immediately (fast path)
-  if (user) {
-    user.status = 'approved';
-    user.quota_remaining = credits;
-    localData[user.user_id || userId] = user;
-    saveLocalUsersQuota(localData);
-  }
-
-  // 2. Persist to Appwrite — always query by user_id so cold-starts don't break this
-  const db = getAppwriteDb();
-  const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-
-  if (db && databaseId) {
-    try {
-      // Find the document by user_id (don't rely on cached $id)
-      const existing = await db.listDocuments(databaseId, 'users_quota', [
-        Query.equal('user_id', userId)
-      ]);
-
-      const payload = { status: 'approved', quota_remaining: credits };
-
-      if (existing.documents && existing.documents.length > 0) {
-        // Update existing Appwrite document
-        const docId = existing.documents[0].$id;
-        await db.updateDocument(databaseId, 'users_quota', docId, payload);
-        console.log(`[Approve] Updated Appwrite doc ${docId} for userId ${userId}`);
-      } else {
-        // No Appwrite record yet — create one now
-        const newDoc = await db.createDocument(databaseId, 'users_quota', ID.unique(), {
-          user_id: userId,
-          name: targetName,
-          email: targetEmail,
-          quota_remaining: credits,
-          status: 'approved'
-        });
-        console.log(`[Approve] Created Appwrite doc ${newDoc.$id} for userId ${userId}`);
-      }
-    } catch (appwriteErr) {
-      console.warn('[Approve] Appwrite persist warning:', appwriteErr.message);
-      // Non-fatal: local cache is already updated; log for debugging
-    }
-  }
 
   // 3. Send Resend approval email
   const emailRes = await sendEmail({
@@ -672,34 +422,16 @@ export async function approveUserAndSendEmail(userId, customEmail = null, credit
  * Top up user credits (e.g. +250 credits)
  */
 export async function topUpUserCredits(userId, amount = DEFAULT_CREDITS) {
-  const localData = loadLocalUsersQuota();
-  const user = localData[userId];
-  if (!user) throw new Error('User not found');
-
-  user.quota_remaining = (user.quota_remaining || 0) + amount;
-  localData[userId] = user;
-  saveLocalUsersQuota(localData);
-
-  const db = getAppwriteDb();
-  const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-  if (db && databaseId) {
-    try {
-      // Always query by user_id — never rely on cached $id
-      const existing = await db.listDocuments(databaseId, 'users_quota', [
-        Query.equal('user_id', userId)
-      ]);
-      if (existing.documents && existing.documents.length > 0) {
-        await db.updateDocument(databaseId, 'users_quota', existing.documents[0].$id, {
-          quota_remaining: user.quota_remaining
-        });
-      }
-    } catch (err) {
-      console.warn('[TopUp] Appwrite sync warning:', err.message);
-    }
-  }
-
-  return user;
+  if (!userId || !Number.isFinite(amount) || amount <= 0) throw new Error('Credit amount must be a positive number.');
+  await getUserQuota(userId);
+  return updateState('users/' + userId, current => {
+    const balance = current.quota_remaining + amount;
+    const event = { id: randomUUID(), timestamp: new Date().toISOString(), type: 'topup',
+      userId, credits: amount, balance, courseTitle: 'Credit top-up' };
+    return { ...current, quota_remaining: balance, creditHistory: [...(current.creditHistory || []), event] };
+  });
 }
+
 
 /**
  * Delete a course document from Appwrite & local fallback
@@ -709,81 +441,30 @@ export async function topUpUserCredits(userId, amount = DEFAULT_CREDITS) {
  * Enforces ownership or admin ACL: starter templates and non-owned courses are rejected with 403 Forbidden.
  */
 export async function deleteCourse(courseId, requestingUserId = null, requestingUserEmail = '') {
-  if (!courseId) {
-    throw new Error('Course ID is required.');
+  const isAdmin = requestingUserEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const session = { userId: requestingUserId, isAdmin };
+  const course = await readCourse(courseId, session);
+  if (!requestingUserId || (!isAdmin && course.creator_id !== requestingUserId)) {
+    throw Object.assign(new Error('Only the author or administrator can delete this course.'), { status: 403 });
   }
-
-  const isAdmin = Boolean(requestingUserEmail && requestingUserEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase());
-
-  // 1. Starter catalog courses are protected public templates - only admin can delete
-  const isStarter = courseId.startsWith('starter-') || [
-    'starter-godot-signals',
-    'starter-react19-rsc',
-    'starter-rust-ownership',
-    'starter-docker-prod',
-    'starter-godot-2d-game'
-  ].includes(courseId);
-
-  if (isStarter && !isAdmin) {
-    throw new Error('Forbidden: Starter catalog courses are shared public templates and can only be deleted by the administrator.');
-  }
-
   const db = getAppwriteDb();
-  const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-  const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '';
-
-  let deleted = false;
-  if (db && databaseId && collectionId) {
-    // 2. If not admin, check document ownership in Appwrite
-    if (!isAdmin) {
-      if (!requestingUserId) {
-        throw new Error('Forbidden: Authentication required. You must be signed in as the course author or administrator to delete this course.');
-      }
-      try {
-        const doc = await db.getDocument(databaseId, collectionId, courseId);
-        if (doc) {
-          let authorId = doc.creator_id || null;
-          let authorEmail = doc.creator_email || null;
-          if (typeof doc.steps === 'string') {
-            try {
-              const parsed = JSON.parse(doc.steps);
-              authorId = parsed.creator_id || authorId;
-              authorEmail = parsed.creator_email || authorEmail;
-            } catch {}
-          }
-
-          const isOwner = (authorId && authorId === requestingUserId) ||
-                          (authorEmail && requestingUserEmail && authorEmail.toLowerCase() === requestingUserEmail.toLowerCase());
-
-          if (!isOwner) {
-            throw new Error('Forbidden: You do not have permission to delete this course. Only the course creator or administrator may delete it.');
-          }
-        }
-      } catch (checkErr) {
-        if (checkErr.message && checkErr.message.includes('Forbidden:')) {
-          throw checkErr;
-        }
-        // Document might only exist in client local storage
-      }
-    }
-
-    try {
-      await db.deleteDocument(databaseId, collectionId, courseId);
-      deleted = true;
-    } catch (delErr) {
-      console.warn('Appwrite course delete note:', delErr.message);
-    }
+  if (db && !course.is_guest) {
+    try { await db.deleteDocument(process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID, courseId); }
+    catch (error) { if (error.code !== 404) throw error; }
   }
-
-  return { success: true, deleted, courseId };
+  await deleteState('courses/' + courseId);
+  return { success: true, deleted: true, courseId };
 }
+
+
 
 /**
  * Archive user account and send confirmation email via Resend
  */
 export async function archiveUserAccount(userId, reason = 'Not specified', feedback = '') {
   const localData = loadLocalUsersQuota();
-  const user = localData[userId] || Object.values(localData).find(u => u.user_id === userId);
+  const user = await readState('users/' + userId) || localData[userId];
 
   if (!user) {
     throw new Error('User not found');
@@ -793,6 +474,7 @@ export async function archiveUserAccount(userId, reason = 'Not specified', feedb
   user.archive_reason = reason;
   user.archive_feedback = feedback;
   user.archived_at = new Date().toISOString();
+  await writeState('users/' + userId, user);
 
   localData[userId] = user;
   saveLocalUsersQuota(localData);
@@ -872,7 +554,7 @@ function saveFeedbacks(data) {
  * Submit user feedback for beta test
  */
 export async function submitUserFeedback({ userId, name, email, rating = 5, category = 'General', message = '', pageUrl = '' }) {
-  const feedbacks = loadFeedbacks();
+  const feedbacks = await listAllFeedbacks();
   const newFeedback = {
     id: `fb_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     userId: userId || 'anonymous',
@@ -887,7 +569,7 @@ export async function submitUserFeedback({ userId, name, email, rating = 5, cate
   };
 
   feedbacks.unshift(newFeedback);
-  saveFeedbacks(feedbacks);
+  await writeState('feedback/' + newFeedback.id, newFeedback);
 
   // Send email alert to admin with beautiful template
   sendEmail({
@@ -930,19 +612,21 @@ export async function submitUserFeedback({ userId, name, email, rating = 5, cate
 /**
  * List all feedbacks
  */
-export function listAllFeedbacks() {
-  return loadFeedbacks();
+export async function listAllFeedbacks() {
+  const records = new Map(loadFeedbacks().map(f => [f.id, f]));
+  for (const entry of await listState('feedback/')) records.set(entry.id, entry);
+  return [...records.values()];
 }
 
 /**
  * Update feedback status (reviewed, resolved)
  */
-export function updateFeedbackStatus(feedbackId, status = 'reviewed') {
-  const feedbacks = loadFeedbacks();
+export async function updateFeedbackStatus(feedbackId, status = 'reviewed') {
+  const feedbacks = await listAllFeedbacks();
   const item = feedbacks.find(f => f.id === feedbackId);
   if (item) {
     item.status = status;
-    saveFeedbacks(feedbacks);
+    await writeState('feedback/' + feedbackId, item);
     return { success: true, feedback: item };
   }
   throw new Error('Feedback not found');
@@ -1130,314 +814,96 @@ export async function sendCustomTesterEmail({ to, subject, message, isBroadcast 
 /**
  * Deduct credits based on selected model tier
  */
-export async function deductCredit(userId = null, isAdmin = false, model = 'gemini-flash-lite-latest', isDoc = false) {
+export async function checkGenerationQuota(userId, isAdmin, model) {
+  if (!(model in MODEL_CREDIT_COSTS)) throw Object.assign(new Error('Select a supported model.'), { status: 400 });
+  const quota = await getUserQuota(userId);
+  if (quota.isPublicSandbox) {
+    if (model !== 'gemini-flash-lite-latest') throw Object.assign(new Error('Sign in to use this model.'), { status: 403 });
+    if (!quota.remaining) throw Object.assign(new Error('The shared guest trial is exhausted. Try after the 24-hour reset or sign in.'), { status: 429 });
+  } else {
+    if (!isAdmin && quota.status !== 'approved') throw Object.assign(new Error('Your account is pending admin approval.'), { status: 403 });
+    if (!isAdmin && quota.quota_remaining < getModelCost(model)) throw Object.assign(new Error('Insufficient credits for this model. Request a top-up or choose Flash Lite.'), { status: 402 });
+  }
+}
+
+export async function deductCredit(userId = null, isAdmin = false, model = 'gemini-flash-lite-latest', isDoc = false, details = {}) {
   const cost = getModelCost(model);
-
-  // Account-based user (including admin testing)
   if (userId && userId !== 'public_guest') {
-    const user = await getUserQuota(userId);
-    if (!isAdmin && user.status !== 'approved') {
-      throw new Error('Your account is pending admin approval. You will receive an email once approved!');
-    }
-    if (!isAdmin && user.quota_remaining < cost) {
-      throw new Error(`Insufficient credits. This model requires ${cost} credits, but you have ${user.quota_remaining.toFixed(1)} credits remaining.`);
-    }
-
-    user.quota_remaining = Math.max(0, user.quota_remaining - cost);
-    const localData = loadLocalUsersQuota();
-    localData[userId] = user;
-    saveLocalUsersQuota(localData);
-
-    // Sync to Appwrite database with guaranteed document ID resolution
-    const db = getAppwriteDb();
-    const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-    if (db && databaseId) {
-      try {
-          const exactRemaining = Number(user.quota_remaining.toFixed(1));
-          if (user.$id) {
-            await db.updateDocument(databaseId, 'users_quota', user.$id, {
-              quota_remaining: exactRemaining
-            });
-          } else {
-            const existing = await db.listDocuments(databaseId, 'users_quota', [
-              Query.equal('user_id', userId)
-            ]);
-            if (existing.documents && existing.documents.length > 0) {
-              user.$id = existing.documents[0].$id;
-              await db.updateDocument(databaseId, 'users_quota', user.$id, {
-                quota_remaining: exactRemaining
-              });
-            }
-          }
-      } catch (appwriteSyncErr) {
-        console.warn('Appwrite quota sync note:', appwriteSyncErr.message);
-      }
-    }
-
+    const user = await updateState('users/' + userId, current => {
+      if (!current || (!isAdmin && current.status !== 'approved')) throw Object.assign(new Error('Account approval required.'), { status: 403 });
+      if (!isAdmin && current.quota_remaining < cost) throw Object.assign(new Error('Insufficient credits. Please request a top-up.'), { status: 402 });
+      const balance = Math.max(0, current.quota_remaining - cost);
+      const event = { id: randomUUID(), timestamp: new Date().toISOString(), type: 'generation',
+        userId, credits: balance - current.quota_remaining, balance, model, ...details };
+      return { ...current, quota_remaining: balance, creditHistory: [...(current.creditHistory || []), event] };
+    });
     return { remaining: user.quota_remaining, deducted: true, cost, isAdmin };
   }
-
-  // Public visitor sandbox: 3 free URL courses, 1 doc per 24 hours, only Flash Lite permitted
-  if (model !== 'gemini-flash-lite-latest') {
-    throw new Error('Higher tier models require an account. Please sign in or register to use this model!');
-  }
-
-  const sandbox = loadPublicSandbox();
-  const now = Date.now();
-  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-
-  // Reset 24-hour sandbox window
-  if (!sandbox.lastReset || now - sandbox.lastReset > TWENTY_FOUR_HOURS) {
-    sandbox.totalGenerations = 0;
-    sandbox.lastReset = now;
-  }
-
-  // Combined shared pool of 3 free runs per 24 hours across URL and OCR
-  const currentUsed = sandbox.totalGenerations || 0;
-  if (currentUsed >= 3) {
-    throw new Error('Free trial limit reached (3/3). You can use another free trial in 24 hours, or request access to the beta test for 250 free credits!');
-  }
-
-  sandbox.totalGenerations = currentUsed + 1;
-  savePublicSandbox(sandbox);
-  const remaining = Math.max(0, 3 - sandbox.totalGenerations);
-  return { remaining, used: sandbox.totalGenerations, total: 3, deducted: true, cost: 0, isPublicSandbox: true };
+  const quota = await updateState('settings/guest-quota', current => {
+    const state = current && Date.now() - current.lastReset < 86400000
+      ? current : { totalGenerations: 0, lastReset: Date.now() };
+    if (state.totalGenerations >= 3) throw Object.assign(new Error('The shared guest trial is exhausted. Try after the 24-hour reset or sign in.'), { status: 429 });
+    return { ...state, totalGenerations: state.totalGenerations + 1 };
+  });
+  return { remaining: Math.max(0, 3 - quota.totalGenerations), deducted: true, cost: 0, isPublicSandbox: true };
 }
+
+export async function getCreditHistory(userId = null) {
+  const users = userId ? [await readState('users/' + userId)] : await listState('users/');
+  return users.filter(Boolean).flatMap(u => u.creditHistory || [])
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
 
 /**
  * Process Documentation URL
  */
-export async function processDocumentationUrl(url, customModel = 'gemini-flash-lite-latest', isAdmin = false, forceRefresh = false, userId = null, userEmail = '') {
-  if (!url) {
-    throw new Error('URL is required');
-  }
-
-  const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1';
-  const projectId = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT_ID;
-  const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-  const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '';
-  const apiKey = process.env.APPWRITE_API_KEY;
-
-  let databases = null;
-  if (apiKey && projectId && databaseId && collectionId) {
-    try {
-      const client = new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey);
-      databases = new Databases(client);
-    } catch (clientErr) {
-      console.warn('Could not initialize Appwrite Server client:', clientErr.message);
-    }
-  }
-
-  let existingDocId = null;
-  // 1. Check URL Deduplication Cache in Appwrite
-  if (databases) {
-    try {
-      const existing = await databases.listDocuments(databaseId, collectionId, [
-        Query.equal('source_url', url)
-      ]);
-
-      if (existing.documents && existing.documents.length > 0) {
-        const doc = existing.documents[0];
-        existingDocId = doc.$id;
-
-        if (!forceRefresh) {
-          let steps = doc.steps;
-          let overview = '';
-          let recommended_next_step = '';
-          let creator_id = doc.creator_id || null;
-          let creator_email = doc.creator_email || null;
-
-          try {
-            const parsed = JSON.parse(doc.steps);
-            if (Array.isArray(parsed)) {
-              steps = parsed;
-            } else if (parsed && typeof parsed === 'object') {
-              steps = parsed.items || parsed.steps || [];
-              overview = parsed.overview || '';
-              recommended_next_step = parsed.recommended_next_step || '';
-              creator_id = parsed.creator_id || creator_id;
-              creator_email = parsed.creator_email || creator_email;
-            }
-          } catch {
-            steps = [];
-          }
-
-          return {
-            course: {
-              $id: doc.$id,
-              title: doc.title,
-              source_url: doc.source_url,
-              overview,
-              recommended_next_step,
-              steps,
-              creator_id,
-              creator_email,
-              $createdAt: doc.$createdAt
-            },
-            savedToAppwrite: true,
-            cached: true,
-            quota: { remaining: DEFAULT_CREDITS }
-          };
-        }
-      }
-    } catch (cacheErr) {
-      console.warn('Cache lookup warning:', cacheErr.message);
-    }
-  }
-
-  // 2. Extract content from URL
+export async function processDocumentationUrl(url, customModel = 'gemini-flash-lite-latest', isAdmin = false, forceRefresh = false, userId = null, userEmail = '', visibility = 'public') {
+  await checkGenerationQuota(userId, isAdmin, customModel);
   const extracted = await extractDocumentation(url);
-
-  // 3. Summarize with LLM (with fallback tracking)
   const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel);
-
-  // 4. Quota Check & Deduction based on actual model used (cheaper if fell back)
-  const effectiveModel = summarized.actualModel || customModel;
-  const quotaResult = await deductCredit(userId, isAdmin, effectiveModel, false);
-
-  if (summarized.usage) {
-    recordTokenUsage({
-      userId,
-      model: effectiveModel,
-      usage: summarized.usage,
-      courseTitle: summarized.title
-    });
-  }
-
-  const payloadToStore = JSON.stringify({
-    overview: summarized.overview || '',
-    recommended_next_step: summarized.recommended_next_step || '',
-    items: summarized.steps,
-    creator_id: userId || null,
-    creator_email: userEmail || null,
-    actual_model: effectiveModel,
-    createdAt: new Date().toISOString()
-  });
-
-  const now = new Date().toISOString();
-  let savedToAppwrite = false;
-  let documentId = existingDocId || `course_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-
-  // 5. Save to Appwrite - only persist courses for authenticated users to protect database from public flooding
-  if (databases && userId && userId !== 'public_guest') {
-    try {
-      if (existingDocId) {
-        const doc = await databases.updateDocument(databaseId, collectionId, existingDocId, {
-          source_url: url,
-          title: summarized.title,
-          steps: payloadToStore
-        });
-        documentId = doc.$id;
-      } else {
-        const doc = await databases.createDocument(databaseId, collectionId, ID.unique(), {
-          source_url: url,
-          title: summarized.title,
-          steps: payloadToStore
-        });
-        documentId = doc.$id;
-      }
-      savedToAppwrite = true;
-    } catch (appwriteErr) {
-      console.warn('Could not save to Appwrite Server:', appwriteErr.message);
-    }
-  }
-
-  const isGuest = !userId || userId === 'public_guest';
-  return {
-    course: {
-      $id: documentId,
-      title: summarized.title,
-      source_url: url,
-      overview: summarized.overview || '',
-      recommended_next_step: summarized.recommended_next_step || '',
-      steps: summarized.steps,
-      creator_id: userId || (isGuest ? 'public_guest' : null),
-      creator_email: userEmail || null,
-      is_guest: isGuest,
-      $createdAt: now
-    },
-    savedToAppwrite,
-    cached: false,
-    quota: quotaResult,
-    fallbackNotice: summarized.fallbackNotice || null
-  };
+  return saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility,
+    source_url: url, source_type: 'url' });
 }
 
-/**
- * Summarize text extracted from document / OCR
- */
-export async function processDocumentText({ title, text, customModel = 'gemini-flash-lite-latest', isAdmin = false, userId = null, userEmail = '' }) {
-  if (!text || !text.trim()) {
-    throw new Error('Document text content is empty.');
-  }
-
-  // 1. Summarize with LLM (with fallback tracking)
+export async function processDocumentText({ title, text, customModel = 'gemini-flash-lite-latest', isAdmin = false, userId = null, userEmail = '', visibility = 'private' }) {
+  if (!text || !text.trim()) throw Object.assign(new Error('Document text content is empty.'), { status: 400 });
+  await checkGenerationQuota(userId, isAdmin, customModel);
   const summarized = await summarizeWithLLM(text, title || 'Uploaded Document', customModel);
+  return saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility,
+    source_url: 'upload://' + encodeURIComponent(title || 'document'), source_type: 'document' });
+}
 
-  // 2. Quota Check & Deduction based on actual model used
-  const effectiveModel = summarized.actualModel || customModel;
-  const quotaResult = await deductCredit(userId, isAdmin, effectiveModel, true);
-
-  if (summarized.usage) {
-    recordTokenUsage({
-      userId,
-      model: effectiveModel,
-      usage: summarized.usage,
-      courseTitle: summarized.title || title
-    });
-  }
-
-  const payloadToStore = JSON.stringify({
-    overview: summarized.overview || '',
-    recommended_next_step: summarized.recommended_next_step || '',
-    items: summarized.steps,
-    creator_id: userId || null,
-    creator_email: userEmail || null,
-    actual_model: effectiveModel,
-    createdAt: new Date().toISOString()
-  });
-
-  const now = new Date().toISOString();
-  let savedToAppwrite = false;
-  let documentId = `doc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const virtualSourceUrl = `upload://${(title || 'doc').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-
-  const db = getAppwriteDb();
-  const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID;
-  const collectionId = process.env.APPWRITE_COLLECTION_ID || process.env.VITE_APPWRITE_COLLECTION_ID || '';
-
-  // Only persist to Appwrite for authenticated users to protect database
-  if (db && databaseId && collectionId && userId && userId !== 'public_guest') {
-    try {
-      const doc = await db.createDocument(databaseId, collectionId, ID.unique(), {
-        source_url: virtualSourceUrl,
-        title: summarized.title || title,
-        steps: payloadToStore
-      });
-      documentId = doc.$id;
-      savedToAppwrite = true;
-    } catch (err) {
-      console.warn('Could not save uploaded document to Appwrite:', err.message);
-    }
-  }
-
+async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, source_type }) {
+  const actualModel = summarized.actualModel || customModel;
   const isGuest = !userId || userId === 'public_guest';
-  return {
-    course: {
-      $id: documentId,
-      title: summarized.title || title,
-      source_url: virtualSourceUrl,
-      overview: summarized.overview || '',
-      recommended_next_step: summarized.recommended_next_step || '',
-      steps: summarized.steps,
-      creator_id: userId || (isGuest ? 'public_guest' : null),
-      creator_email: userEmail || null,
-      is_guest: isGuest,
-      $createdAt: now
-    },
-    savedToAppwrite,
-    cached: false,
-    quota: quotaResult,
-    fallbackNotice: summarized.fallbackNotice || null
-  };
+  const course = normalizeCourse({
+    $id: ID.unique(), $createdAt: new Date().toISOString(),
+    title: summarized.title, overview: summarized.overview || '',
+    recommended_next_step: summarized.recommended_next_step || '', steps: summarized.steps,
+    creator_id: isGuest ? 'public_guest' : userId, creator_email: userEmail || null,
+    is_guest: isGuest, visibility: isGuest ? 'public' : (visibility === 'public' ? 'public' : 'private'),
+    source_url, source_type, actual_model: actualModel
+  });
+  // Every run gets its own ID; a URL cache must never return another author's private course.
+  await writeState('courses/' + course.$id, course);
+  let quota;
+  try {
+    quota = await deductCredit(userId, isAdmin, actualModel, source_type === 'document', {
+      courseId: course.$id, courseTitle: course.title, totalTokens: summarized.usage?.totalTokens || 0
+    });
+  } catch (error) {
+    await deleteState('courses/' + course.$id);
+    throw error;
+  }
+  let warning = null;
+  try {
+    await recordTokenUsage({ userId, model: actualModel, usage: summarized.usage, courseTitle: course.title,
+      courseId: course.$id, cost: quota.cost, balance: quota.remaining });
+  } catch (error) {
+    console.error('Usage log write failed:', error.message);
+    warning = 'Course saved. Token reporting is temporarily unavailable; your credit transaction is retained.';
+  }
+  return { course, savedToCloud: true, savedToAppwrite: false, cached: false, quota,
+    fallbackNotice: [summarized.fallbackNotice, warning].filter(Boolean).join(' ') || null };
 }

@@ -88,294 +88,80 @@ export async function uploadFileToAppwrite(file) {
   }
 }
 
-/**
- * Normalizes course document format ensuring steps is an array and rich fields are preserved
- */
-function normalizeCourse(doc) {
-  let steps = doc.steps;
-  let overview = doc.overview || '';
-  let recommendedNext = doc.recommended_next_step || '';
-  let creatorId = doc.creator_id || null;
-  let creatorEmail = doc.creator_email || null;
+// Course ACLs and expiry are enforced again on the server for every cloud read.
+import { normalizeCourse, isExpiredCourse, canReadCourse } from '../../shared/courses.js';
+import { authenticatedFetch } from './auth';
+import { STARTER_COURSES } from '../data/starterCourses';
+import { readApiResponse } from './api';
 
-  if (typeof steps === 'string') {
-    try {
-      const parsed = JSON.parse(steps);
-      if (Array.isArray(parsed)) {
-        steps = parsed;
-      } else if (parsed && typeof parsed === 'object') {
-        steps = parsed.items || parsed.steps || [];
-        overview = parsed.overview || overview;
-        recommendedNext = parsed.recommended_next_step || recommendedNext;
-        creatorId = parsed.creator_id || creatorId;
-        creatorEmail = parsed.creator_email || creatorEmail;
-      }
-    } catch {
-      steps = [];
-    }
-  }
-
-  return {
-    ...doc,
-    overview,
-    recommended_next_step: recommendedNext,
-    steps: Array.isArray(steps) ? steps : [],
-    creator_id: creatorId,
-    creator_email: creatorEmail
-  };
-}
-
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Get courses from local storage with 24-hour auto-purge for guest generations
- */
 export function getLocalCourses() {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const courses = JSON.parse(raw);
-    const now = Date.now();
-
-    // Automatic 24-hour self-deletion for public/guest courses
-    const validCourses = courses.filter(c => {
-      if (c.is_curated || c.$id?.startsWith('starter-')) return true;
-      const isGuest = Boolean(c.is_guest || c.creator_id === 'public_guest' || !c.creator_id);
-      if (!isGuest) return true;
-
-      const createdTime = c.$createdAt
-        ? new Date(c.$createdAt).getTime()
-        : (c.createdAt ? new Date(c.createdAt).getTime() : now);
-
-      return (now - createdTime) < TWENTY_FOUR_HOURS_MS;
-    });
-
-    if (validCourses.length !== courses.length) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(validCourses));
-    }
-
-    return validCourses;
-  } catch {
-    return [];
-  }
+    const records = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+    const valid = records.map(c => normalizeCourse({
+      ...c, is_guest: c.is_guest || c.creator_id === 'public_guest'
+    })).filter(c => !isExpiredCourse(c));
+    if (valid.length !== records.length) localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(valid));
+    return valid;
+  } catch { return []; }
 }
 
-/**
- * Save course to local storage
- */
 export function saveLocalCourse(course) {
-  try {
-    const isGuest = Boolean(course.is_guest || course.creator_id === 'public_guest' || !course.creator_id);
-    const enriched = {
-      ...course,
-      is_guest: isGuest,
-      creator_id: course.creator_id || (isGuest ? 'public_guest' : null)
-    };
-    const current = getLocalCourses();
-    const existingIndex = current.findIndex(c => c.$id === enriched.$id);
-    let updated;
-    if (existingIndex >= 0) {
-      updated = [...current];
-      updated[existingIndex] = enriched;
-    } else {
-      updated = [enriched, ...current];
-    }
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-  } catch (err) {
-    console.error('Failed to save course to localStorage:', err);
-  }
+  const current = getLocalCourses().filter(c => c.$id !== course.$id);
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([normalizeCourse(course), ...current]));
 }
 
-import { STARTER_COURSES } from '../data/starterCourses';
-
-/**
- * Fetch list of courses: combines curated starter templates visible to all users
- * with user-specific or admin-managed custom courses.
- */
 export async function listCourses(userId = null, isAdmin = false, includeCurated = true) {
-  // Guests and unauthenticated visitors ONLY see public starter templates + current session guest courses
-  if (!userId || userId === 'public_guest') {
-    const local = getLocalCourses().filter(c => c.is_guest || c.creator_id === 'public_guest');
-    const allMap = new Map();
-    if (includeCurated) {
-      STARTER_COURSES.forEach(c => allMap.set(c.$id, c));
+  const scope = includeCurated || isAdmin ? 'catalog' : 'mine';
+  const response = await authenticatedFetch('/api/courses?scope=' + scope);
+  const data = await readApiResponse(response);
+  const courses = new Map(includeCurated ? STARTER_COURSES.map(c => [c.$id, c]) : []);
+  // Keep locally generated results from older versions, scoped to their owner.
+  for (const course of getLocalCourses()) {
+    if (canReadCourse(course, userId, isAdmin) && (includeCurated || isAdmin || course.creator_id === userId)) {
+      courses.set(course.$id, course);
     }
-    local.forEach(c => allMap.set(c.$id, c));
-    return Array.from(allMap.values());
   }
-
-  let customCourses = [];
-
-  if (databases && isAppwriteConfigured() && DATABASE_ID && COLLECTION_ID) {
-    try {
-      const queries = [Query.orderDesc('$createdAt')];
-      // If regular authenticated user, strictly filter by creator_id
-      if (!isAdmin) {
-        queries.push(Query.equal('creator_id', userId));
-      }
-
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_ID,
-        queries
-      );
-
-      customCourses = response.documents
-        // Filter out system documents (maintenance flag, etc.)
-        .filter(d => !d.source_url?.startsWith('system://') && d.creator_id !== 'system')
-        .map(normalizeCourse);
-    } catch (err) {
-      // Fallback: read from local storage with creator filtering
-      customCourses = getLocalCourses().filter(c => !c.is_curated && (isAdmin || c.creator_id === userId));
-    }
-  } else {
-    customCourses = getLocalCourses().filter(c => !c.is_curated && (isAdmin || c.creator_id === userId));
-  }
-
-  if (!includeCurated) {
-    return customCourses.filter(c => !c.is_curated && !c.$id?.startsWith('starter-'));
-  }
-
-  // Merge STARTER_COURSES first so catalog templates are always present
-  const allMap = new Map();
-  STARTER_COURSES.forEach(c => allMap.set(c.$id, c));
-  customCourses.forEach(c => allMap.set(c.$id, c));
-
-  return Array.from(allMap.values());
+  for (const course of data.courses) courses.set(course.$id, course);
+  return [...courses.values()];
 }
 
-/**
- * Get a specific course by ID: checks STARTER_COURSES first, then local storage / Appwrite.
- * Guest and starter courses are publicly viewable. Private user courses enforce author / admin ACL.
- */
 export async function getCourse(id, user = null, isAdmin = false) {
-  // 1. Curated starter templates are always public
   const starter = STARTER_COURSES.find(c => c.$id === id);
   if (starter) return starter;
-
-  let found = null;
-  const isLocalId = id?.startsWith('course_') || id?.startsWith('doc_');
-
-  // 2. Check local storage first for local guest courses (avoids unnecessary Appwrite 404s)
-  if (isLocalId) {
-    const local = getLocalCourses();
-    found = local.find(c => c.$id === id);
+  const response = await authenticatedFetch('/api/courses/' + encodeURIComponent(id));
+  if (response.status === 404) {
+    // Only legacy local IDs may use a local fallback; cloud ACL errors never do.
+    const local = getLocalCourses().find(c => c.$id === id);
+    if ((id.startsWith('course_') || id.startsWith('doc_')) && local && canReadCourse(local, user?.id, isAdmin)) return local;
   }
-
-  // 3. If not found locally, fetch from Appwrite Sydney database
-  if (!found && databases && isAppwriteConfigured()) {
-    try {
-      const doc = await databases.getDocument(DATABASE_ID, COLLECTION_ID, id);
-      if (doc) found = normalizeCourse(doc);
-    } catch (err) {
-      // Fallback to local storage
-      const local = getLocalCourses();
-      found = local.find(c => c.$id === id);
-    }
-  }
-
-  // 4. Final local storage check if still not found
-  if (!found) {
-    const local = getLocalCourses();
-    found = local.find(c => c.$id === id);
-  }
-
-  if (!found) {
-    throw new Error(`Course with ID "${id}" was not found.`);
-  }
-
-  // 5. Permitted Public Courses: Starter templates and Guest trial courses
-  const isStarter = Boolean(found.is_curated || found.$id?.startsWith('starter-'));
-  const isGuestCourse = Boolean(found.is_guest || found.creator_id === 'public_guest' || !found.creator_id || isLocalId);
-
-  if (isStarter || isGuestCourse) {
-    return found;
-  }
-
-  // 6. Private user-generated courses require authentication
-  if (!user || !user.id) {
-    const err = new Error('Authentication Required: You must be signed in to view this private course.');
-    err.code = 'UNAUTHORIZED';
-    err.status = 401;
-    throw err;
-  }
-
-  // Check creator ownership or master administrator authorization
-  const isAuthor = Boolean(found.creator_id && found.creator_id === user.id);
-  if (!isAuthor && !isAdmin) {
-    const err = new Error('Access Denied: You do not have permission to view this custom course.');
-    err.code = 'FORBIDDEN';
-    err.status = 403;
-    throw err;
-  }
-
-  return found;
+  return (await readApiResponse(response)).course;
 }
 
-/**
- * Reads the global maintenance mode flag from Appwrite.
- * Returns `true` if maintenance mode is ON, `false` otherwise.
- * Falls back to localStorage if Appwrite is unavailable.
- */
 export async function getMaintenanceMode() {
-  // Always honour a hard env override
   if (import.meta.env.VITE_MAINTENANCE_MODE === 'true') return true;
-
-  if (databases && isDatabaseConfigured()) {
-    try {
-      const doc = await databases.getDocument(DATABASE_ID, COLLECTION_ID, MAINTENANCE_DOC_ID);
-      // We repurpose the `title` field as our boolean string
-      const isOn = doc?.title === 'true';
-      // Keep localStorage in sync so offline / error fallback is accurate
-      localStorage.setItem('courseit_maintenance_mode', String(isOn));
-      return isOn;
-    } catch (err) {
-      // 404 means the document doesn't exist yet → maintenance is OFF
-      if (err?.code === 404 || err?.message?.includes('not found')) {
-        localStorage.setItem('courseit_maintenance_mode', 'false');
-        return false;
-      }
-      console.warn('[CourseIT] Could not read maintenance flag from Appwrite:', err.message);
-    }
+  try {
+    const data = await readApiResponse(await fetch('/api/maintenance'));
+    localStorage.setItem('courseit_maintenance_mode', String(data.enabled));
+    return data.enabled;
+  } catch (error) {
+    console.warn('Maintenance status unavailable:', error.message);
+    return localStorage.getItem('courseit_maintenance_mode') === 'true';
   }
-
-  // Offline fallback: trust localStorage
-  return localStorage.getItem('courseit_maintenance_mode') === 'true';
 }
 
-/**
- * Writes the global maintenance mode flag to Appwrite (admin only).
- * Creates the system document if it doesn't exist yet.
- */
 export async function setMaintenanceMode(enabled) {
-  const val = String(Boolean(enabled));
-  localStorage.setItem('courseit_maintenance_mode', val);
+  const data = await readApiResponse(await authenticatedFetch('/api/maintenance', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled })
+  }));
+  localStorage.setItem('courseit_maintenance_mode', String(data.enabled));
   window.dispatchEvent(new Event('courseit_maintenance_changed'));
+}
 
-  if (!databases || !isDatabaseConfigured()) return;
-
-  const payload = {
-    title: val,
-    source_url: 'system://maintenance',
-    steps: '[]',
-    creator_id: 'system',
-  };
-
-  try {
-    // Try updating existing document first
-    await databases.updateDocument(DATABASE_ID, COLLECTION_ID, MAINTENANCE_DOC_ID, payload);
-  } catch (updateErr) {
-    if (updateErr?.code === 404 || updateErr?.message?.includes('not found')) {
-      // Document doesn't exist yet — create it with the fixed ID
-      try {
-        await databases.createDocument(DATABASE_ID, COLLECTION_ID, MAINTENANCE_DOC_ID, payload);
-      } catch (createErr) {
-        console.warn('[CourseIT] Could not create maintenance flag document:', createErr.message);
-      }
-    } else {
-      console.warn('[CourseIT] Could not update maintenance flag document:', updateErr.message);
-    }
-  }
+export async function publishCourse(courseId) {
+  const data = await readApiResponse(await authenticatedFetch('/api/courses/publish', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseId })
+  }));
+  saveLocalCourse(data.course);
+  return data.course;
 }

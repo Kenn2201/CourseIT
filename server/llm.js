@@ -55,31 +55,24 @@ export async function summarizeWithLLM(rawText, fallbackTitle = 'Documentation L
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 async function callGemini(rawText, fallbackTitle, apiKey, customModel = null) {
   const genAI = new GoogleGenerativeAI(apiKey);
   
   // Tested models in order of speed and stability; prioritizes customModel / GEMINI_MODEL if specified
-  const modelsToTry = [
-    customModel,
-    process.env.GEMINI_MODEL,
-    process.env.LLM_MODEL,
-    'gemini-flash-lite-latest',
-    'gemini-3.5-flash-lite',
-    'gemini-3.6-flash',
-    'gemini-3.1-flash-lite',
-    'gemini-flash-latest'
-  ].filter(Boolean);
+  const preferred = customModel || process.env.GEMINI_MODEL || process.env.LLM_MODEL || 'gemini-flash-lite-latest';
+  const modelsToTry = [...new Set([preferred, 'gemini-flash-lite-latest'])];
+  const deadline = Date.now() + 42000;
 
   const prompt = `Documentation Topic / Page Title: ${fallbackTitle}\n\nDocumentation Content:\n${rawText.slice(0, 35000)}`;
 
   let lastError;
   for (const modelName of modelsToTry) {
-    // Try up to 2 attempts per model for transient 503 / rate limits
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    // One bounded attempt per model keeps the request within the function deadline.
+    for (let attempt = 1; attempt <= 1; attempt++) {
       try {
         console.log(`[CourseIT] Calling Gemini (${modelName}, attempt ${attempt})...`);
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) throw Object.assign(new Error('AI generation timed out'), { name: 'TimeoutError' });
         const model = genAI.getGenerativeModel({
           model: modelName,
           systemInstruction: SYSTEM_INSTRUCTION,
@@ -87,7 +80,7 @@ async function callGemini(rawText, fallbackTitle, apiKey, customModel = null) {
             responseMimeType: 'application/json',
             temperature: 0.2,
           }
-        });
+        }, { timeout: Math.min(20000, remaining) });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
         const usage = result.response.usageMetadata ? {
@@ -117,14 +110,6 @@ async function callGemini(rawText, fallbackTitle, apiKey, customModel = null) {
       } catch (err) {
         lastError = err;
         const msg = err.message || '';
-        const is503Or429 = msg.includes('503') || msg.includes('429') || msg.includes('high demand') || msg.includes('Service Unavailable');
-        
-        if (is503Or429 && attempt === 1) {
-          console.warn(`[CourseIT] Model ${modelName} encountered temporary load (503). Retrying in 1.5s...`);
-          await sleep(1500);
-          continue;
-        }
-
         console.warn(`[CourseIT] Model ${modelName} failed (${msg.slice(0, 80)}). Moving to next candidate...`);
         break; // Move to next model
       }
@@ -139,6 +124,7 @@ async function callOpenAI(rawText, fallbackTitle, apiKey) {
 
   const response = await fetch(endpoint, {
     method: 'POST',
+    signal: AbortSignal.timeout(40000),
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`

@@ -26,8 +26,8 @@ export default function DeleteConfirmModal({ isOpen, course, onClose, onConfirm,
             <Trash2 className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">Delete Course</h3>
-            <p className="text-xs text-slate-400 mt-0.5">This action cannot be undone</p>
+            <h3 className="text-base font-bold text-white">{course.historical_only ? 'Remove Browser Record' : 'Delete Course'}</h3>
+            <p className="text-xs text-slate-400 mt-0.5">{course.historical_only ? 'The server course is already unavailable' : 'This action cannot be undone'}</p>
           </div>
         </div>
 
@@ -43,7 +43,8 @@ export default function DeleteConfirmModal({ isOpen, course, onClose, onConfirm,
         <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
           <p>
-            Deleting this course removes its parsed action steps and cached prompt data from your database.
+            {course.historical_only ? 'Only this browser cache entry will be removed. Server usage and credit history remain unchanged.' :
+              'Deleting this course removes its parsed action steps and cached prompt data from your database.'}
           </p>
         </div>
 

@@ -51,21 +51,37 @@ export const DEFAULT_CREDITS = 250;
 export async function getAuthIdentityOverview() {
   const e = process.env;
   const project = e.APPWRITE_PROJECT_ID || e.VITE_APPWRITE_PROJECT_ID;
-  if (!e.APPWRITE_API_KEY || !project) {
-    return { available: false, total: null, users: [], reason: 'Appwrite Users API credentials unavailable.' };
+  const usersKey = e.APPWRITE_USERS_API_KEY || e.APPWRITE_API_KEY;
+  if (!usersKey || !project) {
+    return { available: false, total: null, users: [],
+      reason: !project ? 'Appwrite project ID is missing on the server.' : 'Server-only Appwrite Users API key is missing.' };
   }
   try {
     const client = new Client().setEndpoint(e.APPWRITE_ENDPOINT || e.VITE_APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1')
-      .setProject(project).setKey(e.APPWRITE_API_KEY);
-    const page = await new Users(client).list([Query.limit(100)]);
+      .setProject(project).setKey(usersKey);
+    const usersApi = new Users(client);
+    const page = await usersApi.list([Query.limit(100)]);
+    let providersByUser = new Map();
+    let providerAvailable = false;
+    let providerPartial = false;
+    try {
+      const identities = await usersApi.listIdentities([Query.limit(100)]);
+      providerAvailable = true;
+      providerPartial = identities.total > identities.identities.length;
+      for (const identity of identities.identities) {
+        if (!providersByUser.has(identity.userId)) providersByUser.set(identity.userId, new Set());
+        providersByUser.get(identity.userId).add(identity.provider);
+      }
+    } catch { /* Users list still provides an accurate count and verification state. */ }
     return { available: true, total: page.total, users: page.users.map(user => ({
       id: user.$id, email: user.email, name: user.name,
-      emailVerification: user.emailVerification === true,
+      emailVerification: typeof user.emailVerification === 'boolean' ? user.emailVerification : null,
+      providers: providerAvailable ? [...(providersByUser.get(user.$id) || [])] : null,
       createdAt: user.$createdAt
-    })), partial: page.total > page.users.length };
+    })), partial: page.total > page.users.length, providerAvailable, providerPartial };
   } catch (error) {
     if ([401, 403].includes(error.code)) {
-      return { available: false, total: null, users: [], reason: 'Appwrite API key lacks Users read access.' };
+      return { available: false, total: null, users: [], reason: 'Appwrite rejected the server Users API key. Check project/endpoint and users.read scope in Netlify or Doppler.' };
     }
     throw error;
   }
@@ -981,31 +997,36 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
   const reservation = await reserveGeneration(userId, isAdmin, customModel);
   let charged = false;
   try {
+    await options.onStage?.('Inspecting source');
     const extracted = await extractDocumentation(url, options);
+    await options.onStage?.('Extracting documentation');
+    await options.onStage?.('Generating with Gemini');
     const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel, options.topic);
     const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation, startedAt,
       source_url: extracted.resolvedUrl || url, input_url: options.inputUrl || url, learning_topic: options.topic || null,
-      creator_name: options.userName || null, source_type: 'url' });
+      creator_name: options.userName || null, source_type: 'url', onStage: options.onStage, requestId: options.requestId });
     charged = true;
     return result;
   } finally { if (!charged) await releaseGeneration(userId, reservation); }
 }
 
-export async function processDocumentText({ title, text, customModel = 'gemini-flash-lite-latest', isAdmin = false, userId = null, userEmail = '', userName = null, visibility = 'private' }) {
+export async function processDocumentText({ title, text, customModel = 'gemini-flash-lite-latest', isAdmin = false, userId = null, userEmail = '', userName = null, visibility = 'private', onStage, requestId }) {
   if (!text || !text.trim()) throw Object.assign(new Error('Document text content is empty.'), { status: 400 });
   const startedAt = Date.now();
   const reservation = await reserveGeneration(userId, isAdmin, customModel);
   let charged = false;
   try {
+    await onStage?.('Extracting documentation');
+    await onStage?.('Generating with Gemini');
     const summarized = await summarizeWithLLM(text, title || 'Uploaded Document', customModel);
     const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation, startedAt,
-      source_url: 'upload://' + encodeURIComponent(title || 'document'), creator_name: userName, source_type: 'document' });
+      source_url: 'upload://' + encodeURIComponent(title || 'document'), creator_name: userName, source_type: 'document', onStage, requestId });
     charged = true;
     return result;
   } finally { if (!charged) await releaseGeneration(userId, reservation); }
 }
 
-async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, input_url = null, learning_topic = null, creator_name = null, source_type, reservation, startedAt }) {
+async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, input_url = null, learning_topic = null, creator_name = null, source_type, reservation, startedAt, onStage, requestId }) {
   const actualModel = summarized.actualModel || customModel;
   const isGuest = !userId || userId === 'public_guest';
   const course = normalizeCourse({
@@ -1016,7 +1037,7 @@ async function saveGeneration({ summarized, customModel, isAdmin, userId, userEm
     creator_name: isGuest ? 'Guest' : (creator_name || null),
     is_guest: isGuest, visibility: isGuest ? 'public' : (['public', 'community'].includes(visibility) ? visibility : 'private'),
     source_url, input_url, learning_topic, source_type, actual_model: actualModel,
-    generation_request_id: reservation.id,
+    generation_request_id: requestId || reservation.id,
     prompt_tokens: summarized.usage?.promptTokens ?? null,
     output_tokens: summarized.usage?.candidateTokens ?? null,
     total_tokens: summarized.usage?.totalTokens ?? null,
@@ -1024,12 +1045,12 @@ async function saveGeneration({ summarized, customModel, isAdmin, userId, userEm
     generation_status: 'completed'
   });
   // Every run gets its own ID; a URL cache must never return another author's private course.
-  await addPublicCourseToFeed(course);
+  await onStage?.('Saving course');
   await writeState('courses/' + course.$id, course);
   let quota;
   try {
     quota = await deductCredit(userId, isAdmin, actualModel, source_type === 'document', {
-      requestId: reservation.id, courseId: course.$id, courseTitle: course.title,
+      requestId: requestId || reservation.id, courseId: course.$id, courseTitle: course.title,
       sourceType: source_type, sourceUrl: source_url, userEmail: userEmail || null,
       promptTokens: summarized.usage?.promptTokens ?? null,
       candidateTokens: summarized.usage?.candidateTokens ?? null,
@@ -1040,7 +1061,11 @@ async function saveGeneration({ summarized, customModel, isAdmin, userId, userEm
     await deleteState('courses/' + course.$id);
     throw error;
   }
+  try { await onStage?.('Recording usage'); }
+  catch (error) { console.warn('Generation progress update unavailable after charge:', error?.name || 'Error'); }
   let warning = null;
+  try { await addPublicCourseToFeed(course); }
+  catch (error) { console.warn('Public feed index update failed:', error?.name || 'Error'); }
   try {
     await recordTokenUsage({ userId, model: actualModel, usage: summarized.usage, courseTitle: course.title,
       courseId: course.$id, cost: quota.cost, balance: quota.remaining });

@@ -108,9 +108,13 @@ async function callGemini(rawText, fallbackTitle, apiKey, customModel = null, le
           fallbackNotice
         };
       } catch (err) {
-        lastError = err;
-        const msg = err.message || '';
-        console.warn(`[CourseIT] Model ${modelName} failed (${msg.slice(0, 80)}). Moving to next candidate...`);
+        lastError = Object.assign(new Error(err.message || 'Gemini request failed.'), {
+          name: err.name, status: err.status, code: err.code, provider: true,
+          errorDetails: err.errorDetails, response: err.response, headers: err.headers,
+          retryAfter: err.retryAfter, retryDelay: err.retryDelay
+        });
+        console.warn('[CourseIT] Gemini model request failed:', modelName, Number(err.status) || 'unknown');
+        if (Number(err.status) === 429 || /RESOURCE_EXHAUSTED|rate limit/i.test(err.message || '')) throw lastError;
         break; // Move to next model
       }
     }

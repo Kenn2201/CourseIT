@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { BookOpen, Sparkles, Search, Layers, AlertCircle, RefreshCw, Star, ShieldCheck, BrainCircuit, Clock, HelpCircle, Settings, User, CheckCircle2, Lock, ArrowRight, Zap, ExternalLink } from 'lucide-react';
 import UrlInputForm from '../components/UrlInputForm';
@@ -13,7 +13,7 @@ import DashboardSidebar from '../components/DashboardSidebar';
 import GenerationHistory from '../components/GenerationHistory';
 import ThemeToggle from '../components/ThemeToggle';
 import { CURRENT_VERSION_LABEL } from '../constants/version';
-import { listCourses, saveLocalCourse, publishCourse } from '../lib/appwrite';
+import { listCourses, saveLocalCourse, removeLocalCourse, publishCourse } from '../lib/appwrite';
 import { authenticatedFetch } from '../lib/auth';
 import { readApiResponse } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +33,11 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [generateError, setGenerateError] = useState('');
   const [lastInputPayload, setLastInputPayload] = useState(null);
+  const [generationJob, setGenerationJob] = useState(null);
+  const [generationFailure, setGenerationFailure] = useState(null);
+  const [retryAt, setRetryAt] = useState(null);
+  const [progressOpen, setProgressOpen] = useState(false);
+  const generationInFlight = useRef(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('signup');
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
@@ -83,9 +88,53 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [user?.id, isAdmin]);
 
+  useEffect(() => {
+    if (!isGenerating || !lastInputPayload?.requestId) return undefined;
+    let stopped = false;
+    let polling = false;
+    const poll = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const response = await authenticatedFetch(`/api/generation/jobs/${lastInputPayload.requestId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (!stopped) setGenerationJob(data);
+        }
+      } catch { /* The generation request remains authoritative; transient polling errors are not fatal. */ }
+      finally { polling = false; }
+    };
+    const timer = setInterval(poll, 1500);
+    poll();
+    return () => { stopped = true; clearInterval(timer); };
+  }, [isGenerating, lastInputPayload?.requestId]);
+
+  const waitForExistingJob = async requestId => {
+    for (let attempt = 0; attempt < 80; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await authenticatedFetch(`/api/generation/jobs/${requestId}`);
+      const data = await readApiResponse(response);
+      if (data.state === 'succeeded') return { success: true, ...data.result };
+      if (data.state === 'failed') throw Object.assign(new Error(data.error), {
+        code: data.code, retryAfterSeconds: data.retryAfterSeconds,
+        retryable: ['RATE_LIMITED', 'PROVIDER_TIMEOUT', 'PROVIDER_UNAVAILABLE'].includes(data.code)
+      });
+    }
+    throw Object.assign(new Error('Generation is still processing. Check history before trying again.'), { code: 'GENERATION_UNKNOWN' });
+  };
+
   const handleGenerate = async (inputPayload, legacyModel) => {
+    if (generationInFlight.current) return;
+    generationInFlight.current = true;
+    inputPayload = typeof inputPayload === 'object' ? { ...inputPayload,
+      requestId: inputPayload.requestId || crypto.randomUUID() } :
+      { type: 'url', url: inputPayload, model: legacyModel, requestId: crypto.randomUUID() };
     setIsGenerating(true);
     setGenerateError('');
+    setGenerationFailure(null);
+    setRetryAt(null);
+    setGenerationJob({ startedAt: Date.now(), state: 'running', events: [] });
+    setProgressOpen(true);
     setSuccessFallback(null);
     setLastInputPayload(inputPayload);
 
@@ -109,7 +158,8 @@ export default function Dashboard() {
             userId,
             userEmail,
             isAdmin,
-            visibility: inputPayload.visibility
+            visibility: inputPayload.visibility,
+            requestId: inputPayload.requestId
           })
         });
       } else {
@@ -131,12 +181,14 @@ export default function Dashboard() {
             userId,
             userEmail,
             isAdmin,
-            visibility: inputPayload.visibility
+            visibility: inputPayload.visibility,
+            requestId: inputPayload.requestId
           })
         });
       }
 
-      const data = await readApiResponse(response);
+      let data = await readApiResponse(response);
+      if (response.status === 202) data = await waitForExistingJob(inputPayload.requestId);
 
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to generate course.');
@@ -169,10 +221,20 @@ export default function Dashboard() {
       setSuccessQuota(data.quota);
       setSuccessFallback([data.fallbackNotice, sourceNotice].filter(Boolean).join(' ') || null);
       setSuccessCourse(newCourse);
+      setProgressOpen(false);
     } catch (err) {
-      console.error('Generation failed:', err);
+      console.warn('Generation stopped:', err.code || err.status || 'unknown');
+      if (err instanceof TypeError && !err.status) {
+        err = Object.assign(new Error('Connection interrupted. Retry will use the same request ID, so it will not start a duplicate course.'),
+          { code: 'CONNECTION_INTERRUPTED', retryable: true });
+      }
       setGenerateError(err.message || 'Generation failed. Check your connection and retry.');
+      setGenerationFailure(err);
+      if (err.retryAfterSeconds) setRetryAt(Date.now() + err.retryAfterSeconds * 1000);
+      setProgressOpen(true);
       setIsGenerating(false);
+    } finally {
+      generationInFlight.current = false;
     }
   };
 
@@ -180,7 +242,7 @@ export default function Dashboard() {
     if (!course) return;
     setIsDeletingCourse(true);
     try {
-      const isLocal = Boolean(course.$id?.startsWith('course_') || course.$id?.startsWith('doc_'));
+      const isLocal = Boolean(course.historical_only || course.local_only);
       if (!isLocal && authState.isAuthenticated) {
         const res = await authenticatedFetch('/api/courses/delete', {
           method: 'POST',
@@ -200,9 +262,7 @@ export default function Dashboard() {
 
       const updated = courses.filter((c) => c.$id !== course.$id);
       setCourses(updated);
-      try {
-        localStorage.setItem('courseit_saved_courses', JSON.stringify(updated));
-      } catch {}
+      try { removeLocalCourse(course.$id); } catch {}
       setCourseToDelete(null);
     } catch (err) {
       console.error('Failed to delete course:', err);
@@ -221,6 +281,7 @@ export default function Dashboard() {
   };
 
   const filteredCourses = courses.filter((c) => {
+    if (c.historical_only) return false;
     const q = searchQuery.toLowerCase();
     return (
       (c.title || '').toLowerCase().includes(q) ||
@@ -297,14 +358,17 @@ export default function Dashboard() {
               </div>
 
               {/* In-Flight Pipeline Loading */}
-              {isGenerating && (
-                <div className="mt-8">
-                  <LoadingPipeline />
-                </div>
-              )}
+              <LoadingPipeline isOpen={progressOpen} job={generationJob} error={generationFailure}
+                retryAt={retryAt} input={lastInputPayload}
+                onRetry={() => { if (lastInputPayload) handleGenerate(lastInputPayload); }}
+                onClose={() => setProgressOpen(false)} />
+              {(isGenerating || generationFailure) && !progressOpen && <button type="button" onClick={() => setProgressOpen(true)}
+                className="mt-4 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20">
+                View generation status
+              </button>}
 
               {/* Error Message with Retry */}
-              {generateError && (
+              {generateError && !generationFailure && (
                 <div className="mt-8 max-w-2xl mx-auto p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start justify-between gap-3 animate-in fade-in">
                   <div className="flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -331,12 +395,12 @@ export default function Dashboard() {
                 <h2 className="text-sm font-semibold text-white">Recent generated courses</h2>
                 <p className="text-xs text-slate-400">Open a generated course directly. Guest courses expire after 30 minutes.</p>
                 <div className="flex flex-wrap gap-2">
-                  {courses.filter(c => !c.is_curated).slice(0, 5).map(course => (
+                  {courses.filter(c => !c.is_curated && !c.historical_only).slice(0, 5).map(course => (
                     <Link key={course.$id} to={'/course/' + course.$id} className="rounded-lg bg-indigo-500/10 px-3 py-2 text-xs text-indigo-300 hover:bg-indigo-500/20">
                       {course.title} <span aria-hidden="true">↗</span>
                     </Link>
                   ))}
-                  {!courses.some(c => !c.is_curated) && <span className="text-xs text-slate-500">Your next generated course will appear here.</span>}
+                  {!courses.some(c => !c.is_curated && !c.historical_only) && <span className="text-xs text-slate-500">Your next generated course will appear here.</span>}
                 </div>
               </section>
 

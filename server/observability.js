@@ -21,6 +21,17 @@ if (process.env.SENTRY_DSN) {
   });
 }
 
-export function captureUnexpectedError(error) {
-  if (process.env.SENTRY_DSN) Sentry.captureException(error);
+export async function captureUnexpectedError(error, tags = {}) {
+  if (!process.env.SENTRY_DSN) return;
+  try {
+    Sentry.withScope(scope => {
+      for (const [key, value] of Object.entries(tags)) {
+        if (/^[a-zA-Z_]{1,32}$/.test(key) && /^[a-zA-Z0-9_./-]{1,100}$/.test(String(value))) {
+          scope.setTag(key, String(value));
+        }
+      }
+      Sentry.captureException(error);
+    });
+    await Sentry.flush(2000);
+  } catch { console.warn('Sentry delivery unavailable for unexpected error.'); }
 }

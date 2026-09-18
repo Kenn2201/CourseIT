@@ -173,30 +173,31 @@ export default function GenerationHistory({ courses = [], onDeleteCourse, curren
                       <span>Model: {item.actual_model || 'Unavailable'}</span>
                       <span>Tokens: {Number.isFinite(item.total_tokens) ? item.total_tokens : 'Unavailable'}</span>
                       <span>Credits: {Number.isFinite(item.credits_charged) ? item.credits_charged : 'Unavailable'}</span>
-                      <span>Status: {item.generation_status || 'Historical record'}</span>
+                      <span>Status: {item.historical_only ? 'Local history only — server course unavailable' : item.local_only ? 'Legacy browser-only course' : item.generation_status || 'Historical record'}</span>
                     </div>
-                    {isDoc && (item.source_file_id ? <SourceImagePreview course={item} /> :
+                    {item.historical_only && <p className="text-[11px] text-amber-300">This browser has a cached record, but the course is not in the server catalog. Removing it clears this browser only; credits and server history are unchanged.</p>}
+                    {isDoc && (item.source_file_id && !item.historical_only ? <SourceImagePreview course={item} /> :
                       <p className="text-[11px] text-slate-500">Original source file not available for this record.</p>)}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  <Link
+                  {!item.historical_only && <Link
                     to={`/course/${item.$id}`}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all cursor-pointer"
                   >
                     <span>View</span>
                     <ArrowUpRight className="w-3.5 h-3.5" />
-                  </Link>
+                  </Link>}
 
                   <button
                     type="button"
                     onClick={() => onDeleteCourse && onDeleteCourse(item)}
-                    title="Delete permanently from history"
+                    title={item.historical_only ? 'Remove cached browser record' : 'Delete course permanently'}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/30 transition-all cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete</span>
+                    <span>{item.historical_only ? 'Remove local' : 'Delete'}</span>
                   </button>
                 </div>
               </div>

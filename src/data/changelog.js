@@ -1,9 +1,25 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.15.0 LIVE Beta',
+    date: 'September 19, 2026',
+    title: 'Reliable Generation and Honest History',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Clear Gemini Retry State', desc: 'Rate limits show provider-aware wait timing and keep the input ready to retry.' },
+      { title: 'Real Generation Progress', desc: 'A viewport modal shows recorded server stages without simulated percentages.' },
+      { title: 'Safer Course History', desc: 'Browser-only historical records are distinguished from server courses and can be removed locally.' }
+    ],
+    notes: [
+      'Durable request IDs suppress repeated work and charges for the same generation request; uncertain interrupted jobs are not automatically restarted.',
+      'Admin supports a separate server-only Appwrite Users-read key and displays verification/provider details when access permits.',
+      'Unexpected failures have privacy-filtered Sentry capture; production key configuration and Sentry ingestion still need verification.',
+      'The reported Semaphore course could not be inspected with an owner session; its exact production storage/deletion state remains unverified.'
+    ]
+  },
+  {
     version: 'v1.14.0 LIVE Beta',
     date: 'September 18, 2026',
     title: 'Private Learning Workflows and Durable Source History',
-    badge: 'Latest Release',
     highlights: [
       { title: 'Explicit Course Privacy', desc: 'Signed-in courses default to Private, with separate Community and Public choices enforced by the API.' },
       { title: 'Focused Documentation Discovery', desc: 'Choose a relevant section from bounded same-site documentation suggestions before generation.' },

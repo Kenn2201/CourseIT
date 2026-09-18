@@ -5,12 +5,16 @@ export async function readApiResponse(response) {
     const fallback = {
       401: 'Your session expired. Sign in again.',
       403: 'You do not have permission for this action.',
-      429: 'Request limit reached. Wait 60 seconds before retrying.',
+      429: 'Request limit reached. Check your quota or try again later.',
       502: 'The generation service did not respond correctly. Wait 30 seconds and retry with Flash Lite.',
       503: 'The service is temporarily unavailable. Please retry in 30 seconds.',
       504: 'The AI job timed out. Try Flash Lite or a shorter document.'
     };
-    throw Object.assign(new Error(data?.error || fallback[response.status] || 'The server returned an unexpected response. Please retry.'), { status: response.status });
+    throw Object.assign(new Error(data?.error || fallback[response.status] || 'The server returned an unexpected response. Please retry.'), {
+      status: response.status, code: data?.code || null,
+      retryAfterSeconds: Number.isFinite(data?.retryAfterSeconds) ? data.retryAfterSeconds : null,
+      retryable: Boolean(data?.retryable)
+    });
   }
   return data;
 }

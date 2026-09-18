@@ -4,8 +4,8 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.14.0--LIVE--Beta-indigo.svg)
-[![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple&cacheSeconds=60)](https://github.com/Kenn2201/CourseIT/commit/master)
+![Version](https://img.shields.io/badge/version-v1.15.0--LIVE--Beta-indigo.svg)
+[![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT-AI%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple&cacheSeconds=60)](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
@@ -21,12 +21,18 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.14.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.15.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
-* **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT/commit/master)
+* **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 
 ### Recent Release Notes
+
+* **v1.15.0 LIVE Beta (September 19, 2026)** — *Reliable Generation and Honest History*:
+  * Gemini limits return safe codes and retry timing; the same request ID cannot create a second course or charge while a previous result exists.
+  * The progress modal shows real recorded stages, while stale browser-only history is clearly separate from server courses.
+  * Admin can use a server-only Users-read key for Auth count, verification, and provider details.
+  * Local tests/build pass. Exact Semaphore owner-side deletion, live Appwrite/Sentry, and mobile modal checks remain pending.
 
 * **v1.14.0 LIVE Beta (September 18, 2026)** — *Private Learning Workflows and Durable Source History*:
   * Signed-in courses default to Private, with explicit Community/Public choices and backend access checks.
@@ -173,11 +179,14 @@ Signed-in courses default to **Private** (owner/admin). **Community** requires a
 
 The optional topic workflow inspects one SSRF-checked documentation page, ranks same-origin links, asks the user to choose a section, and then generates from that section. It does not crawl a site or guarantee that every navigation item will be found.
 
+Generation requests now use a client request ID and a durable `generation-jobs/<id>` status record. The progress dialog polls recorded stages rather than displaying a timed percentage. Repeating the same request ID returns the existing result or current state; an interrupted job with uncertain completion is **not** automatically regenerated. Gemini 429 responses show a bounded retry countdown when the provider supplies timing. New server-backed courses and browser-only historical records are distinguished in history; removing a historical-only card clears the browser copy, not server credit history.
+
 ### Manual service setup
 
 - In GitHub, create an OAuth App under **Settings → Developer settings → OAuth apps**. Set Homepage URL to `https://courseitai.kenncode.me`; copy the **exact Authorization callback URL shown by Appwrite's GitHub provider**. Do not use CourseIT's `/auth/success` URL as GitHub's callback.
 - In Appwrite Auth, enable the GitHub provider and enter its Client ID/Secret; register `courseitai.kenncode.me` as a Web platform. No repository scope is required for basic sign-in. Keep the GitHub secret in Appwrite, not a `VITE_` variable or this repository.
 - For Admin's **Total Appwrite Auth Accounts**, give the server-only Appwrite API key the required Users read permission. Until then the dashboard intentionally says **Unavailable**; it never substitutes application-profile count.
+- If the existing `APPWRITE_API_KEY` is intentionally limited to course/database reads, set a separate server-only `APPWRITE_USERS_API_KEY` with `users.read` scope in Netlify/Doppler for the Admin Auth overview. It must target the same Appwrite project and endpoint; never prefix it with `VITE_`. Provider identities are shown when the same key can list them.
 - For email verification, ensure the Appwrite Web platform accepts `https://courseitai.kenncode.me/auth/verify`, then test a disposable email/password account end to end.
 - To enable error monitoring, set `VITE_SENTRY_DSN` at frontend build time and `SENTRY_DSN` for Functions. Verify test events and privacy scrubbing in Sentry before relying on it. Do not put a Sentry auth token in browser variables.
 

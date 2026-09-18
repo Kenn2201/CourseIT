@@ -25,6 +25,7 @@ import { apiError } from './errors.js';
 import { captureUnexpectedError } from './observability.js';
 import { discoverDocumentationSections } from './discover.js';
 import { validateDocumentUrl } from './safeFetch.js';
+import { getGenerationJob, runGenerationJob } from './generationJobs.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -86,6 +87,12 @@ export async function handler(event) {
   const headers = event.headers || {};
 
   try {
+    if (subpath.startsWith('/generation/jobs/')) {
+      if (event.httpMethod !== 'GET') return jsonResponse(405, { error: 'Method not allowed' });
+      const session = await authenticate(headers);
+      const result = await getGenerationJob(subpath.slice('/generation/jobs/'.length), session?.userId || 'public_guest', session);
+      return jsonResponse(result.status, result.body);
+    }
     if (subpath === '/maintenance') {
       if (event.httpMethod === 'GET') return jsonResponse(200, { success: true, enabled: await readMaintenance() });
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
@@ -179,17 +186,13 @@ export async function handler(event) {
       if (body.topic !== undefined && (typeof body.topic !== 'string' || body.topic.length > 120)) {
         return jsonResponse(400, { error: 'Learning topic must be under 120 characters.' });
       }
-      const result = await processDocumentationUrl(
-        url,
-        targetModel,
-        effectiveIsAdmin,
-        false,
-        effectiveUserId,
-        effectiveUserEmail,
-        body.visibility,
-        { inputUrl, topic: body.topic?.trim() || null, userName: session?.userName || null }
-      );
-      return jsonResponse(200, { success: true, ...result });
+      const result = await runGenerationJob({ id: body.requestId, actor: effectiveUserId,
+        payload: { type: 'url', url, inputUrl, topic: body.topic?.trim() || null,
+          model: targetModel, visibility: session ? body.visibility || 'private' : 'public' }, session,
+        work: (onStage, requestId) => processDocumentationUrl(url, targetModel, effectiveIsAdmin, false,
+          effectiveUserId, effectiveUserEmail, body.visibility,
+          { inputUrl, topic: body.topic?.trim() || null, userName: session?.userName || null, onStage, requestId }) });
+      return jsonResponse(result.status, result.body);
     }
 
     // 6. Summarize document / OCR text (/summarize-text and /document)
@@ -216,17 +219,13 @@ export async function handler(event) {
         targetModel = 'gemini-flash-lite-latest';
       }
 
-      const result = await processDocumentText({
-        title,
-        text,
-        customModel: targetModel,
-        isAdmin: effectiveIsAdmin,
-        userId: effectiveUserId,
-        userEmail: effectiveUserEmail,
-        userName: session?.userName || null,
-        visibility: body.visibility
-      });
-      return jsonResponse(200, { success: true, ...result });
+      const result = await runGenerationJob({ id: body.requestId, actor: effectiveUserId,
+        payload: { type: 'document', title, text, model: targetModel,
+          visibility: session ? body.visibility || 'private' : 'public' }, session,
+        work: (onStage, requestId) => processDocumentText({ title, text, customModel: targetModel,
+          isAdmin: effectiveIsAdmin, userId: effectiveUserId, userEmail: effectiveUserEmail,
+          userName: session?.userName || null, visibility: body.visibility, onStage, requestId }) });
+      return jsonResponse(result.status, result.body);
     }
 
     // 7. Course deletion
@@ -234,7 +233,9 @@ export async function handler(event) {
       if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
       const session = await authenticate(headers);
       const { courseId, userId, userEmail } = body;
-      if (!courseId) return jsonResponse(400, { error: 'courseId is required' });
+      if (typeof courseId !== 'string' || !/^[a-zA-Z0-9_.-]{1,64}$/.test(courseId)) {
+        return jsonResponse(400, { error: 'A valid courseId is required.' });
+      }
 
       if (!session) return jsonResponse(401, { error: 'Sign in to delete a course.' });
       const verifiedUserId = session.userId;
@@ -373,9 +374,10 @@ export async function handler(event) {
 
     return jsonResponse(404, { error: `Endpoint not found: ${subpath}` });
   } catch (err) {
-    console.error(`[Netlify Function Error at ${subpath}]:`, err);
     const failure = apiError(err);
-    if (failure.status === 500) captureUnexpectedError(err);
+    console.error('[CourseIT API error]', { route: subpath, status: failure.status,
+      code: failure.body.code || 'API_ERROR' });
+    if (failure.status === 500) await captureUnexpectedError(err, { route: subpath });
     return jsonResponse(failure.status, failure.body);
   }
 }

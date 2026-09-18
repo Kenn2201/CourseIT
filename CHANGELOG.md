@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-09-19 — Reliable Generation and Honest History (LIVE Beta)
+
+### Added
+- Store a durable generation request ID and recorded process stages; show those stages in a viewport-fixed progress modal instead of timed percentages.
+- Display bounded provider retry timing and a countdown for Gemini rate limits. Retry the same request ID without starting duplicate work or charges.
+- Support a separate server-only Appwrite Users-read key and display Auth verification/provider information when the key permits.
+
+### Fixed and Hardened
+- Stop fallback Gemini calls after a 429; return safe error codes and avoid exposing provider stack traces.
+- Distinguish browser-only historical course records from server-backed courses. Removing a stale record clears local cache; server deletion retains owner checks.
+- Add safe request/stage error logs and opt-in Sentry flush for unexpected server failures.
+
+### Verification and Limits
+- Local regression tests, frontend build, and function bundle pass. Live Gemini, Appwrite Auth, Sentry, and responsive modal checks remain pending.
+- The reported Semaphore course returned 404 to an anonymous production read, but its owner-side storage/deletion state could not be verified. Same-request duplicate protection is not a cross-store atomic ledger.
+
 ## [1.14.0] - 2026-09-18 — Private Learning Workflows and Durable Source History (LIVE Beta)
 
 ### Security and Privacy

@@ -125,7 +125,8 @@ export default function Admin() {
         setAuthOverview(data.auth || null);
         const authById = new Map((data.auth?.users || []).map(identity => [identity.id, identity]));
         setUsers((data.users || []).map(record => ({ ...record,
-          emailVerification: authById.get(record.user_id)?.emailVerification ?? null
+          emailVerification: authById.get(record.user_id)?.emailVerification ?? null,
+          authProviders: authById.get(record.user_id)?.providers ?? null
         })));
       }
     } catch (err) {
@@ -502,7 +503,7 @@ export default function Admin() {
         <div className="glass-panel p-5 rounded-2xl border border-sky-500/20">
           <p className="text-xs text-slate-400 font-medium">Total Appwrite Auth Accounts</p>
           <p className="text-2xl font-bold text-white mt-1">{authOverview?.available ? authOverview.total : 'Unavailable'}</p>
-          {!authOverview?.available && <p className="text-[10px] text-amber-300 mt-1">Users API access required</p>}
+          {!authOverview?.available && <p className="text-[10px] text-amber-300 mt-1">{authOverview?.reason || 'Users API access required'}</p>}
         </div>
         <div className="glass-panel p-5 rounded-2xl border border-indigo-500/20 flex items-center justify-between">
           <div>
@@ -552,8 +553,10 @@ export default function Admin() {
             authOverview.users.filter(identity => !users.some(record => record.user_id === identity.id)).length
           }. No profile was created automatically.</p>
           {authOverview.partial && <p className="mt-1 text-amber-300">Only the first 100 Auth identities were inspected; the total count comes from Appwrite.</p>}
+          {!authOverview.providerAvailable && <p className="mt-1 text-amber-300">Provider identities could not be inspected with the current server key.</p>}
+          {authOverview.providerPartial && <p className="mt-1 text-amber-300">Provider identities are partial (first 100 only).</p>}
           {authOverview.users.filter(identity => !users.some(record => record.user_id === identity.id)).map(identity => (
-            <p key={identity.id} className="mt-1 font-mono">{identity.name || identity.email || identity.id} — {identity.emailVerification ? 'email verified' : 'email unverified'}</p>
+            <p key={identity.id} className="mt-1 font-mono">{identity.name || identity.email || identity.id} — {identity.emailVerification === true ? 'email verified' : identity.emailVerification === false ? 'email unverified' : 'verification unavailable'}{identity.providers?.length ? ` · ${identity.providers.join(', ')}` : ''}</p>
           ))}
         </div>
       )}
@@ -776,6 +779,7 @@ export default function Admin() {
                               <p className="text-[10px] text-slate-500">
                                 {u.emailVerification === true ? 'Email verified' : u.emailVerification === false ? 'Email unverified' : 'Verification status unavailable'}
                               </p>
+                              {u.authProviders?.length > 0 && <p className="text-[10px] text-slate-500">Provider: {u.authProviders.join(', ')}</p>}
                             </div>
                           </div>
                         </td>

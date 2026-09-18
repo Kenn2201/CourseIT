@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'courseit-tests-'));
 for (const key of Object.keys(process.env)) {
@@ -12,6 +13,7 @@ Object.assign(process.env, { COURSEIT_DATA_DIR: temporary, APPWRITE_ENDPOINT: 'h
   APPWRITE_PROJECT_ID: 'test-project', ADMIN_EMAIL: 'admin@example.test', LLM_API_KEY: 'test-only', LLM_PROVIDER: 'gemini' });
 let providerCalls = 0;
 let providerFailure = false;
+let providerRateLimited = false;
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input, options = {}) => {
   const url = typeof input === 'string' ? input : input.url || String(input);
@@ -20,8 +22,16 @@ globalThis.fetch = async (input, options = {}) => {
     if (['admin', 'author', 'newbie'].includes(jwt)) return Response.json({ $id: jwt, email: jwt + '@example.test', name: jwt });
     return Response.json({ message: 'Invalid session', code: 401 }, { status: 401 });
   }
+  if (url.startsWith('https://auth.test/v1/users/identities')) return Response.json({ total: 1,
+    identities: [{ $id: 'identity-1', userId: 'author', provider: 'github' }] });
+  if (url.startsWith('https://auth.test/v1/users')) return Response.json({ total: 4, users: [
+    { $id: 'author', email: 'author@example.test', name: 'Author', emailVerification: true },
+    { $id: 'newbie', email: 'newbie@example.test', name: 'Newbie', emailVerification: false }
+  ] });
   if (url.includes('generativelanguage.googleapis.com')) {
     providerCalls++;
+    if (providerRateLimited) return Response.json({ error: { message: 'RESOURCE_EXHAUSTED: Retry in 2 seconds', code: 429 } },
+      { status: 429, headers: { 'Retry-After': '2' } });
     if (providerFailure) return Response.json({ error: { message: 'Service Unavailable', code: 503 } }, { status: 503 });
     const course = { title: 'Test generated course', steps: [{ title: 'Build a test', summary: 'Run the test.' }] };
     return Response.json({ candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify(course) }] }, finishReason: 'STOP' }],
@@ -34,11 +44,13 @@ after(async () => { globalThis.fetch = originalFetch; await rm(temporary, { recu
 const { handler } = await import('../server/api.js');
 const { writeState, readState, updateState, listState, deleteState } = await import('../server/state.js');
 const { listCatalog, readCourse, cleanupGuestCourses, publishCourse, listDocumentsAll, addPublicCourseToFeed } = await import('../server/catalog.js');
-const { getUserQuota, topUpUserCredits, deductCredit, getCreditHistory, getTokenMetrics, processDocumentText, processDocumentationUrl, listAllUsers, reserveGeneration, releaseGeneration, deleteCourse } = await import('../server/handler.js');
+const { getUserQuota, topUpUserCredits, deductCredit, getCreditHistory, getTokenMetrics, processDocumentText, processDocumentationUrl, listAllUsers, reserveGeneration, releaseGeneration, deleteCourse, getAuthIdentityOverview } = await import('../server/handler.js');
 const { handleApiRequest } = await import('../server/request.js');
 const { normalizeCourse, canReadCourse, publicCourse } = await import('../shared/courses.js');
 const { discoverDocumentationSections } = await import('../server/discover.js');
 const { readApiResponse } = await import('../src/lib/api.js');
+const { apiError, providerRetrySeconds } = await import('../server/errors.js');
+const { getGenerationJob, runGenerationJob } = await import('../server/generationJobs.js');
 const api = (route, method = 'GET', body, token) => handler({ path: '/api' + route, httpMethod: method,
   body: body ? JSON.stringify(body) : '', queryStringParameters: {}, headers: token ? { 'x-appwrite-jwt': token } : {} });
 const fixture = (id, extra = {}) => normalizeCourse({ $id: id, title: 'Course', steps: [],
@@ -213,6 +225,82 @@ test('admin identity counts distinguish Auth availability from application recor
   assert.equal(data.auth.total, null);
   assert.equal((await api('/admin/users', 'GET', undefined, 'author')).statusCode, 403);
 });
+test('server-only Users key returns Auth total, verification and provider identities', async () => {
+  process.env.APPWRITE_USERS_API_KEY = 'test-users-read-key';
+  try {
+    const auth = await getAuthIdentityOverview();
+    assert.equal(auth.available, true);
+    assert.equal(auth.total, 4);
+    assert.equal(auth.partial, true);
+    assert.equal(auth.users.find(user => user.id === 'author').emailVerification, true);
+    assert.deepEqual(auth.users.find(user => user.id === 'author').providers, ['github']);
+    assert.equal(auth.users.find(user => user.id === 'newbie').emailVerification, false);
+  } finally { delete process.env.APPWRITE_USERS_API_KEY; }
+});
+test('rate-limit errors have safe codes and bounded provider retry timing', async () => {
+  assert.equal(providerRetrySeconds({ headers: new Headers({ 'Retry-After': '7' }) }), 7);
+  assert.equal(providerRetrySeconds({ errorDetails: [{ retryDelay: '12s' }] }), 12);
+  assert.equal(providerRetrySeconds({ headers: new Headers({ 'Retry-After': '99999' }) }), 3600);
+  const failure = apiError({ provider: true, status: 429, message: 'RESOURCE_EXHAUSTED',
+    headers: new Headers({ 'Retry-After': '7' }) });
+  assert.equal(failure.body.code, 'RATE_LIMITED');
+  assert.equal(failure.body.retryAfterSeconds, 7);
+  assert.ok(!failure.body.error.includes('RESOURCE_EXHAUSTED'));
+  await assert.rejects(readApiResponse(Response.json(failure.body, { status: 429 })),
+    error => error.code === 'RATE_LIMITED' && error.retryAfterSeconds === 7);
+});
+test('durable generation jobs expose real stages and reject concurrent duplicate work', async () => {
+  const id = randomUUID();
+  const course = fixture('job-course-' + Date.now());
+  let release;
+  let signalStarted;
+  const gate = new Promise(resolve => { release = resolve; });
+  const started = new Promise(resolve => { signalStarted = resolve; });
+  const options = { id, actor: 'author', payload: { text: 'test' }, session: { userId: 'author' } };
+  const first = runGenerationJob({ ...options, work: async onStage => {
+    await onStage('Generating with Gemini');
+    signalStarted();
+    await gate;
+    await writeState('courses/' + course.$id, course);
+    return { course, quota: { remaining: 1 } };
+  } });
+  await started;
+  const concurrent = await runGenerationJob({ ...options, work: () => { throw new Error('Duplicate ran'); } });
+  assert.equal(concurrent.status, 202, JSON.stringify(concurrent.body));
+  assert.equal((await getGenerationJob(id, 'newbie')).status, 403);
+  assert.ok((await getGenerationJob(id, 'author', options.session)).body.events.some(e => e.stage === 'Generating with Gemini'));
+  release();
+  assert.equal((await first).status, 200);
+  const replay = await runGenerationJob({ ...options, work: () => { throw new Error('Replay ran'); } });
+  assert.equal(replay.status, 200);
+  assert.equal(replay.body.course.$id, course.$id);
+});
+test('Gemini 429 does not call a fallback model or deduct credits twice on retry', async () => {
+  await topUpUserCredits('author', 2);
+  const beforeBalance = (await getUserQuota('author')).quota_remaining;
+  const beforeCalls = providerCalls;
+  const requestId = randomUUID();
+  const body = { title: 'Rate limited notes', text: 'Example source', requestId };
+  providerRateLimited = true;
+  try {
+    const limited = await api('/summarize-text', 'POST', body, 'author');
+    assert.equal(limited.statusCode, 429);
+    assert.equal(JSON.parse(limited.body).code, 'RATE_LIMITED');
+    assert.equal(JSON.parse(limited.body).retryAfterSeconds, 2);
+    assert.equal(providerCalls, beforeCalls + 1);
+    assert.equal((await getUserQuota('author')).quota_remaining, beforeBalance);
+    assert.equal((await api('/summarize-text', 'POST', body, 'author')).statusCode, 429);
+    assert.equal(providerCalls, beforeCalls + 1);
+    await updateState('generation-jobs/' + requestId, job => ({ ...job, retryAt: Date.now() - 1 }));
+    providerRateLimited = false;
+    const generated = JSON.parse((await api('/summarize-text', 'POST', body, 'author')).body);
+    assert.ok(generated.course?.$id);
+    const replay = JSON.parse((await api('/summarize-text', 'POST', body, 'author')).body);
+    assert.equal(replay.course.$id, generated.course.$id);
+    assert.equal((await getUserQuota('author')).quota_remaining, beforeBalance - 0.5);
+    assert.equal((await getCreditHistory('author')).filter(event => event.courseId === generated.course.$id).length, 1);
+  } finally { providerRateLimited = false; }
+});
 test('signed-in generations default private and direct URLs enforce ownership', async () => {
   const generated = await api('/summarize-text', 'POST', { title: 'Private notes', text: 'Example source' }, 'author');
   assert.equal(generated.statusCode, 200);
@@ -235,6 +323,16 @@ test('community course requires a signed-in reader and is not in anonymous disco
   assert.ok(!(await listCatalog()).some(item => item.$id === course.$id));
   assert.ok((await listCatalog({ userId: 'newbie' })).some(item => item.$id === course.$id));
   assert.equal((await readState('courses/' + course.$id)).visibility, 'community');
+});
+test('canonical server course deletion requires its owner and removes the course', async () => {
+  const course = fixture('semaphore-delete-fixture', { visibility: 'public' });
+  await writeState('courses/' + course.$id, course);
+  assert.equal((await api('/courses/' + course.$id, 'GET', undefined, 'author')).statusCode, 200);
+  assert.equal((await api('/courses/delete', 'POST', { courseId: course.$id }, 'newbie')).statusCode, 403);
+  assert.ok(await readState('courses/' + course.$id));
+  assert.equal((await api('/courses/delete', 'POST', { courseId: course.$id }, 'author')).statusCode, 200);
+  assert.equal(await readState('courses/' + course.$id), null);
+  assert.equal((await api('/courses/' + course.$id, 'GET', undefined, 'author')).statusCode, 404);
 });
 test('OCR source image persists privately for its owner and is removed with the course', async () => {
   const course = fixture('source-fixture', { source_type: 'document', source_url: 'upload://scan', visibility: 'public' });

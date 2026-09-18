@@ -83,15 +83,24 @@ export function saveLocalCourse(course) {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([normalizeCourse(course), ...current]));
 }
 
+export function removeLocalCourse(id) {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(getLocalCourses().filter(course => course.$id !== id)));
+}
+
 export async function listCourses(userId = null, isAdmin = false, includeCurated = true) {
   const scope = includeCurated || isAdmin ? 'catalog' : 'mine';
   const response = await authenticatedFetch('/api/courses?scope=' + scope);
   const data = await readApiResponse(response);
   const courses = new Map(includeCurated ? STARTER_COURSES.map(c => [c.$id, c]) : []);
+  const serverIds = new Set(data.courses.map(course => course.$id));
   // Keep locally generated results from older versions, scoped to their owner.
   for (const course of getLocalCourses()) {
     if (canReadCourse(course, userId, isAdmin) && (includeCurated || isAdmin || course.creator_id === userId)) {
-      courses.set(course.$id, publicCourse(course, userId, isAdmin));
+      const historicalOnly = Boolean(userId) && !serverIds.has(course.$id) &&
+        !course.$id.startsWith('course_') && !course.$id.startsWith('doc_');
+      const localOnly = !serverIds.has(course.$id) &&
+        (course.$id.startsWith('course_') || course.$id.startsWith('doc_'));
+      courses.set(course.$id, publicCourse({ ...course, historical_only: historicalOnly, local_only: localOnly }, userId, isAdmin));
     }
   }
   for (const course of data.courses) courses.set(course.$id, course);

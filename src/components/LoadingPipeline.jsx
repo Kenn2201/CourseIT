@@ -1,131 +1,66 @@
 import React, { useEffect, useState } from 'react';
-import { Globe, FileText, Cpu, Database, CheckCircle2, Sparkles, RefreshCw } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { AlertCircle, CheckCircle2, Clock, LoaderCircle, X } from 'lucide-react';
+import useModalViewport from './useModalViewport';
 
-const PIPELINE_STEPS = [
-  {
-    id: 'fetch',
-    label: 'Extracting source documentation & stripping noise',
-    icon: Globe,
-    description: 'Bypassing CORS, stripping navigation trees, footers, and scripts'
-  },
-  {
-    id: 'readability',
-    label: 'Parsing core concepts & hierarchical steps',
-    icon: FileText,
-    description: 'Isolating genuine code blocks, installation guides, and API contracts'
-  },
-  {
-    id: 'gemini',
-    label: 'Synthesizing action-first path with Google Gemini',
-    icon: Cpu,
-    description: 'Enforcing action-first steps, time estimates (~10 min), and pro tips'
-  },
-  {
-    id: 'save',
-    label: 'Archiving course & updating credit quotas',
-    icon: Database,
-    description: 'Persisting structured learning modules into Appwrite Sydney database'
-  }
-];
+const formatTime = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
-export default function LoadingPipeline() {
-  const [activeStepIndex, setActiveStepIndex] = useState(0);
-  const [pct, setPct] = useState(15);
-
+export default function LoadingPipeline({ isOpen, job, error, retryAt, input, onRetry, onClose }) {
+  const dialogRef = useModalViewport(isOpen, onClose);
+  const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const t1 = setTimeout(() => { setActiveStepIndex(1); setPct(40); }, 1200);
-    const t2 = setTimeout(() => { setActiveStepIndex(2); setPct(75); }, 2600);
-    const t3 = setTimeout(() => { setActiveStepIndex(3); setPct(92); }, 5000);
+    if (!isOpen) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [isOpen]);
+  if (!isOpen) return null;
 
-    const interval = setInterval(() => {
-      setPct((p) => (p < 95 ? p + 1 : p));
-    }, 400);
+  const remaining = retryAt ? Math.max(0, Math.ceil((retryAt - now) / 1000)) : 0;
+  const elapsed = Math.max(0, Math.floor((now - (job?.startedAt || now)) / 1000));
+  const title = input?.type === 'document' ? input.title : input?.topic || 'Documentation learning module';
+  let host = input?.type === 'document' ? input.title || 'Uploaded document' : '';
+  try { if (input?.url) host = new URL(input.url).hostname; } catch { host = 'Documentation URL'; }
+  const running = !error && job?.state !== 'succeeded';
+  const rateLimited = error?.code === 'RATE_LIMITED';
 
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearInterval(interval);
-    };
-  }, []);
-
-  return (
-    <div className="w-full glass-panel rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-      {/* Animated glowing top line */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-400 animate-pulse" />
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-            <RefreshCw className="w-5 h-5 animate-spin" />
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex items-start sm:items-center justify-center overflow-y-auto bg-slate-950/85 p-3 sm:p-6 backdrop-blur-md">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={rateLimited ? 'AI service temporarily busy' : 'Generating learning module'}
+        className="glass-panel relative w-full max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl border border-indigo-500/30 bg-slate-950 p-5 sm:p-7 shadow-2xl">
+        <button type="button" onClick={onClose} className="absolute right-4 top-4 rounded-lg p-2 text-slate-400 hover:text-white" aria-label={running ? 'Hide progress; generation continues' : 'Close generation status'}>
+          <X className="h-4 w-4" />
+        </button>
+        <div className="pr-8">
+          <div className="mb-3 flex items-center gap-2 text-indigo-300">
+            {running ? <LoaderCircle className="h-5 w-5 animate-spin" /> : error ? <AlertCircle className="h-5 w-5 text-amber-300" /> : <CheckCircle2 className="h-5 w-5 text-emerald-300" />}
+            <h2 className="text-lg font-bold text-white">{rateLimited ? 'AI Service Temporarily Busy' : error ? 'Generation Paused' : job?.state === 'succeeded' ? 'Learning Module Generated' : 'Generating Learning Module'}</h2>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-white tracking-tight">Synthesizing Course Pipeline</h3>
-            <p className="text-xs text-slate-400">Extracting and structuring into practical actionable modules</p>
+          <p className="text-sm font-semibold text-slate-100">{title}</p>
+          <p className="mt-1 break-all text-xs text-slate-400">{host}</p>
+          <div className="mt-5 flex items-center justify-between border-b border-slate-800 pb-3 text-xs text-slate-400">
+            <span>Process log</span><span className="flex items-center gap-1 font-mono"><Clock className="h-3.5 w-3.5" /> Elapsed {formatTime(elapsed)}</span>
           </div>
+          <ol className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1" aria-live="polite">
+            {(job?.events || []).map((event, index) => <li key={`${event.at}-${index}`} className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs">
+              <span className="font-mono text-indigo-300">{index === (job.events.length - 1) && running ? 'ACTION' : 'RESULT'}</span>
+              <span className="text-slate-200">{event.stage}</span>
+            </li>)}
+            {!job?.events?.length && <li className="text-xs text-slate-400">Preparing request…</li>}
+          </ol>
+          {running && <p className="mt-4 text-xs text-indigo-300">{job?.stage || 'Preparing request'}…</p>}
+          {error && <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100" role="alert">
+            <p>{error.message}</p>
+            {rateLimited && <p className="mt-2 font-mono">Retry available in {formatTime(remaining)}</p>}
+            {error.code === 'GENERATION_UNKNOWN' && <p className="mt-2 text-xs">Check history before starting another generation. Automatic retry is disabled.</p>}
+          </div>}
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-xl border border-slate-700 px-4 py-2 text-xs text-slate-200 hover:bg-slate-800">{running ? 'Hide progress' : 'Close'}</button>
+            {error?.retryable && error.code !== 'GENERATION_UNKNOWN' && <button type="button" onClick={onRetry} disabled={remaining > 0}
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">Retry</button>}
+          </div>
+          {running && <p className="mt-3 text-[11px] text-slate-500">Hiding this window does not cancel the server request or consume an extra credit.</p>}
         </div>
-
-        <div className="flex items-center gap-2 self-end sm:self-auto font-mono text-xs font-bold text-indigo-300">
-          <span>{pct}% complete</span>
-        </div>
       </div>
-
-      {/* Progress Bar */}
-      <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800 mb-6">
-        <div
-          className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-400 transition-all duration-300 rounded-full"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-
-      {/* Pipeline Steps Visualizer */}
-      <div className="space-y-3.5">
-        {PIPELINE_STEPS.map((step, idx) => {
-          const Icon = step.icon;
-          const isDone = idx < activeStepIndex;
-          const isCurrent = idx === activeStepIndex;
-
-          return (
-            <div
-              key={step.id}
-              className={`flex items-start gap-4 p-3 rounded-2xl border transition-all duration-300 ${
-                isCurrent
-                  ? 'bg-indigo-600/10 border-indigo-500/40 shadow-md shadow-indigo-500/5'
-                  : isDone
-                  ? 'bg-slate-900/30 border-emerald-500/20 opacity-85'
-                  : 'bg-slate-900/15 border-transparent opacity-40'
-              }`}
-            >
-              <div
-                className={`mt-0.5 w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-all ${
-                  isDone
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                    : isCurrent
-                    ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300 scale-105 animate-pulse'
-                    : 'bg-slate-800/60 border-slate-700/60 text-slate-500'
-                }`}
-              >
-                {isDone ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <p className={`text-xs font-semibold ${isCurrent ? 'text-white' : isDone ? 'text-slate-200' : 'text-slate-400'}`}>
-                  {step.label}
-                </p>
-                <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                  {step.description}
-                </p>
-              </div>
-
-              {isCurrent && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 animate-pulse shrink-0">
-                  Processing
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    </div>, document.body
   );
 }

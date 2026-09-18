@@ -213,6 +213,12 @@ export async function sendEmail({ to, subject, html }) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
 /**
  * Get or initialize user quota record (250 credits default)
  */
@@ -220,8 +226,10 @@ export async function getUserQuota(userId, email = '', name = '', verifiedAdmin 
   if (!userId || userId === 'public_guest') {
     const sandbox = await readState('settings/guest-quota');
     const used = sandbox && Date.now() - sandbox.lastReset < 86400000 ? sandbox.totalGenerations : 0;
-    return { user_id: 'public_guest', quota_remaining: Math.max(0, 3 - used),
-      remaining: Math.max(0, 3 - used), used, total: 3, isPublicSandbox: true };
+    const reserved = sandbox && Date.now() - sandbox.lastReset < 86400000
+      ? Object.values(activeReservations(sandbox.reservations)).length : 0;
+    return { user_id: 'public_guest', quota_remaining: Math.max(0, 3 - used - reserved),
+      remaining: Math.max(0, 3 - used - reserved), used, reserved, total: 3, isPublicSandbox: true };
   }
   const key = 'users/' + userId;
   let record = await readState(key);
@@ -248,8 +256,11 @@ export async function getUserQuota(userId, email = '', name = '', verifiedAdmin 
       email: email || current.email, name: name || current.name,
       status: verifiedAdmin ? 'approved' : current.status }));
   }
-  const metrics = await getTokenMetrics(userId);
-  return { ...record, isAdmin: verifiedAdmin, tokens_used: metrics.totalTokens };
+  // Credit events already carry token totals; do not scan every user's usage blobs on each quota read.
+  const tokensUsed = record.tokens_used ?? (record.creditHistory || []).reduce(
+    (sum, event) => sum + (Number(event.totalTokens) || 0), 0
+  );
+  return { ...record, isAdmin: verifiedAdmin, tokens_used: tokensUsed };
 }
 
 
@@ -264,7 +275,7 @@ export async function registerUserSignup(userId, name, email) {
 
   // Send signup request received confirmation via Resend
   if (email && !email.endsWith('@example.com')) {
-    sendEmail({
+    await sendEmail({
       to: email,
       subject: 'CourseIT - Access Request Received',
       html: `
@@ -276,7 +287,7 @@ export async function registerUserSignup(userId, name, email) {
           <div style="background: #131c2e; padding: 20px; border-radius: 12px; border: 1px solid #1e293b;">
             <h2 style="color: #e2e8f0; font-size: 18px; margin-top: 0;">Access Request Submitted!</h2>
             <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
-              Hi <strong>${name || 'there'}</strong>, your request for <strong>250 CourseIT credits</strong> has been received by our administrator.
+              Hi <strong>${escapeHtml(name || 'there')}</strong>, your request for <strong>250 CourseIT credits</strong> has been received by our administrator.
             </p>
             <p style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
               You will receive an approval email shortly as soon as your account is verified.
@@ -287,38 +298,10 @@ export async function registerUserSignup(userId, name, email) {
           </p>
         </div>
       `
-    }).catch(() => {});
+    });
   }
 
   return record;
-}
-
-/**
- * Send password reset email via Resend
- */
-export async function sendPasswordResetEmail(email) {
-  if (!email) throw new Error('Email is required');
-
-  const resetToken = Math.random().toString(36).substring(2, 10).toUpperCase();
-  
-  const result = await sendEmail({
-    to: email,
-    subject: 'CourseIT - Password Reset Request',
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background: #0b0f19; color: #f1f5f9; border-radius: 16px; border: 1px solid #1e293b;">
-        <h2 style="color: #6366f1;">Reset Your CourseIT Password</h2>
-        <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
-          We received a request to reset your password. Use the security code below in your app or Appwrite account settings:
-        </p>
-        <div style="background: #1e293b; padding: 16px; border-radius: 8px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #38bdf8; margin: 20px 0;">
-          ${resetToken}
-        </div>
-        <p style="color: #94a3b8; font-size: 12px;">If you did not request this, please ignore this email.</p>
-      </div>
-    `
-  });
-
-  return { success: result.success, error: result.error, senderUsed: result.senderUsed };
 }
 
 /**
@@ -572,7 +555,7 @@ export async function submitUserFeedback({ userId, name, email, rating = 5, cate
   await writeState('feedback/' + newFeedback.id, newFeedback);
 
   // Send email alert to admin with beautiful template
-  sendEmail({
+  const emailResult = await sendEmail({
     to: ADMIN_EMAIL,
     subject: `[CourseIT Beta Feedback] ${category} (${rating}★) - from ${newFeedback.name}`,
     html: `
@@ -587,26 +570,26 @@ export async function submitUserFeedback({ userId, name, email, rating = 5, cate
 
         <div style="background: #0f172a; padding: 22px; border-radius: 14px; border: 1px solid #1e293b; margin-bottom: 20px;">
           <div style="margin-bottom: 12px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 13px; color: #94a3b8;">User: <strong style="color: #f1f5f9;">${newFeedback.name}</strong> (${newFeedback.email})</span>
+            <span style="font-size: 13px; color: #94a3b8;">User: <strong style="color: #f1f5f9;">${escapeHtml(newFeedback.name)}</strong> (${escapeHtml(newFeedback.email)})</span>
             <span style="font-size: 14px; color: #fbbf24; font-weight: bold;">${'★'.repeat(newFeedback.rating)} (${newFeedback.rating}/5)</span>
           </div>
-          <p style="margin: 0 0 10px 0; font-size: 13px; color: #a5b4fc;"><strong style="color: #c7d2fe;">Category:</strong> ${category}</p>
+          <p style="margin: 0 0 10px 0; font-size: 13px; color: #a5b4fc;"><strong style="color: #c7d2fe;">Category:</strong> ${escapeHtml(category)}</p>
           <div style="background: #090d16; padding: 16px; border-radius: 10px; border: 1px solid #1e293b; font-size: 14px; line-height: 1.6; color: #e2e8f0; white-space: pre-wrap;">
-            ${message || 'No written message provided.'}
+            ${escapeHtml(message || 'No written message provided.')}
           </div>
-          ${pageUrl ? `<p style="margin: 12px 0 0 0; font-size: 12px; color: #64748b; font-family: monospace;">Page: ${pageUrl}</p>` : ''}
+          ${pageUrl ? `<p style="margin: 12px 0 0 0; font-size: 12px; color: #64748b; font-family: monospace;">Page: ${escapeHtml(pageUrl)}</p>` : ''}
         </div>
 
         <div style="text-align: center;">
-          <a href="http://localhost:5173/admin" style="background: #4f46e5; color: #ffffff; padding: 12px 26px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 13px; display: inline-block;">
+          <a href="https://courseitai.kenncode.me/admin" style="background: #4f46e5; color: #ffffff; padding: 12px 26px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 13px; display: inline-block;">
             Open Admin Dashboard &rarr;
           </a>
         </div>
       </div>
     `
-  }).catch(() => {});
+  });
 
-  return { success: true, feedback: newFeedback };
+  return { success: true, feedback: newFeedback, emailSent: emailResult.success };
 }
 
 /**
@@ -826,24 +809,86 @@ export async function checkGenerationQuota(userId, isAdmin, model) {
   }
 }
 
-export async function deductCredit(userId = null, isAdmin = false, model = 'gemini-flash-lite-latest', isDoc = false, details = {}) {
+const RESERVATION_TTL_MS = 3 * 60 * 1000;
+const activeReservations = reservations => Object.fromEntries(
+  Object.entries(reservations || {}).filter(([, item]) => item.expiresAt > Date.now())
+);
+
+export async function reserveGeneration(userId, isAdmin, model) {
+  if (!(model in MODEL_CREDIT_COSTS)) throw Object.assign(new Error('Select a supported model.'), { status: 400 });
+  const id = randomUUID();
+  const entry = { cost: getModelCost(model), expiresAt: Date.now() + RESERVATION_TTL_MS };
+  if (!userId || userId === 'public_guest') {
+    if (model !== 'gemini-flash-lite-latest') throw Object.assign(new Error('Sign in to use this model.'), { status: 403 });
+    await updateState('settings/guest-quota', current => {
+      const state = current && Date.now() - current.lastReset < 86400000
+        ? current : { totalGenerations: 0, lastReset: Date.now() };
+      const reservations = activeReservations(state.reservations);
+      if (state.totalGenerations + Object.keys(reservations).length >= 3) {
+        throw Object.assign(new Error('The shared guest trial is exhausted. Try after the 24-hour reset or sign in.'), { status: 429 });
+      }
+      return { ...state, reservations: { ...reservations, [id]: entry } };
+    });
+    return { id, guest: true };
+  }
+  await getUserQuota(userId);
+  await updateState('users/' + userId, current => {
+    if (!current || (!isAdmin && current.status !== 'approved')) {
+      throw Object.assign(new Error('Your account is pending admin approval.'), { status: 403 });
+    }
+    const reservations = activeReservations(current.reservations);
+    const reserved = Object.values(reservations).reduce((sum, item) => sum + item.cost, 0);
+    if (!isAdmin && current.quota_remaining - reserved < entry.cost) {
+      throw Object.assign(new Error('Insufficient credits for this model. Request a top-up or choose Flash Lite.'), { status: 402 });
+    }
+    return { ...current, reservations: { ...reservations, [id]: entry } };
+  });
+  return { id, guest: false };
+}
+
+export async function releaseGeneration(userId, reservation) {
+  if (!reservation) return;
+  const key = reservation.guest ? 'settings/guest-quota' : 'users/' + userId;
+  await updateState(key, current => {
+    if (!current?.reservations?.[reservation.id]) return current;
+    const reservations = { ...current.reservations };
+    delete reservations[reservation.id];
+    return { ...current, reservations };
+  });
+}
+
+export async function deductCredit(userId = null, isAdmin = false, model = 'gemini-flash-lite-latest', isDoc = false, details = {}, reservation = null) {
   const cost = getModelCost(model);
   if (userId && userId !== 'public_guest') {
     const user = await updateState('users/' + userId, current => {
       if (!current || (!isAdmin && current.status !== 'approved')) throw Object.assign(new Error('Account approval required.'), { status: 403 });
-      if (!isAdmin && current.quota_remaining < cost) throw Object.assign(new Error('Insufficient credits. Please request a top-up.'), { status: 402 });
+      const reservations = activeReservations(current.reservations);
+      if (reservation && !reservations[reservation.id]) throw Object.assign(new Error('Generation reservation expired. Please retry.'), { status: 409 });
+      const otherReserved = Object.entries(reservations).reduce((sum, [id, item]) => sum + (id === reservation?.id ? 0 : item.cost), 0);
+      if (!isAdmin && current.quota_remaining - otherReserved < cost) throw Object.assign(new Error('Insufficient credits. Please request a top-up.'), { status: 402 });
       const balance = Math.max(0, current.quota_remaining - cost);
       const event = { id: randomUUID(), timestamp: new Date().toISOString(), type: 'generation',
         userId, credits: balance - current.quota_remaining, balance, model, ...details };
-      return { ...current, quota_remaining: balance, creditHistory: [...(current.creditHistory || []), event] };
+      if (reservation) delete reservations[reservation.id];
+      const tokensUsed = current.tokens_used ?? (current.creditHistory || []).reduce(
+        (sum, item) => sum + (Number(item.totalTokens) || 0), 0
+      );
+      return { ...current, reservations, quota_remaining: balance,
+        tokens_used: tokensUsed + (Number(details.totalTokens) || 0),
+        creditHistory: [...(current.creditHistory || []), event] };
     });
     return { remaining: user.quota_remaining, deducted: true, cost, isAdmin };
   }
   const quota = await updateState('settings/guest-quota', current => {
     const state = current && Date.now() - current.lastReset < 86400000
       ? current : { totalGenerations: 0, lastReset: Date.now() };
-    if (state.totalGenerations >= 3) throw Object.assign(new Error('The shared guest trial is exhausted. Try after the 24-hour reset or sign in.'), { status: 429 });
-    return { ...state, totalGenerations: state.totalGenerations + 1 };
+    const reservations = activeReservations(state.reservations);
+    if (reservation && !reservations[reservation.id]) throw Object.assign(new Error('Generation reservation expired. Please retry.'), { status: 409 });
+    if (state.totalGenerations + Object.keys(reservations).length - (reservation ? 1 : 0) >= 3) {
+      throw Object.assign(new Error('The shared guest trial is exhausted. Try after the 24-hour reset or sign in.'), { status: 429 });
+    }
+    if (reservation) delete reservations[reservation.id];
+    return { ...state, reservations, totalGenerations: state.totalGenerations + 1 };
   });
   return { remaining: Math.max(0, 3 - quota.totalGenerations), deducted: true, cost: 0, isPublicSandbox: true };
 }
@@ -858,23 +903,33 @@ export async function getCreditHistory(userId = null) {
 /**
  * Process Documentation URL
  */
-export async function processDocumentationUrl(url, customModel = 'gemini-flash-lite-latest', isAdmin = false, forceRefresh = false, userId = null, userEmail = '', visibility = 'public') {
-  await checkGenerationQuota(userId, isAdmin, customModel);
-  const extracted = await extractDocumentation(url);
-  const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel);
-  return saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility,
-    source_url: url, source_type: 'url' });
+export async function processDocumentationUrl(url, customModel = 'gemini-flash-lite-latest', isAdmin = false, forceRefresh = false, userId = null, userEmail = '', visibility = 'public', options = {}) {
+  const reservation = await reserveGeneration(userId, isAdmin, customModel);
+  let charged = false;
+  try {
+    const extracted = await extractDocumentation(url, options);
+    const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel);
+    const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation,
+      source_url: url, source_type: 'url' });
+    charged = true;
+    return result;
+  } finally { if (!charged) await releaseGeneration(userId, reservation); }
 }
 
 export async function processDocumentText({ title, text, customModel = 'gemini-flash-lite-latest', isAdmin = false, userId = null, userEmail = '', visibility = 'private' }) {
   if (!text || !text.trim()) throw Object.assign(new Error('Document text content is empty.'), { status: 400 });
-  await checkGenerationQuota(userId, isAdmin, customModel);
-  const summarized = await summarizeWithLLM(text, title || 'Uploaded Document', customModel);
-  return saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility,
-    source_url: 'upload://' + encodeURIComponent(title || 'document'), source_type: 'document' });
+  const reservation = await reserveGeneration(userId, isAdmin, customModel);
+  let charged = false;
+  try {
+    const summarized = await summarizeWithLLM(text, title || 'Uploaded Document', customModel);
+    const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation,
+      source_url: 'upload://' + encodeURIComponent(title || 'document'), source_type: 'document' });
+    charged = true;
+    return result;
+  } finally { if (!charged) await releaseGeneration(userId, reservation); }
 }
 
-async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, source_type }) {
+async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, source_type, reservation }) {
   const actualModel = summarized.actualModel || customModel;
   const isGuest = !userId || userId === 'public_guest';
   const course = normalizeCourse({
@@ -891,7 +946,7 @@ async function saveGeneration({ summarized, customModel, isAdmin, userId, userEm
   try {
     quota = await deductCredit(userId, isAdmin, actualModel, source_type === 'document', {
       courseId: course.$id, courseTitle: course.title, totalTokens: summarized.usage?.totalTokens || 0
-    });
+    }, reservation);
   } catch (error) {
     await deleteState('courses/' + course.$id);
     throw error;

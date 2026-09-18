@@ -217,7 +217,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange, i
             </div>
             <div className="space-y-2">
               <h4 className="text-lg font-bold text-emerald-300 tracking-tight">
-                Done sign up! Requested code, wait for email!
+                Account created. Your access request is pending approval.
               </h4>
               <p className="text-xs text-slate-300 leading-relaxed max-w-xs mx-auto">
                 Your request for <strong>250 CourseIT credits</strong> has been submitted to the admin queue. You will receive an approval email from <code className="text-emerald-300 font-mono">hello@courseit.kenncode.me</code> as soon as your account is verified!
@@ -241,9 +241,9 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange, i
               <Mail className="w-7 h-7" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-base font-bold text-white">Reset Code Dispatched</h4>
+              <h4 className="text-base font-bold text-white">Password Recovery Link Sent</h4>
               <p className="text-xs text-slate-300">
-                Check your inbox at <strong>{email}</strong> for instructions from <code className="text-indigo-300">hello@courseit.kenncode.me</code>.
+                Check your inbox at <strong>{email}</strong> for an Appwrite recovery link.
               </p>
             </div>
             <button
@@ -469,7 +469,7 @@ export default function AdminModal({ isOpen, onClose, authState, onAuthChange, i
                     disabled={loading}
                     className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 text-white font-medium text-xs shadow-md cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Send Code'}
+                    {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Send Reset Link'}
                   </button>
                 </div>
               </form>

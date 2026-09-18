@@ -15,9 +15,9 @@ const AuthContext = createContext({
   isAdmin: false,
   isPending: false,
   quota: null,
-  credits: 250,
+  credits: null,
   loading: true,
-  formatCredits: () => '250.0',
+  formatCredits: () => '—',
   refreshAuth: async () => {},
   refreshCredits: async () => {},
   logout: async () => {},
@@ -27,7 +27,7 @@ const AuthContext = createContext({
 
 export function AuthProvider({ children }) {
   const [authState, setAuthState] = useState(() => getAuthState());
-  const [credits, setCredits] = useState(250);
+  const [credits, setCredits] = useState(null);
   const [quota, setQuota] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
           setQuota(data.quota);
           const raw = typeof data.quota.quota_remaining === 'number'
             ? data.quota.quota_remaining
-            : (typeof data.quota.remaining === 'number' ? data.quota.remaining : 250);
+            : (typeof data.quota.remaining === 'number' ? data.quota.remaining : null);
           setCredits(raw);
           return data.quota;
         }
@@ -55,6 +55,8 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.warn('[AuthContext] Failed to fetch quota:', err);
     }
+    setQuota(null);
+    setCredits(null);
     return null;
   }, []);
 
@@ -63,7 +65,9 @@ export function AuthProvider({ children }) {
       const liveState = await checkAppwriteSession();
       setAuthState(liveState);
       if (liveState?.isAuthenticated && liveState?.user) {
-        await fetchQuota(liveState.user);
+        setQuota(liveState.quota || null);
+        setCredits(typeof liveState.quota?.quota_remaining === 'number'
+          ? liveState.quota.quota_remaining : null);
       } else {
         setQuota(null);
         setCredits(3);
@@ -79,7 +83,7 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [fetchQuota]);
+  }, []);
 
   const refreshCredits = useCallback(async () => {
     if (authState?.user) {
@@ -104,7 +108,7 @@ export function AuthProvider({ children }) {
       if (e?.detail?.quota) {
         const raw = typeof e.detail.quota.quota_remaining === 'number'
           ? e.detail.quota.quota_remaining
-          : (typeof e.detail.quota.remaining === 'number' ? e.detail.quota.remaining : 250);
+          : (typeof e.detail.quota.remaining === 'number' ? e.detail.quota.remaining : null);
         setCredits(raw);
         setQuota(e.detail.quota);
       } else {
@@ -124,7 +128,7 @@ export function AuthProvider({ children }) {
 
   const formatCredits = useCallback((val) => {
     const num = typeof val === 'number' ? val : credits;
-    return num.toFixed(1);
+    return Number.isFinite(num) ? num.toFixed(1) : '—';
   }, [credits]);
 
   const handleLogout = useCallback(async () => {

@@ -93,7 +93,8 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
     ? quota.remaining
     : (quota?.quota_remaining ?? 3);
   const isGuestExhausted = !isAuthenticated && guestRemaining <= 0;
-  const isOutOfQuota = isAuthenticated ? (!isAdmin && credits <= 0) : isGuestExhausted;
+  const isQuotaUnavailable = isAuthenticated && !isAdmin && !quota;
+  const isOutOfQuota = isAuthenticated ? (!isAdmin && Number.isFinite(credits) && credits <= 0) : isGuestExhausted;
 
   const handleSelectModel = (model) => {
     if (!isAuthenticated && !model.publicAllowed) {
@@ -357,7 +358,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
 
               <button
                 type="submit"
-                disabled={isLoading || isOutOfQuota || isPending}
+                disabled={isLoading || isOutOfQuota || isQuotaUnavailable || isPending}
                 className="btn-primary py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 text-sm sm:text-base font-semibold shadow-lg shadow-indigo-600/25 shrink-0 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
                 {isLoading ? (
@@ -365,6 +366,8 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     <span>Processing...</span>
                   </>
+                ) : isQuotaUnavailable ? (
+                  <span>Credits temporarily unavailable</span>
                 ) : isPending ? (
                   <>
                     <Lock className="w-4 h-4 text-amber-400" />
@@ -395,7 +398,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.markdown,.json"
+                accept=".png,.jpg,.jpeg,.webp,.txt,.md,.markdown,.json"
                 onChange={handleFileSelect}
                 className="hidden"
               />
@@ -522,7 +525,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
         {/* Quota remaining counter */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isOutOfQuota ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'}`} />
+            <span className={`w-2 h-2 rounded-full ${isOutOfQuota || isQuotaUnavailable ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'}`} />
             <span>
               {isAuthenticated ? (
                 <>Account Credits: <strong className="text-slate-200">{formatCredits(credits)} Cr Remaining</strong></>

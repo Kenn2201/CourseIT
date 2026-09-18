@@ -1,9 +1,24 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.13.2 LIVE Beta',
+    date: 'September 18, 2026',
+    title: 'Production Safety and Account Recovery',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Safer Documentation Fetches', desc: 'Rejects private and local hosts, checks DNS and redirects, and caps fetched HTML size.' },
+      { title: 'Real Password Recovery', desc: 'Uses Appwrite recovery links and a password update page instead of an unusable email code.' },
+      { title: 'Reliable Feedback and Quotas', desc: 'Preserves verified feedback identity and message, reserves generation quota before AI calls, and removes duplicate session quota reads.' }
+    ],
+    notes: [
+      'Signup registration now requires a verified Appwrite session; feedback emails report their delivery outcome.',
+      'Upload picker no longer advertises unsupported PDF input; landing claims no longer promise unmeasured speeds or verified code.',
+      'Production OAuth, recovery email delivery, and provider generation still need controlled end-to-end checks.'
+    ]
+  },
+  {
     version: 'v1.13.1 LIVE Beta',
     date: 'September 18, 2026',
     title: 'Application Startup Hotfix',
-    badge: 'Latest Release',
     highlights: [
       { title: 'Application Startup Restored', desc: 'Separated Appwrite client initialization from authentication and course services to remove the circular import that prevented the app from loading.' }
     ],

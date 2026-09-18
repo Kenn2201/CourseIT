@@ -4,7 +4,7 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.13.1--LIVE--Beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.13.2--LIVE--Beta-indigo.svg)
 [![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple&cacheSeconds=60)](https://github.com/Kenn2201/CourseIT/commit/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
@@ -21,12 +21,18 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.13.1 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.13.2 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
 * **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT/commit/master)
 
 ### Recent Release Notes
+
+* **v1.13.2 LIVE Beta (September 18, 2026)** — *Production Safety and Account Recovery*:
+  * Public documentation fetches reject local/private destinations and unsafe redirects, with DNS pinning and a 1 MB HTML limit.
+  * Password reset uses Appwrite recovery links. Signup and feedback bind identity to verified sessions; feedback text is retained and email outcomes are observable.
+  * Generation reserves quota before AI work, session restore avoids a duplicate quota request, and common quota reads no longer scan all usage records.
+  * Security regression tests and the production build pass; OAuth, recovery-email delivery, and live AI generation still require controlled production checks.
 
 * **v1.13.1 LIVE Beta (September 18, 2026)** — *Application Startup Hotfix*:
   * Removed the authentication/catalog circular import that crashed production before the app could render.
@@ -103,10 +109,10 @@ Standard technical documentation is often filled with introductory scene-setting
 * **One Concept per Step**: Never bundles multiple concepts together.
 * **No Scene-Setting**: Immediately starts with the action or CLI command.
 * **Concrete Time Estimates**: Each step includes an actionable estimate (e.g. `~5 min`).
-* **Verified Code Snippets**: Runnable syntax with zero placeholders.
+* **Generated Code Examples**: AI-generated snippets are provided for implementation; syntax and runtime behavior are not automatically verified.
 * **Pro Tips & Gotchas**: Callouts of common pitfalls and edge cases.
 * **Client-Side OCR (Tesseract.js)**: Drag & drop scanned textbook pages, notes, or screenshots for instant local text extraction.
-* **Multi-Format Export**: Export your course into clean **Markdown (.md)**, **Word Document (.doc)**, or formatted **PDF** textbook.
+* **Course Export**: Download **Markdown (.md)** or an HTML-based **Word-compatible .doc** file; use your browser's Print / Save as PDF action for PDF.
 * **Scripted Technical Companion Tutor**: Embedded interactive assistant with 4 instant scripted action chips ("Explain simply", "Show code", "Common gotchas", "Quick quiz").
 
 ---
@@ -267,7 +273,7 @@ project-3-CourseIT/
 │   ├── pages/
 │   │   ├── Landing.jsx          # Public showcase page with embedded tutor & anti-fluff comparison
 │   │   ├── Dashboard.jsx        # Course catalog, live quota counter, generation pipeline
-│   │   ├── CourseDetail.jsx     # Full learning path with Export (PDF / DOCX / MD)
+│   │   ├── CourseDetail.jsx     # Full learning path with print-to-PDF, .doc, and .md export
 │   │   ├── Profile.jsx          # Custom PFP photo upload & workspace telemetry metrics
 │   │   ├── Admin.jsx            # Admin operations & Maintenance mode toggle
 │   │   └── Maintenance.jsx      # Animated maintenance status screen with Admin Bypass
@@ -277,7 +283,7 @@ project-3-CourseIT/
 │   ├── lib/
 │   │   ├── appwrite.js          # Appwrite client SDK initialization with resilient fallbacks
 │   │   ├── auth.js              # Auth & session guards with ensureAccount lazy init
-│   │   └── ocr.js               # Client-side Tesseract.js image/PDF worker
+│   │   └── ocr.js               # Client-side image OCR and text-file reading
 │   └── data/
 │       ├── changelog.js         # Interactive version history source of truth
 │       └── starterCourses.js    # Built-in public cross-ecosystem templates

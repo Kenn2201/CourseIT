@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageSquarePlus, Star, X, Loader2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
-import { getAuthState } from '../lib/auth';
+import { authenticatedFetch, getAuthState } from '../lib/auth';
 import { CURRENT_VERSION_LABEL } from '../constants/version';
 
 const CATEGORIES = [
@@ -13,7 +13,6 @@ const CATEGORIES = [
 ];
 
 export default function FeedbackModal({ isOpen, onClose }) {
-  const authState = getAuthState();
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [category, setCategory] = useState(CATEGORIES[1]); // default Feature Request
@@ -26,6 +25,10 @@ export default function FeedbackModal({ isOpen, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!getAuthState().isAuthenticated) {
+      setError('Sign in before submitting feedback.');
+      return;
+    }
     if (!message.trim()) {
       setError('Please enter your feedback message.');
       return;
@@ -35,13 +38,10 @@ export default function FeedbackModal({ isOpen, onClose }) {
     setError('');
 
     try {
-      const res = await fetch('/api/feedback', {
+      const res = await authenticatedFetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: authState?.user?.id || 'guest_user',
-          name: authState?.user?.name || 'Beta Tester',
-          email: authState?.user?.email || 'tester@example.com',
           rating,
           category,
           message: message.trim(),
@@ -86,7 +86,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
             </div>
             <h3 className="text-xl font-bold text-white">Thank You for Testing!</h3>
             <p className="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto">
-              Your feedback has been sent directly to the development team. We appreciate your help shaping CourseIT!
+              Your feedback was saved for the development team. We appreciate your help shaping CourseIT!
             </p>
           </div>
         ) : (

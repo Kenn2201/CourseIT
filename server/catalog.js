@@ -39,8 +39,10 @@ export async function cleanupGuestCourses() {
 
 export async function listCatalog(session = null, scope = 'catalog') {
   const config = courseDatabase();
-  const stored = await listState('courses/');
-  const remote = config ? await listDocumentsAll(config.db, config.databaseId, config.collectionId) : [];
+  const [stored, remote] = await Promise.all([
+    listState('courses/'),
+    config ? listDocumentsAll(config.db, config.databaseId, config.collectionId) : []
+  ]);
   const map = new Map(remote.filter(d => !isSystemCourse(d)).map(d => [d.$id, normalizeCourse(d)]));
   stored.forEach(d => map.set(d.$id, normalizeCourse(d)));
   return Array.from(map.values()).filter(c => canReadCourse(c, session?.userId, session?.isAdmin))

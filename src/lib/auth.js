@@ -50,7 +50,6 @@ export function formatAuthError(err) {
     msg.includes('Failed to fetch') ||
     msg.includes('NetworkError') ||
     msg.includes('Network request failed') ||
-    err?.code === 403 ||
     msg.includes('CORS') ||
     msg.includes('blocked by CORS')
   ) {
@@ -80,25 +79,34 @@ export async function signupWithEmail(name, email, password) {
     throw new Error(formatAuthError(err));
   }
 
-  // 2. Register user in quota system with status 'pending'
+  // 2. Prove ownership of the new account before creating its quota record.
+  let temporarySession = false;
   try {
-    await fetch('/api/user/signup', {
+    await acc.createEmailPasswordSession(email, password);
+    temporarySession = true;
+    const sessionUser = await acc.get();
+    if (sessionUser.$id !== newUser.$id) throw new Error('New account session did not match the created account.');
+    const { jwt } = await acc.createJWT();
+    const response = await fetch('/api/user/signup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: newUser.$id,
-        name: newUser.name || name,
-        email: newUser.email || email
-      })
+      headers: { 'Content-Type': 'application/json', 'x-appwrite-jwt': jwt },
+      body: '{}'
     });
+    if (!response.ok) throw new Error('Registration service rejected the access request.');
   } catch (err) {
-    console.warn('Failed to register quota record:', err.message);
+    throw new Error('Account created, but the access request could not be registered. Sign in to check your account status.');
+  } finally {
+    if (temporarySession) {
+      try { await acc.deleteSession('current'); } catch {}
+    }
+    cachedJwt = null;
+    jwtExpiry = 0;
   }
 
   // 3. Return exact required success message without logging in
   return {
     success: true,
-    message: "Done sign up! Requested code, wait for email!",
+    message: 'Account created. Your access request is pending approval; watch your inbox for an update.',
     user: newUser
   };
 }
@@ -144,7 +152,7 @@ export async function loginWithEmail(email, password) {
         email: user.email,
         name: user.name || user.email.split('@')[0]
       },
-      quota: quota || { quota_remaining: isAdmin ? 250 : 0, status: isAdmin ? 'approved' : 'pending' }
+      quota
     };
 
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
@@ -233,27 +241,26 @@ export async function handleOAuthSuccess(userId, secret) {
       email: user.email,
       name: user.name || user.email.split('@')[0]
     },
-    quota: quota || { quota_remaining: isAdmin ? 250 : 0, status: isAdmin ? 'approved' : 'pending' }
+    quota
   };
 
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
   return authState;
 }
 
-/**
- * Request password reset email via Resend
- */
+/** Request a real Appwrite recovery link to the site's registered origin. */
 export async function requestPasswordReset(email) {
-  const res = await fetch('/api/user/reset-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email })
-  });
-  const data = await res.json();
-  if (!data.success) {
-    throw new Error(data.error || 'Failed to send password reset email.');
-  }
-  return data;
+  const acc = ensureAccount();
+  if (!acc) throw new Error('Authentication is unavailable. Please try again later.');
+  await acc.createRecovery(email.trim(), `${window.location.origin}/auth/recover`);
+  return { success: true };
+}
+
+export async function completePasswordReset(userId, secret, password) {
+  const acc = ensureAccount();
+  if (!acc) throw new Error('Authentication is unavailable. Please try again later.');
+  await acc.updateRecovery(userId, secret, password);
+  return { success: true };
 }
 
 /**
@@ -288,7 +295,7 @@ export async function checkAppwriteSession() {
           name: user.name || user.email.split('@')[0],
           prefs: user.prefs || {}
         },
-        quota: quota || { quota_remaining: isAdmin ? 250 : 0, status: isAdmin ? 'approved' : 'pending' }
+        quota
       };
 
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));

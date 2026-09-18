@@ -17,7 +17,7 @@ globalThis.fetch = async (input, options = {}) => {
   const url = typeof input === 'string' ? input : input.url || String(input);
   if (url.startsWith('https://auth.test/v1/account')) {
     const jwt = new Headers(options.headers || input.headers).get('x-appwrite-jwt');
-    if (['admin', 'author'].includes(jwt)) return Response.json({ $id: jwt, email: jwt + '@example.test', name: jwt });
+    if (['admin', 'author', 'newbie'].includes(jwt)) return Response.json({ $id: jwt, email: jwt + '@example.test', name: jwt });
     return Response.json({ message: 'Invalid session', code: 401 }, { status: 401 });
   }
   if (url.includes('generativelanguage.googleapis.com')) {
@@ -34,7 +34,7 @@ after(async () => { globalThis.fetch = originalFetch; await rm(temporary, { recu
 const { handler } = await import('../server/api.js');
 const { writeState, readState, updateState } = await import('../server/state.js');
 const { listCatalog, readCourse, cleanupGuestCourses, publishCourse, listDocumentsAll } = await import('../server/catalog.js');
-const { getUserQuota, topUpUserCredits, deductCredit, getCreditHistory, processDocumentText, processDocumentationUrl, listAllUsers } = await import('../server/handler.js');
+const { getUserQuota, topUpUserCredits, deductCredit, getCreditHistory, processDocumentText, processDocumentationUrl, listAllUsers, reserveGeneration, releaseGeneration } = await import('../server/handler.js');
 const { normalizeCourse, canReadCourse } = await import('../shared/courses.js');
 const { readApiResponse } = await import('../src/lib/api.js');
 const api = (route, method = 'GET', body, token) => handler({ path: '/api' + route, httpMethod: method,
@@ -46,6 +46,33 @@ test('legacy account courses stay private even with course_ IDs', () => {
   const course = normalizeCourse({ $id: 'course_legacy', steps: JSON.stringify({ creator_id: 'author', items: [] }) });
   assert.equal(course.visibility, 'private');
   assert.equal(canReadCourse(course), false);
+});
+test('feedback keeps verified identity and message, while forged or anonymous submissions fail', async () => {
+  const body = { name: 'forged', email: 'forged@example.test', userId: 'admin',
+    rating: 4, category: 'Bug Report', message: 'Useful <script>alert(1)</script>', pageUrl: 'https://courseitai.kenncode.me/app' };
+  assert.equal((await api('/feedback', 'POST', body)).statusCode, 401);
+  const result = await api('/feedback', 'POST', body, 'author');
+  assert.equal(result.statusCode, 200);
+  const feedback = JSON.parse(result.body).feedback;
+  assert.equal(feedback.userId, 'author');
+  assert.equal(feedback.email, 'author@example.test');
+  assert.equal(feedback.name, 'author');
+  assert.equal(feedback.message, body.message);
+  assert.equal((await readState('feedback/' + feedback.id)).message, body.message);
+  const list = await api('/feedback', 'GET', undefined, 'admin');
+  assert.ok(JSON.parse(list.body).feedbacks.some(item => item.id === feedback.id && item.message === body.message));
+});
+test('legacy display-only password reset endpoint no longer sends a code', async () => {
+  assert.equal((await api('/user/reset-password', 'POST', { email: 'author@example.test' })).statusCode, 410);
+});
+test('signup registration requires verified account identity', async () => {
+  const forged = { userId: 'admin', name: 'admin', email: 'admin@example.test' };
+  assert.equal((await api('/user/signup', 'POST', forged)).statusCode, 401);
+  assert.equal((await api('/user/signup', 'POST', forged, 'newbie')).statusCode, 200);
+  const record = await readState('users/newbie');
+  assert.equal(record.email, 'newbie@example.test');
+  assert.equal(record.name, 'newbie');
+  assert.equal(record.status, 'pending');
 });
 test('public guest course is readable in an independent request without author email', async () => {
   await writeState('courses/guest', fixture('guest', { is_guest: true, creator_id: 'public_guest' }));
@@ -112,12 +139,38 @@ test('exhausted account fails before provider call', async () => {
 });
 test('same URL produces distinct persisted guest courses; quota is shared', async () => {
   await writeState('settings/guest-quota', { lastReset: Date.now(), totalGenerations: 0 });
-  const first = await processDocumentationUrl('https://docs.test/guide');
-  const second = await processDocumentationUrl('https://docs.test/guide');
+  const options = { fetchHtml: async url => ({ html: await (await fetch(url)).text(), url }) };
+  const first = await processDocumentationUrl('https://docs.test/guide', undefined, false, false, null, '', 'public', options);
+  const second = await processDocumentationUrl('https://docs.test/guide', undefined, false, false, null, '', 'public', options);
   assert.notEqual(first.course.$id, second.course.$id);
   assert.equal(second.quota.remaining, 1);
   assert.equal((await readCourse(first.course.$id)).visibility, 'public');
   assert.ok((await listCatalog()).some(c => c.$id === second.course.$id));
+});
+test('guest and account reservations stop concurrent provider work before quota is spent', async () => {
+  const guest = await Promise.allSettled([
+    reserveGeneration('public_guest', false, 'gemini-flash-lite-latest'),
+    reserveGeneration('public_guest', false, 'gemini-flash-lite-latest')
+  ]);
+  assert.equal(guest.filter(item => item.status === 'fulfilled').length, 1);
+  assert.equal(guest.find(item => item.status === 'rejected').reason.status, 429);
+  await releaseGeneration('public_guest', guest.find(item => item.status === 'fulfilled').value);
+
+  await getUserQuota('limited', 'limited@example.test');
+  await updateState('users/limited', current => ({ ...current, status: 'approved', quota_remaining: 0.5 }));
+  const account = await Promise.allSettled([
+    reserveGeneration('limited', false, 'gemini-flash-lite-latest'),
+    reserveGeneration('limited', false, 'gemini-flash-lite-latest')
+  ]);
+  assert.equal(account.filter(item => item.status === 'fulfilled').length, 1);
+  assert.equal(account.find(item => item.status === 'rejected').reason.status, 402);
+  await releaseGeneration('limited', account.find(item => item.status === 'fulfilled').value);
+});
+test('oversized requests stop before generation', async () => {
+  const before = providerCalls;
+  const result = await api('/summarize-text', 'POST', { text: 'x'.repeat(130000) });
+  assert.equal(result.statusCode, 413);
+  assert.equal(providerCalls, before);
 });
 test('account OCR defaults private and records token and credit history', async () => {
   await topUpUserCredits('author', 2);

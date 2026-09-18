@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-09-19 — ADHD Action-First Positioning and UI Motion Refresh (LIVE Beta)
+
+### Added
+- **Tasteful Landing Page Motion**: Introduced accessible `RotatingText` for dynamic headline rotation, `FadeContent` viewport entrance animations, and a `LogoLoop` production infrastructure ticker.
+- **Design Inspiration Attribution**: Formally documented project inspiration from the [`i-have-adhd`](https://github.com/ayghri/i-have-adhd) philosophy (action first, numbered steps, minimal tangents, and concrete next actions).
+- **Expanded 4-Step Synthesis Pipeline**: Clarified learning module creation into 4 distinct phases: Source & Focus Selection, Content Purification, Action-First Module Generation, and Practice Progress.
+
+### Changed and Hardened
+- Replaced absolute fluff claims across Landing, Dashboard, CourseTutor, and AntiFluffDiff with accurate action-first phrasing.
+- Updated user-facing model tiers to provider-agnostic names: Fast Tier (0.5 cr), Balanced Tier (1.0 cr), Deep Tier (2.0 cr), and Maximum Depth Tier (5.0 cr).
+- Updated Landing, Footer, and README badges to accurately describe multi-provider AI routing (Google Gemini, Groq, Mistral, OpenRouter).
+- Verified `prefers-reduced-motion` compliance across all animation components to ensure zero disorientation for motion-sensitive users.
+
 ## [1.16.0] - 2026-09-19 — Modular LLM Pipeline and Multi-Provider Fallback (LIVE Beta)
 
 ### Added

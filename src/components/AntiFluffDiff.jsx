@@ -39,7 +39,7 @@ export default function AntiFluffDiff() {
             Zero AI Fluff. Pure Action Steps.
           </h3>
           <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-xl leading-relaxed">
-            Standard AI models drown your focus in conversational filler. CourseIT strips 100% of conversational fluff and outputs immediate terminal commands and exact line edits.
+            Standard AI models drown your focus in conversational filler. CourseIT is designed to strip conversational filler and surface the next useful action first. Commands, code examples, and exact edits are included when relevant.
           </p>
         </div>
 

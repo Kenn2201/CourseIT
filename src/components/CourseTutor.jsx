@@ -68,7 +68,7 @@ export default function CourseTutor({ course, activeStepIndex = 0, mode = 'cours
         addMessage('user', '⚡ How does CourseIT remove AI fluff?');
         addMessage(
           'tutor',
-          `Traditional LLMs waste time with conversational filler: *"Great question! Let me think about this... As an AI language model..."*\n\n**CourseIT strips 100% of that out.** Our Gemini prompt constraints strictly enforce:\n• Numbered, actionable steps only\n• Exact shell commands and code syntax\n• Direct "How to Implement" instructions\n• High-signal "Pro Tips" for subtle bugs\n\nResult: Learn in 10 minutes what used to take 2 hours of skimming.`
+          `Traditional LLMs waste time with conversational filler: *"Great question! Let me think about this... As an AI language model..."*\n\n**CourseIT is designed to strip conversational filler and surface the next useful action first.** Our multi-provider AI prompt constraints enforce:\n• Numbered, actionable steps with minimal tangents\n• Commands, code examples, and exact edits when relevant\n• Direct "How to Implement" instructions\n• High-signal "Pro Tips" for subtle bugs\n\nResult: Learn in 10 minutes what used to take 2 hours of skimming.`
         );
       } else if (actionType === 'inputs') {
         addMessage('user', '📄 What documentation & scans can I upload?');
@@ -80,7 +80,7 @@ export default function CourseTutor({ course, activeStepIndex = 0, mode = 'cours
         addMessage('user', '💎 How do model tiers and credits work?');
         addMessage(
           'tutor',
-          `We offer flexible reasoning tiers based on your task complexity:\n\n• **Gemini Flash Lite** (0.5 credits): Ultra-fast synthesis for standard API docs\n• **Gemini 3.5 Lite** (1.0 credit): Balanced depth for setup guides\n• **Gemini 3.6 Flash** (2.0 credits): Complex multi-file architectures\n• **Gemini 3.7 Flash** (5.0 credits): Deep architectural reasoning & tricky debugging\n\nVerified beta testers receive **250 free credits** upon admin approval!`
+          `We offer flexible reasoning tiers based on your task complexity:\n\n• **Fast Tier** (0.5 credits): Ultra-fast synthesis for standard docs\n• **Balanced Tier** (1.0 credit): Balanced depth for setup guides\n• **Deep Tier** (2.0 credits): Complex multi-file architectures\n• **Maximum Depth Tier** (5.0 credits): Deep architectural reasoning & tricky specs\n\nVerified beta testers receive **250 free credits** upon admin approval!`
         );
       } else if (actionType === 'trial') {
         addMessage('user', '⏱️ What is the 3/3 guest free trial?');

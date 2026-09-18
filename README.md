@@ -1,10 +1,10 @@
 # 🎓 CourseIT Ai
 
-> **Action-First Documentation Summarizer for Developers with Finite Attention Spans.**  
-> Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
+> **ADHD-friendly technical learning from documentation.**  
+> Paste docs or scans, tell CourseIT what you want to learn, and get an action-first learning module with concise explanations, numbered steps, examples, commands, and clear next actions.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.16.0--LIVE--Beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.17.0--LIVE--Beta-indigo.svg)
 [![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT-AI%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple&cacheSeconds=60)](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
@@ -14,7 +14,7 @@
 ![Netlify](https://img.shields.io/badge/Netlify-Serverless-00C7B7.svg?logo=netlify)
 ![Tailwind](https://img.shields.io/badge/TailwindCSS-v4-38b2ac.svg?logo=tailwind-css)
 ![Appwrite](https://img.shields.io/badge/Appwrite-Cloud%20Sydney-FD366E.svg?logo=appwrite)
-![Gemini](https://img.shields.io/badge/Google%20Gemini-Flash%20Lite%20%7C%203.5%20%7C%203.6%20%7C%203.7-4285F4.svg?logo=google)
+![Multi-Provider AI](https://img.shields.io/badge/AI%20Routing-Gemini%20%7C%20Groq%20%7C%20Mistral%20%7C%20OpenRouter-6366f1.svg)
 ![Resend](https://img.shields.io/badge/Resend-Verified%20Domain-black.svg?logo=resend)
 
 ---
@@ -22,21 +22,20 @@
 ## 📜 Version & Changelog
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.16.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.17.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Full Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
 * **License**: [**MIT License**](LICENSE)
 * **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 
-### Latest Release: v1.16.0 LIVE Beta (September 19, 2026) — *Modular LLM Pipeline and Multi-Provider Fallback*
+### Latest Release: v1.17.0 LIVE Beta (September 19, 2026) — *ADHD Action-First Positioning and UI Motion Refresh*
 
-* **Multi-Provider Fallback Cascade**: Automatic server-side fallback cascade across `Gemini → Cerebras → Groq → Mistral → OpenRouter`.
-* **Cerebras Fast Inference**: Integrated Cerebras LPU acceleration with `CEREBRAS_API_KEY` (Llama 3.1 8B).
-* **Modularized LLM Subsystem**: Structured `server/llm/` into `manager.js`, `errors.js`, and dedicated provider modules.
-* **Strict Error Handling**: Fallbacks trigger only on 429 rate limits, timeouts, and temporary 5xx errors; 400 Bad Request and 401/403 auth errors fail immediately without cascading.
-* **Request Idempotency**: Generation request ID preserved across fallback attempts, guaranteeing zero duplicate courses created and single credit deduction.
+* **ADHD-Friendly Positioning**: Anchored on the `i-have-adhd` philosophy (action first, numbered steps, minimal tangents, concrete next actions).
+* **Modern Tasteful Motion**: Added accessible `RotatingText` headline animation, `FadeContent` scroll entrances, and `LogoLoop` production infrastructure marquee with full `prefers-reduced-motion` compliance.
+* **Accurate Action-First Claims**: Designed to strip conversational filler and surface the next useful action first; commands, code examples, and exact edits are surfaced when relevant.
+* **Multi-Provider Transparency**: Public branding updated to reflect resilient multi-provider AI fallback (Google Gemini, Groq, Mistral, OpenRouter).
 
-> 📖 **Full Historical Changelog**: To keep this README focused and concise, all historical release notes from v1.15.0 down to v1.0.0 are maintained separately in [**CHANGELOG.md**](CHANGELOG.md).
+> 📖 **Full Historical Changelog**: To keep this README focused and concise, all historical release notes from v1.16.0 down to v1.0.0 are maintained separately in [**CHANGELOG.md**](CHANGELOG.md).
 
 ---
 
@@ -44,16 +43,29 @@ CourseIT Ai maintains a strict single source of truth for all releases:
 
 Standard technical documentation is often filled with introductory scene-setting, marketing fluff, and wall-of-text explanations that trigger cognitive fatigue. 
 
-**CourseIT Ai solves developer ADHD and information overload** by transforming any documentation URL or scanned image into an **action-first, numbered curriculum**:
+**CourseIT Ai solves developer ADHD and documentation fatigue** by transforming any documentation URL or scanned image into an **action-first, numbered curriculum**:
 
 * **One Concept per Step**: Never bundles multiple concepts together.
-* **No Scene-Setting**: Immediately starts with the action or CLI command.
+* **No Scene-Setting**: Immediately starts with the action or command.
 * **Concrete Time Estimates**: Each step includes an actionable estimate (e.g. `~5 min`).
-* **Generated Code Examples**: AI-generated snippets are provided for implementation; syntax and runtime behavior are not automatically verified.
-* **Pro Tips & Gotchas**: Callouts of common pitfalls and edge cases.
+* **Relevant Commands & Code**: Commands, code examples, and exact edits are included when relevant.
+* **Pro Tips & Gotchas**: Callouts of common pitfalls, edge cases, and subtle failure modes.
 * **Client-Side OCR (Tesseract.js)**: Drag & drop scanned textbook pages, notes, or screenshots for instant local text extraction.
 * **Course Export**: Download **Markdown (.md)** or an HTML-based **Word-compatible .doc** file; use your browser's Print / Save as PDF action for PDF.
 * **Scripted Technical Companion Tutor**: Embedded interactive assistant with 4 instant scripted action chips ("Explain simply", "Show code", "Common gotchas", "Quick quiz").
+
+---
+
+## 💡 Design Inspiration
+
+CourseIT was inspired by the [`i-have-adhd`](https://github.com/ayghri/i-have-adhd) agent philosophy. Its ADHD-friendly, action-first design is directly shaped by that emphasis on:
+* **Direct actions** over passive scene-setting
+* **Numbered steps** with single clear concepts
+* **Minimal tangents** to protect working memory
+* **Concise explanations** that get straight to the mechanism
+* **Concrete next steps** with runnable code and commands when relevant
+
+*(Note: CourseIT Ai is an independent project and is not officially affiliated with `i-have-adhd`.)*
 
 ---
 
@@ -61,15 +73,16 @@ Standard technical documentation is often filled with introductory scene-setting
 
 | Layer | Technology | Purpose |
 | :--- | :--- | :--- |
-| **Frontend** | React 19 + Vite 6 | Reactive interface with StrictMode resilience and lazy initialization |
-| **Styling** | Tailwind CSS v4 + Vanilla CSS | Curated dark & light modes with custom glassmorphism and print rules |
+| **Frontend** | React 19 + Vite 6 | Reactive interface with StrictMode resilience, motion primitives, and lazy initialization |
+| **Styling** | Tailwind CSS v4 + Vanilla CSS | Curated dark & light modes with custom glassmorphism, marquee animations, and print rules |
 | **Serverless Backend** | Netlify Functions (Node 22) | Universal serverless API router with JWT session verification |
 | **Extraction** | Mozilla Readability + JSDOM | High-speed server-side HTML scraping and article isolation |
 | **OCR** | Tesseract.js | In-browser client-side optical character recognition |
-| **AI Models** | Gemini, Cerebras, Groq, Mistral, OpenRouter | Multi-provider fallback cascade with AST zero-fluff validation |
+| **AI Routing** | Gemini, Cerebras, Groq, Mistral, OpenRouter | Multi-provider fallback cascade with AST zero-fluff validation |
 | **Authentication & Legacy Courses** | Appwrite Cloud (Sydney `syd1`) | OAuth2 (Google & GitHub), email auth and existing course documents |
 | **Application State** | Netlify Blobs | Persistent courses, credits, approvals, history, feedback and maintenance |
 | **Email Delivery** | Resend API | Transactional emails dispatched from `CourseIT <hello@courseit.kenncode.me>` |
+| **Error Monitoring** | Sentry (`@sentry/react`, `@sentry/node`) | Production exception telemetry with client and server error boundaries |
 | **Hosting & CI/CD** | Netlify | Automated continuous deployment directly connected to GitHub |
 
 ---
@@ -259,20 +272,21 @@ project-3-CourseIT/
 │   └── data/             # Local fallback JSON stores (users_quota, token_usage, feedback)
 ├── src/
 │   ├── components/       # Reusable UI components
+│   │   ├── reactbits/           # Tasteful motion primitives (ShapeGrid, RotatingText, FadeContent, LogoLoop)
 │   │   ├── CourseTutor.jsx      # Scripted technical companion tutor
 │   │   ├── UrlInputForm.jsx     # URL & OCR input with locked tier cross-out & modal
 │   │   ├── StepItem.jsx         # Numbered step card with code blocks & checklists
 │   │   ├── AdminModal.jsx       # Auth modal with OAuth, email login, and freeze protection
 │   │   └── Navbar.jsx           # Global header with dynamic avatar sync & credit badge
 │   ├── pages/
-│   │   ├── Landing.jsx          # Public showcase page with embedded tutor & anti-fluff comparison
+│   │   ├── Landing.jsx          # ADHD-friendly showcase page with RotatingText, LogoLoop & Anti-Fluff Diff
 │   │   ├── Dashboard.jsx        # Course catalog, live quota counter, generation pipeline
 │   │   ├── CourseDetail.jsx     # Full learning path with print-to-PDF, .doc, and .md export
 │   │   ├── Profile.jsx          # Custom PFP photo upload & workspace telemetry metrics
 │   │   ├── Admin.jsx            # Admin operations & Maintenance mode toggle
 │   │   └── Maintenance.jsx      # Animated maintenance status screen with Admin Bypass
 │   ├── constants/
-│   │   ├── version.js           # Single source of truth for versioning (v1.16.0 LIVE Beta)
+│   │   ├── version.js           # Single source of truth for versioning (v1.17.0 LIVE Beta)
 │   │   └── presets.js           # Curated avatar presets
 │   ├── lib/
 │   │   ├── appwrite.js          # Appwrite client SDK initialization with resilient fallbacks

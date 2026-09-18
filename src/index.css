@@ -307,3 +307,20 @@ html.light ::-webkit-scrollbar-thumb:hover {
   transform: translateY(-2px);
 }
 
+/* Hardware-accelerated infinite marquee for LogoLoop */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee var(--marquee-duration, 35s) linear infinite;
+  will-change: transform;
+}
+

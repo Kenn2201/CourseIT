@@ -1,9 +1,25 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.17.0 LIVE Beta',
+    date: 'September 19, 2026',
+    title: 'ADHD Action-First Positioning & UI Motion Refresh',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'ADHD Action-First Positioning', desc: 'Centered on the i-have-adhd philosophy: direct actions, numbered steps, minimal tangents, and concrete next steps.' },
+      { title: 'Polished UI Motion', desc: 'Added accessible RotatingText, FadeContent viewport transitions, and a LogoLoop technology marquee with reduced-motion support.' },
+      { title: 'Multi-Provider Transparency', desc: 'Updated landing and footer to reflect multi-provider AI routing across Gemini, Groq, Mistral, and OpenRouter.' }
+    ],
+    notes: [
+      'Replaced absolute claims with realistic action-first descriptions ("Designed to strip conversational filler and surface next action").',
+      'Documented design inspiration attribution to github.com/ayghri/i-have-adhd in README.',
+      'Renamed public model pricing tiers to Fast, Balanced, Deep, and Maximum Depth to align with fallback capabilities.',
+      'Expanded workflow pipeline into 4 distinct steps: Source Focus, Content Purification, Module Generation, and Practice Progress.'
+    ]
+  },
+  {
     version: 'v1.16.0 LIVE Beta',
     date: 'September 19, 2026',
     title: 'Modular LLM Pipeline & Multi-Provider Fallback',
-    badge: 'Latest Release',
     highlights: [
       { title: 'Multi-Provider Cascade', desc: 'Resilient fallback order: Gemini → Cerebras → Groq → Mistral → OpenRouter.' },
       { title: 'Cerebras Integration', desc: 'Ultra-fast LPU inference fallback via CEREBRAS_API_KEY with Llama 3.1.' },

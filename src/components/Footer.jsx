@@ -47,7 +47,7 @@ export default function Footer({ onOpenChangelog, showPoweredBy = true }) {
                 The anti-fluff documentation synthesizer designed for developers with ADHD, documentation fatigue, and low attention spans. Turns 40-page API manuals into progressive action steps.
               </p>
               {showPoweredBy && (
-                <div className="pt-2">
+                <div className="pt-2 space-y-2">
                   <div className="inline-flex flex-wrap items-center gap-2 p-1.5 px-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-slate-400">
                     <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Powered by</span>
                     <span className="text-teal-400 font-semibold flex items-center gap-1">
@@ -60,15 +60,31 @@ export default function Footer({ onOpenChangelog, showPoweredBy = true }) {
                       Appwrite
                     </span>
                     <span className="text-slate-700">&bull;</span>
-                    <span className="text-indigo-400 font-semibold flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                      Google Gemini
+                    <span className="text-violet-400 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+                      Multi-Provider AI
                     </span>
                     <span className="text-slate-700">&bull;</span>
                     <span className="text-emerald-400 font-semibold flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       Resend
                     </span>
+                    <span className="text-slate-700">&bull;</span>
+                    <span className="text-amber-400 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      Sentry
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 px-1 text-[10px] font-mono text-slate-500">
+                    <span className="text-slate-600 uppercase tracking-wider font-semibold">AI Providers:</span>
+                    <span className="text-slate-400">Google Gemini</span>
+                    <span className="text-slate-700">&bull;</span>
+                    <span className="text-slate-400">Groq</span>
+                    <span className="text-slate-700">&bull;</span>
+                    <span className="text-slate-400">Mistral</span>
+                    <span className="text-slate-700">&bull;</span>
+                    <span className="text-slate-400">OpenRouter</span>
                   </div>
                 </div>
               )}

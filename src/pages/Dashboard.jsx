@@ -325,7 +325,7 @@ export default function Dashboard() {
                 </h1>
 
                 <p className="text-sm sm:text-base text-slate-300/90 leading-relaxed max-w-2xl mx-auto">
-                  Paste a developer documentation URL or drop a tutorial scan. CourseIT removes 100% of conversational AI fluff and distills it into numbered steps, code commands, and verified pro tips.
+                  Paste a developer documentation URL or drop a tutorial scan. CourseIT is designed to strip conversational filler and surface the next useful action first with numbered steps, concise explanations, and runnable examples.
                 </p>
               </div>
 

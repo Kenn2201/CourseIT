@@ -1,37 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sparkles,
   ArrowRight,
-  BookOpen,
   Terminal,
   CheckCircle2,
   Zap,
-  Layers,
-  ShieldCheck,
   Cpu,
-  FileText,
-  Code2,
   Scan,
-  ArrowUpRight,
-  Play,
-  Gamepad2,
-  Radio,
   Check,
-  ExternalLink,
-  ChevronRight,
   Boxes,
   Container,
   Flame,
+  Radio,
   BrainCircuit
 } from 'lucide-react';
 import ShapeGrid from '../components/reactbits/ShapeGrid';
+import RotatingText from '../components/reactbits/RotatingText';
+import FadeContent from '../components/reactbits/FadeContent';
+import LogoLoop from '../components/reactbits/LogoLoop';
 import SpotlightCard from '../components/reactbits/SpotlightCard';
 import AntiFluffDiff from '../components/AntiFluffDiff';
 import Footer from '../components/Footer';
 import ChangelogModal from '../components/ChangelogModal';
 import AdminModal from '../components/AdminModal';
-import { STARTER_COURSES } from '../data/starterCourses';
 import { getAuthState } from '../lib/auth';
 import { CURRENT_VERSION_LABEL } from '../constants/version';
 
@@ -82,38 +74,83 @@ const CURATED_DEMOS = [
   }
 ];
 
+const WORKFLOW_STEPS = [
+  {
+    step: '01',
+    title: 'Choose What You Want to Learn',
+    desc: 'Paste a documentation URL or drop a scanned tutorial image, then specify the exact concept or topic you want to master.',
+    accent: 'text-indigo-400',
+    badgeBg: 'bg-indigo-600/20 border-indigo-500/30'
+  },
+  {
+    step: '02',
+    title: 'CourseIT Finds the Relevant Material',
+    desc: 'CourseIT inspects the source, identifies matching sections, and purifies the content—filtering out promotional filler and unrelated navigation.',
+    accent: 'text-violet-400',
+    badgeBg: 'bg-violet-600/20 border-violet-500/30'
+  },
+  {
+    step: '03',
+    title: 'Generates an Action-First Learning Module',
+    desc: 'Multi-provider AI distills the material into sequential, numbered steps with concrete time estimates, pro tips, and runnable code snippets when relevant.',
+    accent: 'text-purple-400',
+    badgeBg: 'bg-purple-600/20 border-purple-500/30'
+  },
+  {
+    step: '04',
+    title: 'Practice and Track Progress',
+    desc: 'Follow direct instructions, copy verified commands, track interactive checklists, and consult the Scripted Technical Companion for instant clarifications.',
+    accent: 'text-emerald-400',
+    badgeBg: 'bg-emerald-600/20 border-emerald-500/30'
+  }
+];
+
+const TECH_ITEMS = [
+  { name: 'React 19', category: 'Frontend', icon: '⚛️' },
+  { name: 'Vite 6', category: 'Bundler', icon: '⚡' },
+  { name: 'Netlify', category: 'Serverless & Blobs', icon: '🌐' },
+  { name: 'Appwrite Cloud', category: 'Auth & DB', icon: '☁️' },
+  { name: 'Google Gemini', category: 'Primary AI', icon: '✨' },
+  { name: 'Groq', category: 'LPU Fallback', icon: '⚡' },
+  { name: 'Mistral AI', category: 'Fallback', icon: '🌪️' },
+  { name: 'OpenRouter', category: 'Free Fallback', icon: '🔀' },
+  { name: 'Resend', category: 'Email', icon: '✉️' },
+  { name: 'Sentry', category: 'Telemetry', icon: '🛡️' },
+  { name: 'Tesseract.js', category: 'Client OCR', icon: '🔍' }
+];
+
 const MODEL_PRICING = [
   {
-    tier: 'Flash Lite (Fastest)',
+    tier: 'Fast Tier (Flash Lite & Fallbacks)',
     cost: '0.5 Credits',
-    desc: 'Synthesis for standard API pages & simple guides. Free for public guest sandbox.',
+    desc: 'High-speed synthesis for standard docs & guides with automated multi-provider resilience. Free for public sandbox.',
     badge: 'Guest 3/3 & Beta',
     trialLabel: 'Included in Guest 3/3 Trial & Beta',
-    speed: 'Time varies'
+    speed: 'Ultra-Fast'
   },
   {
-    tier: 'Gemini 3.5 Lite',
+    tier: 'Balanced Tier (3.5 Level)',
     cost: '1.0 Credit',
-    desc: 'Balanced reasoning with detailed implementation instructions and test commands.',
+    desc: 'Balanced reasoning with step-by-step implementation notes and verification checks when relevant.',
     badge: 'Beta Required',
     trialLabel: 'Approved Beta Account Required',
-    speed: 'Time varies'
+    speed: 'Standard'
   },
   {
-    tier: 'Gemini 3.6 Flash',
+    tier: 'Deep Tier (3.6 Level)',
     cost: '2.0 Credits',
-    desc: 'Deep multi-step structuring with code examples and architectural notes.',
+    desc: 'Multi-step structuring with code examples and architectural context when relevant.',
     badge: 'Beta Required',
     trialLabel: 'Approved Beta Account Required',
-    speed: 'Time varies'
+    speed: 'Deep'
   },
   {
-    tier: 'Gemini 3.7 Flash',
+    tier: 'Maximum Depth Tier (3.7 Level)',
     cost: '5.0 Credits',
-    desc: 'Maximum technical depth for intricate framework specs and complex scans.',
+    desc: 'Deep technical reasoning for intricate framework specifications and complex scans.',
     badge: 'Pro Beta',
     trialLabel: 'Approved Beta Account Required',
-    speed: 'Time varies'
+    speed: 'Maximum'
   }
 ];
 
@@ -131,11 +168,11 @@ export default function Landing({ onLaunchApp }) {
 
   return (
     <div className="landing-root min-h-screen bg-[#070913] text-slate-100 overflow-hidden relative selection:bg-indigo-500 selection:text-white animate-page-load transition-colors duration-300">
-      {/* ReactBits ShapeGrid Interactive Canvas Background */}
-      <div className="absolute inset-0 z-0 opacity-45 pointer-events-auto h-[720px]">
+      {/* ReactBits ShapeGrid Interactive Background */}
+      <div className="absolute inset-0 z-0 opacity-40 pointer-events-auto h-[720px]">
         <ShapeGrid
           direction="diagonal"
-          speed={0.4}
+          speed={0.35}
           squareSize={48}
           shape="square"
           borderColor="#171b30"
@@ -145,7 +182,7 @@ export default function Landing({ onLaunchApp }) {
       </div>
 
       {/* Hero Section */}
-      <section className="relative z-10 pt-16 pb-16 sm:pt-24 sm:pb-20 px-4 sm:px-6 max-w-6xl mx-auto">
+      <section className="relative z-10 pt-16 pb-14 sm:pt-24 sm:pb-18 px-4 sm:px-6 max-w-6xl mx-auto">
         <div className="text-center max-w-3xl mx-auto space-y-6">
           {/* Release & ADHD Focus Pill */}
           <button
@@ -157,29 +194,36 @@ export default function Landing({ onLaunchApp }) {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-mono shadow-lg shadow-indigo-500/10 hover:bg-indigo-500/20 hover:border-indigo-500/40 transition-all cursor-pointer"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>CourseIT Ai {CURRENT_VERSION_LABEL} • Zero-AI-Fluff Action Engine</span>
+            <span>CourseIT Ai {CURRENT_VERSION_LABEL} • ADHD-Friendly Action Engine</span>
           </button>
 
-          {/* Main Headline */}
-          <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-[1.12]">
+          {/* Main Headline with RotatingText */}
+          <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-[1.14]">
             Turn dense docs & scans into{' '}
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-violet-300 to-emerald-400">
-              action-first courses.
-            </span>
+            <br className="hidden sm:inline" />
+            <RotatingText
+              words={[
+                'action-first learning modules.',
+                'concise, runnable steps.',
+                'focused technical lessons.',
+                'zero-fluff workflows.'
+              ]}
+              interval={3000}
+            />
           </h1>
 
-          {/* ADHD / Attention Span Slogan */}
+          {/* ADHD / Attention Span Positioning */}
           <div className="space-y-3 max-w-2xl mx-auto">
             <p className="text-base sm:text-lg font-medium text-indigo-200">
-              ⚡ Built for developers with ADHD, documentation fatigue, or low attention spans. Zero AI fluff.
+              ⚡ ADHD-friendly technical learning from documentation.
             </p>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              CourseIT Ai turns a documentation page or extracted scan text into a focused learning path. Enter a topic to inspect matching sections on one documentation page, choose the relevant source, and generate concise steps with practical examples.
+              Paste docs or scans, tell CourseIT what you want to learn, and get an action-first learning module with concise explanations, numbered steps, examples, commands, and clear next actions.
             </p>
           </div>
 
           {/* CTA Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-4">
+          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-3">
             {authState?.isAuthenticated ? (
               <button
                 type="button"
@@ -220,7 +264,7 @@ export default function Landing({ onLaunchApp }) {
           </div>
 
           {/* Guarantee / Value Badges */}
-          <div className="flex flex-wrap items-center justify-center gap-6 pt-4 text-xs text-slate-400 font-mono">
+          <div className="flex flex-wrap items-center justify-center gap-6 pt-3 text-xs text-slate-400 font-mono">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               250 Free Credits on Approval
@@ -231,19 +275,29 @@ export default function Landing({ onLaunchApp }) {
             </span>
             <span className="flex items-center gap-1.5">
               <Cpu className="w-4 h-4 text-violet-400" />
-              Multi-Tier Models (0.5 – 5.0 cr)
+              Multi-Provider AI Resilience
             </span>
           </div>
         </div>
       </section>
 
       {/* Interactive Anti-Fluff Diff Comparison Section */}
-      <section className="relative z-10 px-4 sm:px-6">
+      <FadeContent className="relative z-10 px-4 sm:px-6" duration={600}>
         <AntiFluffDiff />
-      </section>
+      </FadeContent>
 
-      {/* "What is CourseIT?" Section */}
-      <section className="relative z-10 py-16 border-t border-slate-800/80 bg-slate-950/60 backdrop-blur-xl">
+      {/* Technology Showcase Marquee (LogoLoop) */}
+      <FadeContent className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8" duration={600} delay={100}>
+        <div className="text-center mb-3">
+          <span className="text-[11px] font-mono uppercase tracking-widest text-slate-500">
+            Engineered with Production-Grade Infrastructure
+          </span>
+        </div>
+        <LogoLoop items={TECH_ITEMS} speed="40s" />
+      </FadeContent>
+
+      {/* "The Problem We Solve" Section */}
+      <FadeContent className="relative z-10 py-16 border-t border-slate-800/80 bg-slate-950/60 backdrop-blur-xl" duration={600}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-indigo-400 text-xs font-mono mb-3">
@@ -268,11 +322,11 @@ export default function Landing({ onLaunchApp }) {
               <ul className="space-y-2.5 text-xs text-slate-400">
                 <li className="flex items-start gap-2">
                   <span className="text-rose-500 font-bold">&times;</span>
-                  <span>Endless conversational fluff ("Great question!", "Let me think...") wasting working memory.</span>
+                  <span>Endless conversational filler ("Great question!", "Let me think...") draining working memory.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-rose-500 font-bold">&times;</span>
-                  <span>40-page API documentation with buried setup commands.</span>
+                  <span>40-page API documentation with buried setup commands and scattered prerequisites.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-rose-500 font-bold">&times;</span>
@@ -290,24 +344,24 @@ export default function Landing({ onLaunchApp }) {
               <ul className="space-y-2.5 text-xs text-slate-300">
                 <li className="flex items-start gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                  <span>Sequential, numbered implementation steps with badges.</span>
+                  <span>Sequential, numbered implementation steps with badges and realistic time estimates.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                  <span>Direct terminal commands (npm install, cargo add, godot --headless).</span>
+                  <span>Commands, code examples, and exact edits are included when relevant.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                  <span>Embedded Technical Companion for instant explanations & quizzes.</span>
+                  <span>Embedded Technical Companion for instant explanations, gotchas & quizzes.</span>
                 </li>
               </ul>
             </div>
           </div>
         </div>
-      </section>
+      </FadeContent>
 
-      {/* How It Works (3 Steps) with Spotlight Cards */}
-      <section className="relative z-10 py-16 max-w-6xl mx-auto px-4 sm:px-6">
+      {/* How It Works (4 Steps) with Spotlight Cards */}
+      <FadeContent className="relative z-10 py-16 max-w-6xl mx-auto px-4 sm:px-6" duration={600}>
         <div className="text-center max-w-2xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-indigo-400 text-xs font-mono mb-3">
             <Zap className="w-3.5 h-3.5" />
@@ -316,43 +370,30 @@ export default function Landing({ onLaunchApp }) {
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
             How CourseIT Ai Synthesizes Learning
           </h2>
+          <p className="text-xs text-slate-400 mt-2 max-w-xl mx-auto">
+            From dense documentation to working code in four focused, high-retention steps.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <SpotlightCard className="space-y-4">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold font-mono text-sm">
-              01
-            </div>
-            <h3 className="text-base font-bold text-white">Choose a Source and Focus</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Paste a public documentation URL and optionally enter a learning topic. CourseIT inspects one page for relevant same-site sections, then you choose the source. You can also extract text from an image or document on your device.
-            </p>
-          </SpotlightCard>
-
-          <SpotlightCard className="space-y-4">
-            <div className="w-10 h-10 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 font-bold font-mono text-sm">
-              02
-            </div>
-            <h3 className="text-base font-bold text-white">Action Extraction</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              The selected source is extracted and the model builds a concise sequence of learning steps, explanations, examples, and time estimates. It does not crawl an entire site.
-            </p>
-          </SpotlightCard>
-
-          <SpotlightCard className="space-y-4">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold font-mono text-sm">
-              03
-            </div>
-            <h3 className="text-base font-bold text-white">Practice & Master</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Follow clean numbered instructions, 1-click copy code examples, track your progress with an interactive checklist, and consult the Scripted Technical Companion.
-            </p>
-          </SpotlightCard>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {WORKFLOW_STEPS.map((ws) => (
+            <SpotlightCard key={ws.step} className="space-y-3.5 flex flex-col justify-between">
+              <div>
+                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold font-mono text-sm mb-3 ${ws.accent} ${ws.badgeBg}`}>
+                  {ws.step}
+                </div>
+                <h3 className="text-sm font-bold text-white mb-1.5">{ws.title}</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {ws.desc}
+                </p>
+              </div>
+            </SpotlightCard>
+          ))}
         </div>
-      </section>
+      </FadeContent>
 
       {/* Multi-Ecosystem Docs Showcase Section */}
-      <section className="relative z-10 py-16 border-t border-slate-800/80 bg-slate-950/40">
+      <FadeContent className="relative z-10 py-16 border-t border-slate-800/80 bg-slate-950/40" duration={600}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div>
@@ -434,10 +475,10 @@ export default function Landing({ onLaunchApp }) {
             })}
           </div>
         </div>
-      </section>
+      </FadeContent>
 
       {/* Model Pricing Tiers */}
-      <section className="relative z-10 py-16 max-w-6xl mx-auto px-4 sm:px-6">
+      <FadeContent className="relative z-10 py-16 max-w-6xl mx-auto px-4 sm:px-6" duration={600}>
         <div className="text-center max-w-2xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-indigo-400 text-xs font-mono mb-3">
             <Cpu className="w-3.5 h-3.5" />
@@ -447,7 +488,7 @@ export default function Landing({ onLaunchApp }) {
             250 Free Credits on Admin Approval
           </h2>
           <p className="text-xs text-slate-400 mt-2">
-            Pick the exact reasoning tier you need for each task. Unauthenticated guests can generate 3 free courses with Flash Lite. Approved beta testers unlock all tiers with 250 free credits.
+            Pick the exact reasoning tier you need for each task. Unauthenticated guests can generate 3 free courses with the Fast Tier. Approved beta testers unlock all tiers with 250 free credits.
           </p>
         </div>
 
@@ -472,17 +513,17 @@ export default function Landing({ onLaunchApp }) {
               </div>
 
               <div className={`pt-3 border-t border-slate-800/80 text-[11px] font-mono ${
-                m.tier.includes('Flash Lite') ? 'text-emerald-400' : 'text-slate-500'
+                m.tier.includes('Fast Tier') ? 'text-emerald-400' : 'text-slate-500'
               }`}>
                 {m.trialLabel}
               </div>
             </div>
           ))}
         </div>
-      </section>
+      </FadeContent>
 
       {/* Footer CTA */}
-      <section className="relative z-10 py-16 border-t border-slate-800/80 bg-slate-950/80 text-center">
+      <FadeContent className="relative z-10 py-16 border-t border-slate-800/80 bg-slate-950/80 text-center" duration={600}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-5">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mx-auto">
             <Sparkles className="w-6 h-6" />
@@ -517,7 +558,7 @@ export default function Landing({ onLaunchApp }) {
             </button>
           </div>
         </div>
-      </section>
+      </FadeContent>
 
       {/* Full Developer Portfolio Footer */}
       <Footer onOpenChangelog={() => setIsChangelogOpen(true)} showPoweredBy={true} />

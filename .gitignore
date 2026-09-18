@@ -30,6 +30,7 @@ dist-ssr
 
 # Server runtime local caches
 server/data/*.json
+server/data/state/
 
 # Temporary files
 temp files/

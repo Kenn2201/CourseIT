@@ -13,8 +13,9 @@ import DashboardSidebar from '../components/DashboardSidebar';
 import GenerationHistory from '../components/GenerationHistory';
 import ThemeToggle from '../components/ThemeToggle';
 import { CURRENT_VERSION_LABEL } from '../constants/version';
-import { listCourses, saveLocalCourse } from '../lib/appwrite';
+import { listCourses, saveLocalCourse, publishCourse } from '../lib/appwrite';
 import { authenticatedFetch } from '../lib/auth';
+import { readApiResponse } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
@@ -70,7 +71,7 @@ export default function Dashboard() {
       const data = await listCourses(user?.id, isAdmin);
       setCourses(data);
     } catch (err) {
-      console.error('Error fetching courses:', err);
+      setGenerateError('Could not refresh the course catalog: ' + err.message);
     } finally {
       setLoadingCourses(false);
     }
@@ -78,6 +79,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadCourses();
+    const interval = setInterval(loadCourses, 60000);
+    return () => clearInterval(interval);
   }, [user?.id, isAdmin]);
 
   const handleGenerate = async (inputPayload, legacyModel) => {
@@ -105,7 +108,8 @@ export default function Dashboard() {
             model: inputPayload.model,
             userId,
             userEmail,
-            isAdmin
+            isAdmin,
+            visibility: inputPayload.visibility
           })
         });
       } else {
@@ -124,12 +128,13 @@ export default function Dashboard() {
             model: targetModel,
             userId,
             userEmail,
-            isAdmin
+            isAdmin,
+            visibility: inputPayload.visibility
           })
         });
       }
 
-      const data = await response.json();
+      const data = await readApiResponse(response);
 
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to generate course.');
@@ -150,16 +155,7 @@ export default function Dashboard() {
       setSuccessCourse(newCourse);
     } catch (err) {
       console.error('Generation failed:', err);
-      const raw = err.message || '';
-      let friendly = raw;
-      if (raw.includes('extract') || raw.includes('CORS') || raw.includes('scrape') || raw.includes('paywall') || raw.includes('HTML') || raw.includes('empty')) {
-        friendly = "Couldn't read that page — check the URL or try a different one";
-      } else if (raw.includes('Gemini') || raw.includes('All Gemini API attempts failed') || raw.includes('503') || raw.includes('429')) {
-        friendly = "Generation failed — please try again";
-      } else if (raw.includes('save') || raw.includes('Appwrite')) {
-        friendly = "Could not save course — please try again";
-      }
-      setGenerateError(friendly);
+      setGenerateError(err.message || 'Generation failed. Check your connection and retry.');
       setIsGenerating(false);
     }
   };
@@ -168,7 +164,7 @@ export default function Dashboard() {
     if (!course) return;
     setIsDeletingCourse(true);
     try {
-      const isLocal = Boolean(course.is_guest || course.creator_id === 'public_guest' || course.$id?.startsWith('course_') || course.$id?.startsWith('doc_'));
+      const isLocal = Boolean(course.$id?.startsWith('course_') || course.$id?.startsWith('doc_'));
       if (!isLocal && authState.isAuthenticated) {
         const res = await authenticatedFetch('/api/courses/delete', {
           method: 'POST',
@@ -200,6 +196,13 @@ export default function Dashboard() {
     }
   };
 
+  const handlePublish = async (course) => {
+    try {
+      await publishCourse(course.$id);
+      await loadCourses();
+    } catch (error) { setGenerateError(error.message); }
+  };
+
   const filteredCourses = courses.filter((c) => {
     const q = searchQuery.toLowerCase();
     return (
@@ -208,7 +211,7 @@ export default function Dashboard() {
     );
   });
 
-  const userGenerationsCount = courses.filter(c => !c.is_curated && !c.$id?.startsWith('starter-')).length;
+  const userGenerationsCount = courses.filter(c => !c.is_curated && c.creator_id === user?.id).length;
 
   return (
     <div className="min-h-screen flex flex-col justify-between animate-page-load transition-colors duration-200">
@@ -307,6 +310,19 @@ export default function Dashboard() {
                 </div>
               )}
 
+              <section className="rounded-2xl border border-slate-800 p-4 space-y-3" aria-label="Recent generated courses">
+                <h2 className="text-sm font-semibold text-white">Recent generated courses</h2>
+                <p className="text-xs text-slate-400">Open a generated course directly. Guest courses expire after 30 minutes.</p>
+                <div className="flex flex-wrap gap-2">
+                  {courses.filter(c => !c.is_curated).slice(0, 5).map(course => (
+                    <Link key={course.$id} to={'/course/' + course.$id} className="rounded-lg bg-indigo-500/10 px-3 py-2 text-xs text-indigo-300 hover:bg-indigo-500/20">
+                      {course.title} <span aria-hidden="true">↗</span>
+                    </Link>
+                  ))}
+                  {!courses.some(c => !c.is_curated) && <span className="text-xs text-slate-500">Your next generated course will appear here.</span>}
+                </div>
+              </section>
+
               {/* Saved Courses & Curated Catalog Section */}
               <section className="pt-8 border-t border-slate-800/80">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -379,6 +395,7 @@ export default function Dashboard() {
                                 course={course}
                                 currentUser={authState.user}
                                 isAdmin={authState.isAdmin}
+                                onPublish={handlePublish}
                                 onDelete={(c) => setCourseToDelete(c)}
                               />
                             ))}
@@ -417,6 +434,7 @@ export default function Dashboard() {
                                 course={course}
                                 currentUser={authState.user}
                                 isAdmin={authState.isAdmin}
+                                onPublish={handlePublish}
                                 onDelete={(c) => setCourseToDelete(c)}
                               />
                             ))}
@@ -433,7 +451,7 @@ export default function Dashboard() {
           {/* TAB 2: GENERATION HISTORY & OCR UPLOADS */}
           {activeTab === 'history' && (
             <GenerationHistory
-              courses={courses}
+              courses={courses.filter(c => c.creator_id === user?.id)}
               onDeleteCourse={(c) => setCourseToDelete(c)}
               currentUser={authState.user}
               isAdmin={authState.isAdmin}
@@ -688,7 +706,7 @@ export default function Dashboard() {
                     <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5">
                       <h4 className="font-semibold text-slate-200">How do guest course quotas work?</h4>
                       <p className="text-slate-400">
-                        Unauthenticated visitors receive 3 free trial generations stored in local session storage (auto-purged after 24 hours). Create an account for 250 persistent cloud credits.
+                        Guests share 3 free generations per 24-hour reset. Generated courses appear on the public board and expire after 30 minutes. Create an account to request 250 persistent cloud credits.
                       </p>
                     </div>
                     <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5">

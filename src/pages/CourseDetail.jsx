@@ -351,17 +351,17 @@ export default function CourseDetail() {
                   {Boolean(course.is_curated || course.$id?.startsWith('starter-'))
                     ? 'CourseIT Team'
                     : Boolean(course.is_guest || course.creator_id === 'public_guest' || (!course.creator_id))
-                    ? 'Guest (24h Trial)'
+                    ? 'Guest (30 min)'
                     : (course.creator_name || course.creator_email?.split('@')[0] || 'Member')}
                 </strong>
                 {Boolean(course.is_guest || course.creator_id === 'public_guest') && (
                   <span className="text-[10px] font-mono text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
-                    Expires in 24h
+                    Expires 30 minutes after creation
                   </span>
                 )}
               </span>
 
-              {course.source_url && (
+              {/^https?:\/\//.test(course.source_url || '') && (
                 <a
                   href={course.source_url}
                   target="_blank"

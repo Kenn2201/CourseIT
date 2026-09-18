@@ -1,9 +1,26 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.13.0 LIVE Beta',
+    date: 'September 18, 2026',
+    title: 'Public Course Sharing, Durable Credits & Reliable AI Jobs',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Shareable Public Courses', desc: 'Guest courses are available on the community board for 30 minutes. Account holders choose public or private visibility and can publish older private courses.' },
+      { title: 'Persistent Accounts & Credit History', desc: 'Credits, approvals, usage history, feedback and maintenance settings now use durable server-side storage. Profile and Admin show credit transactions and token usage.' },
+      { title: 'Clearer Generation Results', desc: 'Studio keeps recent generated-course links below the prompt. Failed AI requests return actionable errors and do not deduct credits.' }
+    ],
+    notes: [
+      'Existing private courses stay private until explicitly published by their author or an administrator.',
+      'Uploaded images are processed locally; original images are no longer uploaded to cloud storage.',
+      'Guest access expires after 30 minutes; scheduled cleanup runs every 5 minutes. The shared guest quota still resets every 24 hours.',
+      'Legacy course records remain readable. Previously lost temporary account records or usage history cannot be reconstructed completely.',
+      'Netlify Functions use the modern Request API and strongly consistent conditional storage writes.'
+    ]
+  },
+  {
     version: 'v1.12.2 LIVE Beta',
     date: 'September 18, 2026',
     title: 'Email Suite Crash, Course Visibility, Admin Dedup & Loop Fixes',
-    badge: 'Latest Release',
     highlights: [
       {
         title: 'Email Suite Crash Fixed',

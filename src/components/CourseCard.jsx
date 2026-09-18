@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Clock, Layers, ArrowUpRight, CheckCircle, Trash2, User } from 'lucide-react';
 import { getCompletedSteps } from '../lib/storage';
 
-export default function CourseCard({ course, onDelete, currentUser = null, isAdmin = false }) {
+export default function CourseCard({ course, onDelete, onPublish, currentUser = null, isAdmin = false }) {
   const steps = course.steps || [];
   const completedSteps = getCompletedSteps(course.$id);
   const isComplete = steps.length > 0 && completedSteps.length >= steps.length;
@@ -16,7 +16,7 @@ export default function CourseCard({ course, onDelete, currentUser = null, isAdm
   const creatorLabel = isStarter
     ? 'CourseIT Team'
     : isGuest
-    ? 'Guest User (24h)'
+    ? 'Guest (30 min)'
     : (course.creator_name || course.creator_email || 'User');
 
   let hostname = 'docs';
@@ -62,6 +62,10 @@ export default function CourseCard({ course, onDelete, currentUser = null, isAdm
               <span className="text-xs text-slate-500">{formattedDate}</span>
             )}
 
+            {onPublish && (isOwner || isAdmin) && !isStarter && course.visibility !== 'public' && (
+              <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); onPublish(course); }}
+                className="rounded px-2 py-1 text-xs text-indigo-300 hover:bg-indigo-500/20" title="Make this course readable by anyone">Publish</button>
+            )}
             {onDelete && canDelete && (
               <button
                 type="button"
@@ -84,7 +88,7 @@ export default function CourseCard({ course, onDelete, currentUser = null, isAdm
             <span className="text-slate-200 font-semibold truncate max-w-[150px]">{creatorLabel}</span>
             {isGuest && (
               <span className="text-[9px] font-mono text-amber-300 bg-amber-500/20 px-1 py-0.2 rounded border border-amber-500/30">
-                24h Expire
+                30 min expiry
               </span>
             )}
           </span>

@@ -38,6 +38,8 @@ import { CURRENT_VERSION_LABEL } from '../constants/version';
 import { listCourses, getMaintenanceMode, setMaintenanceMode as persistMaintenanceMode } from '../lib/appwrite';
 import AdminModal from '../components/AdminModal';
 import UserDetailsModal from '../components/UserDetailsModal';
+import CreditHistory from '../components/CreditHistory';
+import { readApiResponse } from '../lib/api';
 
 export default function Admin() {
   const { user, isAdmin, isAuthenticated, loading: authLoading } = useAuth();
@@ -80,10 +82,10 @@ export default function Admin() {
 
   const handleToggleMaintenance = async () => {
     const next = !maintenanceMode;
-    setMaintenanceMode(next);
     setNotification({ type: 'info', message: 'Updating maintenance mode...' });
     try {
       await persistMaintenanceMode(next);
+      setMaintenanceMode(next);
       setNotification({
         type: 'success',
         message: next
@@ -117,12 +119,12 @@ export default function Admin() {
     setLoading(true);
     try {
       const res = await authenticatedFetch('/api/admin/users');
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (data.success) {
         setUsers(data.users || []);
       }
     } catch (err) {
-      console.error('Failed to fetch users:', err);
+      setNotification({ type: 'error', message: 'Could not load accounts: ' + err.message });
     } finally {
       setLoading(false);
     }
@@ -130,17 +132,17 @@ export default function Admin() {
 
   const fetchCourses = async () => {
     try {
-      const list = await listCourses(user?.id || user?.$id, true);
+      const list = await listCourses(user?.id || user?.$id, true, false);
       setCourses(list || []);
     } catch (err) {
-      console.error('Failed to fetch courses:', err);
+      setNotification({ type: 'error', message: 'Could not load courses: ' + err.message });
     }
   };
 
   const fetchFeedbacks = async () => {
     try {
       const res = await authenticatedFetch('/api/feedback');
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (data.success) {
         setFeedbacks(data.feedbacks || []);
       }
@@ -160,7 +162,7 @@ export default function Admin() {
         body: JSON.stringify({ userId, email: customEmail })
       });
 
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (data.success) {
         setNotification({
           type: 'success',
@@ -189,7 +191,7 @@ export default function Admin() {
         body: JSON.stringify({ userId, amount })
       });
 
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (data.success) {
         setNotification({
           type: 'success',
@@ -237,10 +239,10 @@ export default function Admin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseId })
       });
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (data.success) {
         setCourses(prev => prev.filter(c => c.$id !== courseId));
-        setNotification({ type: 'success', message: 'Course deleted permanently from Appwrite.' });
+        setNotification({ type: 'success', message: 'Course deleted from cloud storage.' });
       } else {
         throw new Error(data.error || 'Failed to delete course.');
       }
@@ -258,7 +260,7 @@ export default function Admin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ feedbackId, status })
       });
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (data.success) {
         setFeedbacks(prev => prev.map(f => f.id === feedbackId ? { ...f, status } : f));
       }
@@ -277,7 +279,7 @@ export default function Admin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminEmail: ADMIN_EMAIL })
       });
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (data.success) {
         setNotification({
           type: 'success',
@@ -297,12 +299,12 @@ export default function Admin() {
     setLoadingTokens(true);
     try {
       const res = await authenticatedFetch('/api/admin/token-metrics');
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (data.success) {
         setTokenMetrics(data.metrics);
       }
     } catch (err) {
-      console.error('Failed to fetch token metrics:', err);
+      setNotification({ type: 'error', message: 'Could not load usage history: ' + err.message });
     } finally {
       setLoadingTokens(false);
     }
@@ -370,7 +372,7 @@ export default function Admin() {
         })
       });
 
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (data.success) {
         setNotification({
           type: 'success',
@@ -994,11 +996,11 @@ export default function Admin() {
               <div>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[11px] font-mono mb-1.5">
                   <Database className="w-3 h-3" />
-                  <span>Appwrite Collections Storage</span>
+                  <span>Cloud Course Storage</span>
                 </div>
                 <h3 className="text-base font-bold text-white">All User Generations & Upload History ({courses.length})</h3>
                 <p className="text-xs text-slate-400">
-                  Inspect and manage all courses, extracted web documentation, and OCR scans stored in Appwrite.
+                  Inspect and manage all courses, extracted web documentation, and OCR scans saved in cloud storage.
                 </p>
               </div>
               <button
@@ -1054,7 +1056,7 @@ export default function Admin() {
                 {filteredCourseList.map((c) => {
                   const isDoc = Boolean(c.source_url?.startsWith('upload://') || c.source_url?.includes('ocr'));
                   const isStarter = Boolean(c.is_curated || c.$id?.startsWith('starter-'));
-                  const author = c.creator_email || c.creator_name || (isStarter ? 'CourseIT Team' : 'Guest User (24h)');
+                  const author = c.creator_email || c.creator_name || (isStarter ? 'CourseIT Team' : 'Guest (30 min)');
 
                   return (
                     <div key={c.$id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group hover:bg-slate-850/40 rounded-xl px-2 transition-colors">
@@ -1328,7 +1330,7 @@ export default function Admin() {
                   <span>Google Gemini API & Token Usage Monitor</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Live token consumption, model tier breakdown, and cost estimation.
+                  Recorded token consumption, model usage, and credit transactions.
                 </p>
               </div>
 
@@ -1353,11 +1355,11 @@ export default function Admin() {
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/20 space-y-1">
-                <span className="text-xs text-emerald-400 font-mono">Est. Gemini Cost</span>
+                <span className="text-xs text-emerald-400 font-mono">Credits Used</span>
                 <p className="text-xl sm:text-2xl font-bold text-emerald-400 font-mono">
-                  ${(tokenMetrics?.estimatedCostUsd || 0).toFixed(4)}
+                  {(tokenMetrics?.creditsUsed || 0).toFixed(1)}
                 </p>
-                <p className="text-[10px] text-slate-500 font-mono">USD Blended Rates</p>
+                <p className="text-[10px] text-slate-500 font-mono">Actual generation deductions</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/20 space-y-1">
@@ -1391,7 +1393,7 @@ export default function Admin() {
                       <th className="px-5 py-3">User Identifier</th>
                       <th className="px-5 py-3">Total Tokens</th>
                       <th className="px-5 py-3">Generations</th>
-                      <th className="px-5 py-3">Estimated Cost</th>
+                      <th className="px-5 py-3">Credits Used</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
@@ -1410,7 +1412,7 @@ export default function Admin() {
                           </td>
                           <td className="px-5 py-3 font-mono text-slate-300">{stats.generations}</td>
                           <td className="px-5 py-3 font-mono text-emerald-400">
-                            ${(stats.estimatedCostUsd || 0).toFixed(4)}
+                            {(stats.creditsUsed || 0).toFixed(1)}
                           </td>
                         </tr>
                       ))
@@ -1419,6 +1421,8 @@ export default function Admin() {
                 </table>
               </div>
             </div>
+
+            <CreditHistory entries={tokenMetrics?.creditHistory || []} showUser />
 
             {/* Recent Generation Log */}
             <div className="space-y-3 pt-2">

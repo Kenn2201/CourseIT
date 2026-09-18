@@ -1,17 +1,19 @@
 {
   "name": "courseit",
   "private": true,
-  "version": "1.12.2",
+  "version": "1.13.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:doppler": "doppler run -- vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/regressions.test.mjs tests/blobs.test.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
     "@mozilla/readability": "^0.5.0",
+    "@netlify/blobs": "^11.1.0",
     "appwrite": "^17.0.0",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",

@@ -86,7 +86,7 @@ export default function CourseTutor({ course, activeStepIndex = 0, mode = 'cours
         addMessage('user', '⏱️ What is the 3/3 guest free trial?');
         addMessage(
           'tutor',
-          `Unauthenticated guests can generate up to **3 free courses** every 24 hours using Gemini Flash Lite — no credit card or login needed!\n\nGuest courses are saved for 24 hours. If you want permanent course saving, multi-tier models (3.5/3.6/3.7), and 250 credits, you can create a free account and request beta approval.`
+          `Unauthenticated guests can generate up to **3 free courses** every 24 hours using Gemini Flash Lite — no credit card or login needed!\n\nGuest courses expire after 30 minutes. If you want permanent course saving, multi-tier models (3.5/3.6/3.7), and 250 credits, you can create a free account and request beta approval.`
         );
       }
     }, 350);

@@ -7,10 +7,10 @@
  * Refer to VERSIONING.md for the full release checklist.
  */
 
-export const CURRENT_VERSION = '1.12.2';
-export const CURRENT_VERSION_LABEL = 'v1.12.2 LIVE Beta';
+export const CURRENT_VERSION = '1.13.0';
+export const CURRENT_VERSION_LABEL = 'v1.13.0 LIVE Beta';
 export const RELEASE_DATE = 'September 18, 2026';
-export const RELEASE_NAME = 'Email Suite Crash, Course Visibility, Admin Dedup & Loop Fixes';
+export const RELEASE_NAME = 'Public Course Sharing, Durable Credits & Reliable AI Jobs';
 
 export const APP_NAME = 'CourseIT Ai';
 export const APP_TAGLINE = 'Action-first docs learning paths';

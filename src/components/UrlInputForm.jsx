@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, ArrowRight, Link2, Gamepad2, Layers, Radio, Code2, UploadCloud, FileText, CheckCircle, AlertCircle, RefreshCw, Lock, Boxes, Flame, Container } from 'lucide-react';
 import { extractTextFromFile } from '../lib/ocr';
-import { uploadFileToAppwrite } from '../lib/appwrite';
+
 import { useUserCredits } from '../context/CreditContext';
 
 const CROSS_DOC_PRESETS = [
@@ -43,6 +43,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
   const { credits, formatCredits } = useUserCredits();
   const [inputMode, setInputMode] = useState('url'); // 'url' | 'document'
   const [url, setUrl] = useState('');
+  const [publishToBoard, setPublishToBoard] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedModel, setSelectedModel] = useState(() => {
     try {
@@ -138,7 +139,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
 
     // Double check model permission
     const modelToUse = isAuthenticated ? selectedModel : 'gemini-flash-lite-latest';
-    onSubmit({ type: 'url', url: trimmed, model: modelToUse });
+    onSubmit({ type: 'url', url: trimmed, model: modelToUse, visibility: publishToBoard ? 'public' : 'private' });
   };
 
   const handleFileDrop = (e) => {
@@ -187,18 +188,15 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
         setOcrProgress(prog);
       });
 
-      // 2. Upload original file to Appwrite storage bucket course_docs if authenticated
-      if (isAuthenticated) {
-        uploadFileToAppwrite(selectedFile).catch(() => {});
-      }
-
+      // The source file stays on this device; only extracted text is submitted.
       // 3. Pass extracted text to parent pipeline with model
       const modelToUse = isAuthenticated ? selectedModel : 'gemini-flash-lite-latest';
       onSubmit({
         type: 'document',
         title: extracted.title,
         text: extracted.text,
-        model: modelToUse
+        model: modelToUse,
+        visibility: publishToBoard ? 'public' : 'private'
       });
     } catch (err) {
       setError(err.message || 'Failed to extract text from document.');
@@ -217,7 +215,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
     setError('');
     if (!isOutOfQuota) {
       const modelToUse = isAuthenticated ? selectedModel : 'gemini-flash-lite-latest';
-      onSubmit({ type: 'url', url: presetUrl, model: modelToUse });
+      onSubmit({ type: 'url', url: presetUrl, model: modelToUse, visibility: publishToBoard ? 'public' : 'private' });
     }
   };
 
@@ -246,6 +244,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
             type="button"
             onClick={() => {
               setInputMode('document');
+              setPublishToBoard(false);
               setError('');
             }}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
@@ -501,6 +500,15 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
               </button>
             </div>
           </form>
+        )}
+
+        {isAuthenticated ? (
+          <label className="mt-4 flex items-center gap-2 text-xs text-slate-300">
+            <input type="checkbox" checked={publishToBoard} onChange={e => setPublishToBoard(e.target.checked)} />
+            Publish this course on the public board (anyone can read it).
+          </label>
+        ) : (
+          <p className="mt-4 text-xs text-amber-300">Guest courses appear on the public board and expire 30 minutes after creation. Source files stay on your device.</p>
         )}
 
         {/* Quota & Error Status Banners */}

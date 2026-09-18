@@ -65,16 +65,8 @@ function AppContent() {
   };
 
   // If maintenance mode is active, block non-admin users across the app
-  const hasBypass = sessionStorage.getItem('courseit_maintenance_bypass') === 'true';
-  if (isMaintenance && !isAdmin && !hasBypass) {
-    return (
-      <Maintenance
-        onBypass={() => {
-          sessionStorage.setItem('courseit_maintenance_bypass', 'true');
-          window.location.reload();
-        }}
-      />
-    );
+  if (isMaintenance && !isAdmin && !location.pathname.startsWith('/auth/')) {
+    return <Maintenance />;
   }
 
   return (

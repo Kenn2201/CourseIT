@@ -4,10 +4,11 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.15.0--LIVE--Beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.16.0--LIVE--Beta-indigo.svg)
 [![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT-AI%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple&cacheSeconds=60)](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
 ![Vite](https://img.shields.io/badge/Vite-6.4.3-646CFF.svg?logo=vite)
 ![Netlify](https://img.shields.io/badge/Netlify-Serverless-00C7B7.svg?logo=netlify)
@@ -18,97 +19,24 @@
 
 ---
 
-## 📜 Versioning, Changelog & Audit Trail
+## 📜 Version & Changelog
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.15.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.16.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
-* **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
+* **Full Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
+* **License**: [**MIT License**](LICENSE)
 * **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 
-### Recent Release Notes
+### Latest Release: v1.16.0 LIVE Beta (September 19, 2026) — *Modular LLM Pipeline and Multi-Provider Fallback*
 
-* **v1.15.0 LIVE Beta (September 19, 2026)** — *Reliable Generation and Honest History*:
-  * Gemini limits return safe codes and retry timing; the same request ID cannot create a second course or charge while a previous result exists.
-  * The progress modal shows real recorded stages, while stale browser-only history is clearly separate from server courses.
-  * Admin can use a server-only Users-read key for Auth count, verification, and provider details.
-  * Local tests/build pass. Exact Semaphore owner-side deletion, live Appwrite/Sentry, and mobile modal checks remain pending.
+* **Multi-Provider Fallback Cascade**: Automatic server-side fallback cascade across `Gemini → Cerebras → Groq → Mistral → OpenRouter`.
+* **Cerebras Fast Inference**: Integrated Cerebras LPU acceleration with `CEREBRAS_API_KEY` (Llama 3.1 8B).
+* **Modularized LLM Subsystem**: Structured `server/llm/` into `manager.js`, `errors.js`, and dedicated provider modules.
+* **Strict Error Handling**: Fallbacks trigger only on 429 rate limits, timeouts, and temporary 5xx errors; 400 Bad Request and 401/403 auth errors fail immediately without cascading.
+* **Request Idempotency**: Generation request ID preserved across fallback attempts, guaranteeing zero duplicate courses created and single credit deduction.
 
-* **v1.14.0 LIVE Beta (September 18, 2026)** — *Private Learning Workflows and Durable Source History*:
-  * Signed-in courses default to Private, with explicit Community/Public choices and backend access checks.
-  * Topic-based documentation discovery and private signed-in OCR image previews are available; old originals cannot be restored.
-  * Guest quota and admin generation history use durable server records, while Auth totals distinguish identities from application profiles.
-  * Local tests/build pass; live OAuth, email, storage, Sentry, and production accounting checks remain pending.
-
-* **v1.13.2 LIVE Beta (September 18, 2026)** — *Production Safety and Account Recovery*:
-  * Public documentation fetches reject local/private destinations and unsafe redirects, with DNS pinning and a 1 MB HTML limit.
-  * Password reset uses Appwrite recovery links. Signup and feedback bind identity to verified sessions; feedback text is retained and email outcomes are observable.
-  * Generation reserves quota before AI work, session restore avoids a duplicate quota request, and common quota reads no longer scan all usage records.
-  * Security regression tests and the production build pass; OAuth, recovery-email delivery, and live AI generation still require controlled production checks.
-
-* **v1.13.1 LIVE Beta (September 18, 2026)** — *Application Startup Hotfix*:
-  * Removed the authentication/catalog circular import that crashed production before the app could render.
-  * Added regression tests that execute minified production-style startup code with Appwrite configured and unconfigured.
-
-* **v1.13.0 LIVE Beta (September 18, 2026)** — *Public Course Sharing, Durable Credits & Reliable AI Jobs*:
-  * **Public sharing**: Guest courses appear on the community board for 30 minutes; signed-in authors choose visibility and can publish existing private courses.
-  * **Persistent state**: Netlify Blobs retains credits, approvals, courses, feedback and maintenance settings across cold starts. Legacy Appwrite courses remain readable.
-  * **Usage history**: Profile and Admin display actual credit transactions and token totals. Studio retains recent generated-course links below the prompt.
-  * **Reliable failures**: Bounded AI attempts, actionable gateway/provider errors, verified sessions and conditional credit deductions.
-  * **Retention**: Guest access ends at 30 minutes; cleanup runs every 5 minutes. Original OCR images stay on-device. The shared guest quota still resets after 24 hours.
-  * **Recovery limits**: Previously lost temporary records and usage history cannot be fully restored. Known course authors can be recovered, but lost approvals/balances require administrator review.
-
-* **v1.12.2 LIVE Beta (September 18, 2026)** — *Email Suite Crash, Course Visibility, Admin Dedup & Loop Fixes*:
-  * **Email Suite ReferenceError Fixed**: `customEmailBody` state was never declared — clicking Email Suite tab crashed the entire admin panel. Fixed.
-  * **Duplicate Admin Row Fixed**: Admin list now deduplicates by email address instead of `user_id`.
-  * **System Docs Filtered**: Maintenance flag and other `system://` documents no longer appear in course or user lists.
-  * **CourseDetail Infinite Loop Fixed**: `useEffect` dependency changed from `user` object to `user?.id` primitive.
-  * **Top-Up Credits Fixed**: `topUpUserCredits` now queries Appwrite by `user_id` before writing (cold-start safe).
-
-* **v1.12.1 LIVE Beta (September 18, 2026)** — *Approval Persistence & Quota Source-of-Truth Fix*:
-  * **Approvals No Longer Revert on Reload**: `approveUserAndSendEmail()` now queries Appwrite by `user_id` before updating — never relies on cached `$id` that is wiped on every serverless cold-start.
-  * **Appwrite is Now Source of Truth**: `getUserQuota()` now reads Appwrite first, local file second. Stale `/tmp` cache can no longer serve an outdated `pending` status.
-  * **Email Fix**: Approval email CTA now links to `courseitai.kenncode.me` instead of localhost.
-
-* **v1.12.0 LIVE Beta (September 18, 2026)** — *Persistent Global Maintenance Mode, UI Restoration & Admin Stability*:
-  * **Global Maintenance Mode via Appwrite**: Maintenance flag now stored in Appwrite Cloud as a system document — all browsers worldwide sync state within 30 seconds via background polling. `setMaintenanceMode()` writes to Appwrite and auto-creates the document on first use.
-  * **Admin Panel Infinite Refresh Fixed**: Root-cause resolved by replacing the `user` object reference (new object every render) in `useEffect` dependency array with stable `user?.id` / `user?.email` primitives.
-  * **UI Restoration**: `CourseTutor` chatbot restored to lower-left corner globally; Light/Dark theme toggle moved to Navbar header; `Powered By` partner badges restored on landing page footer.
-  * **Security Sanitization**: Scrubbed internal API paths, collection IDs, and emails from public changelog and documentation; established `.agents/rules/versioning.md` mandatory versioning protocol.
-
-* **v1.11.2 LIVE Beta (September 17, 2026)** — *Serverless Evaluation Hotfix & Quota Engine Stabilization*:
-  * **AWS Lambda / Netlify Serverless Evaluation Fix**: Eliminated fatal `TypeError: The "path" argument must be of type string or an instance of URL. Received undefined` caused by CommonJS bundler execution of `fileURLToPath(import.meta.url)`. Switched to universal, environment-resilient directory discovery, restoring 100% gateway uptime across all serverless API routes.
-  * **Production 502 Bad Gateway Resolution**: Fixed 502 errors blocking both user quota retrieval (`/api/user/quota`) and course generation (`/api/summarize`, `/api/summarize-text`) in production.
-  * **Defensive Timeout Wrappers for Cloud Database**: Added non-blocking race timeouts (3.5s for session JWT validation, 3.0s for Appwrite database interactions) preventing serverless worker hangs and gateway dropouts.
-  * **Admin Role & Storage Resiliency**: Ensured administrator privilege detection and fallback storage directory discovery remain consistent across serverless container cold-starts.
-
-* **v1.11.1 LIVE Beta (September 17, 2026)** — *Serverless Production Hotfix & Connected Documentation*:
-  * **Netlify 502 Bad Gateway Serverless Fix**: Resolved AWS Lambda read-only filesystem crash (`EROFS`) by directing runtime fallback files to `os.tmpdir()` (`/tmp/courseit_data`), wrapped file system access in `try / catch`, and aligned parameter signatures in `netlify/functions/api.js`.
-  * **Appwrite Auth Decoupling & Sydney Cloud Parity**: Decoupled pure authentication from database collection dependencies, defaulted to Sydney (`syd1`) cloud region, and injected build-time `define` fallbacks in `vite.config.js` for both `VITE_` and standard environment variables.
-  * **Netlify Build Syntax Hardening**: Removed invalid `timeout = 30` scalar syntax from `netlify.toml` and verified `node_bundler = "esbuild"` with `external_node_modules = ["jsdom"]`.
-  * **Semantic Versioning Synchronization**: Synchronized version identifiers, release checklists, and git commit references across `src/constants/version.js`, `package.json`, `src/data/changelog.js`, `CHANGELOG.md`, `VERSIONING.md`, and `README.md`.
-
-* **v1.11.0 LIVE (September 17, 2026)** — *Production Live Release & Security Hardening*:
-  * **Universal Netlify Serverless API**: Created `netlify/functions/api.js` and configured `netlify.toml` wildcard routing to serve all 11 backend REST endpoints in serverless execution with Appwrite session JWT verification.
-  * **Public Repo Credential Scrubbing**: Removed all raw project, database, and collection IDs from tracked configuration and source files, migrating strictly to environment variables with zero hardcoded fallbacks.
-  * **Platform Maintenance Mode & Admin Bypass**: Implemented `src/pages/Maintenance.jsx` with animated status pills, countdown, Admin Bypass modal, and dynamic administrative toggle in `Admin.jsx`.
-  * **Profile Overhaul & Custom Avatar Photo Upload**: Built client-side custom profile picture uploader with 256x256 cover cropping and JPEG compression, instant cross-component synchronization, and preserved preset icons.
-  * **Account Summary & Workspace Metrics**: Replaced redundant course list with live telemetry cards (custom syntheses count isolated from starters, reasoning credits, tokens processed) and direct callout to Studio Dashboard.
-  * **Login Modal & Autocomplete Polish**: Protected `AdminModal.jsx` from unhandled exceptions on session refresh with `try / catch / finally`, added explicit `autoComplete` attributes, and enforced viewport scroll locks.
-  * **Global Rebranding & Tech Badges**: Standardized identity to **CourseIT Ai** across document titles, page headers, Navbar, and added "Powered by Netlify • Appwrite • Google Gemini • Resend" badge strip in `Footer.jsx`.
-
-* **v1.10.0-beta (September 17, 2026)** — *Guest Flow Restoration & Platform Polish*:
-  * **Guest Flow Regression Fix**: Prevented unauthenticated guest requests from triggering Appwrite JWT session errors, fixed 404s on locally-stored guest courses, and eliminated the Private Course authentication block for guest visitors.
-  * **Zero-Fluff System Instruction & Imperative Steps**: Hardened LLM system prompt with strict negative constraints (banning conversational padding like "In this section") and mandating imperative verbs and runnable code snippets.
-  * **Modern IDE Code Block UI**: Upgraded code snippet blocks with macOS-style window controls, dynamic language syntax badges (Bash, Dockerfile, GDScript, Rust, TypeScript, Python), and one-click copy functionality.
-  * **Rich Starter Course Snippets & Live Scripted Companion**: Completely populated runnable code snippets and implementation guides for Docker, React 19, Rust, and Godot starter courses; updated CourseTutor "Show Code" to display real verified syntax.
-  * **Structured Catalog & Attribution Consistency**: Separated the dashboard into Curated Starters and Community & Custom Courses with clear author attribution across all views.
-
-* **v1.9.0-beta (September 17, 2026)** — *Security Audit & Auth Hardening*:
-  * **Unified AuthContext**: Eliminated stale `localStorage` desyncs and hardcoded admin fallbacks; established live Appwrite session as single source of truth across the entire app.
-  * **Backend Appwrite JWT Verification**: Enforced cryptographic JWT session authentication across all 8 `/api/admin/*` endpoints and course deletions in `vite.config.js`.
-  * **Strict Course ACL & Starter Isolation**: Namespaced public starter catalog with `starter-` prefix and strictly restricted custom courses to verified authors and administrators.
-  * **Interactive Settings Engine**: Live controls for Color Theme, ADHD Anti-Fluff Level, and Default Model Preference synced with course generation.
+> 📖 **Full Historical Changelog**: To keep this README focused and concise, all historical release notes from v1.15.0 down to v1.0.0 are maintained separately in [**CHANGELOG.md**](CHANGELOG.md).
 
 ---
 
@@ -138,12 +66,11 @@ Standard technical documentation is often filled with introductory scene-setting
 | **Serverless Backend** | Netlify Functions (Node 22) | Universal serverless API router with JWT session verification |
 | **Extraction** | Mozilla Readability + JSDOM | High-speed server-side HTML scraping and article isolation |
 | **OCR** | Tesseract.js | In-browser client-side optical character recognition |
-| **AI Models** | Google Gemini SDK (`@google/generative-ai`) | Multi-tier reasoning: Flash Lite, Gemini 3.5, 3.6, and 3.7 Flash |
+| **AI Models** | Gemini, Cerebras, Groq, Mistral, OpenRouter | Multi-provider fallback cascade with AST zero-fluff validation |
 | **Authentication & Legacy Courses** | Appwrite Cloud (Sydney `syd1`) | OAuth2 (Google & GitHub), email auth and existing course documents |
 | **Application State** | Netlify Blobs | Persistent courses, credits, approvals, history, feedback and maintenance |
 | **Email Delivery** | Resend API | Transactional emails dispatched from `CourseIT <hello@courseit.kenncode.me>` |
 | **Hosting & CI/CD** | Netlify | Automated continuous deployment directly connected to GitHub |
-
 
 ---
 
@@ -158,7 +85,7 @@ Namecheap DNS (provider reported by owner)
                                                    ├─ Appwrite JWT verification
                                                    ├─ Netlify Blobs (courseit-state)
                                                    ├─ legacy Appwrite Database reads
-                                                   ├─ Gemini generation
+                                                   ├─ Modular LLM (Gemini -> Cerebras -> Groq -> Mistral -> OpenRouter)
                                                    ├─ Resend emails
                                                    └─ optional Sentry server errors
 ```
@@ -237,11 +164,13 @@ cp .env.example .env
 Open `.env` and fill in your credentials:
 
 ```env
-# Server-only LLM configuration (Gemini primary; optional free-tier fallbacks)
+# Server-only AI generation (Gemini primary; configured fallbacks: Cerebras -> Groq -> Mistral -> OpenRouter)
 LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_api_key_here
 LLM_API_KEY=your_gemini_api_key_here
-MISTRAL_API_KEY=your_mistral_api_key
+CEREBRAS_API_KEY=your_cerebras_api_key
 GROQ_API_KEY=your_groq_api_key
+MISTRAL_API_KEY=your_mistral_api_key
 OPENROUTER_API_KEY=your_openrouter_api_key
 
 # Appwrite Cloud (Sydney syd1)
@@ -287,7 +216,7 @@ To connect and deploy the repository to Netlify:
    * **Build command**: `npm run build`
    * **Publish directory**: `dist`
    * **Functions directory**: `netlify/functions` (auto-detected via `netlify.toml`)
-3. **Environment Variables**: Under **Site configuration > Environment variables**, add all environment variables listed above. The AI keys are server-only: use the exact uppercase names, make them available to Functions in Production, and never prefix them with `VITE_`. If Doppler supplies Netlify's variables, confirm they reach the deployed function runtime, not just the build. Gemini remains primary; on a temporary provider limit or outage the server tries configured Mistral, Groq, then OpenRouter free. Missing fallback keys are skipped. CourseIT records the actual provider/model and charges a fallback generation at the Flash Lite credit tier.
+3. **Environment Variables**: Under **Site configuration > Environment variables**, add all environment variables listed above. The AI keys are server-only: use the exact uppercase names, make them available to Functions in Production, and never prefix them with `VITE_`. If Doppler supplies Netlify's variables, confirm they reach the deployed function runtime, not just the build. Gemini remains primary; on a temporary provider limit or outage the server tries configured Cerebras, Groq, Mistral, then OpenRouter free. Missing fallback keys are skipped. CourseIT records the actual provider/model and charges a fallback generation at the Flash Lite credit tier.
 4. **Trigger Clean Deploy**: If environment variables are added or changed, click **Deploys > Trigger deploy > Clear cache and deploy site** to ensure Vite compiles the frontend bundle with the latest values.
 5. **Authorize Appwrite Web Platform (CORS)**:
    * Open your [Appwrite Cloud Console](https://syd.cloud.appwrite.io) (Sydney `syd1`).
@@ -314,14 +243,18 @@ The repository follows a clean branch workflow:
 
 ## 🧩 Key Architecture Highlights
 
-```
+```text
 project-3-CourseIT/
 ├── netlify/
 │   └── functions/
 │       └── api.js        # Universal serverless REST API function for Netlify deployment
 ├── server/
 │   ├── handler.js        # Core business logic: Appwrite sync, quotas, emailer, safe fallback
-│   ├── llm.js            # Google Gemini SDK integration with AST structural zero-fluff prompts
+│   ├── llm/              # Modular LLM pipeline (Gemini, Cerebras, Groq, Mistral, OpenRouter)
+│   │   ├── manager.js    # Fallback cascade orchestrator
+│   │   ├── errors.js     # Error classification & retry policies
+│   │   └── providers/    # Provider modules (gemini, cerebras, groq, mistral, openrouter)
+│   ├── llm.js            # Backward-compatible delegation entrypoint
 │   ├── extract.js        # Web scraper with Readability content purification
 │   └── data/             # Local fallback JSON stores (users_quota, token_usage, feedback)
 ├── src/
@@ -339,7 +272,7 @@ project-3-CourseIT/
 │   │   ├── Admin.jsx            # Admin operations & Maintenance mode toggle
 │   │   └── Maintenance.jsx      # Animated maintenance status screen with Admin Bypass
 │   ├── constants/
-│   │   ├── version.js           # Single source of truth for versioning (v1.11.0 LIVE)
+│   │   ├── version.js           # Single source of truth for versioning (v1.16.0 LIVE Beta)
 │   │   └── presets.js           # Curated avatar presets
 │   ├── lib/
 │   │   ├── appwrite.js          # Appwrite client SDK initialization with resilient fallbacks

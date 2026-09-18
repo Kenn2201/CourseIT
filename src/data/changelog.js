@@ -1,9 +1,24 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.16.0 LIVE Beta',
+    date: 'September 19, 2026',
+    title: 'Modular LLM Pipeline & Multi-Provider Fallback',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Multi-Provider Cascade', desc: 'Resilient fallback order: Gemini → Cerebras → Groq → Mistral → OpenRouter.' },
+      { title: 'Cerebras Integration', desc: 'Ultra-fast LPU inference fallback via CEREBRAS_API_KEY with Llama 3.1.' },
+      { title: 'Granular Error Policy', desc: 'Fallbacks activate only on 429/5xx/timeouts; 400 bad requests and auth errors fail immediately without cascading.' }
+    ],
+    notes: [
+      'Modularized server LLM architecture into manager, errors, and dedicated provider modules under server/llm/.',
+      'Preserves generation request ID idempotency: zero duplicate courses, single credit deduction, and unified usage accounting on fallback success.',
+      'Unconfigured API keys are skipped smoothly without throwing auth errors; all AI keys remain strictly server-side.'
+    ]
+  },
+  {
     version: 'v1.15.0 LIVE Beta',
     date: 'September 19, 2026',
     title: 'Reliable Generation and Honest History',
-    badge: 'Latest Release',
     highlights: [
       { title: 'Clear Gemini Retry State', desc: 'Rate limits show provider-aware wait timing and keep the input ready to retry.' },
       { title: 'Real Generation Progress', desc: 'A viewport modal shows recorded server stages without simulated percentages.' },

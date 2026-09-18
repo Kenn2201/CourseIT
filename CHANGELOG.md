@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-09-19 — Modular LLM Pipeline and Multi-Provider Fallback (LIVE Beta)
+
+### Added
+- **Multi-Provider Fallback Cascade**: Orchestrated automatic fallback order `Gemini → Cerebras → Groq → Mistral → OpenRouter`.
+- **Cerebras Inference Provider**: Added OpenAI-compatible fast LPU inference support with `CEREBRAS_API_KEY` (Llama 3.1 8B).
+- **Modularized LLM Subsystem**: Structured `server/llm/` into `manager.js`, `errors.js`, and dedicated provider modules (`gemini.js`, `cerebras.js`, `groq.js`, `mistral.js`, `openrouter.js`).
+- **Granular Error Handling**: Strict fallback criteria that only cascades on 429 rate limits, timeouts, temporary 5xx errors, and service outages, while immediately rejecting 400 Bad Request and 401/403 auth errors without fanning out.
+
+### Fixed and Hardened
+- Preserved single generation request ID across all fallback attempts; guarantees zero duplicate courses created and single credit deduction.
+- Safe missing key handling skips unconfigured providers without throwing runtime credential errors.
+- Added comprehensive unit and regression tests covering all 8 provider lifecycle conditions and idempotency rules (52 / 52 passing).
+
 ## [1.15.0] - 2026-09-19 — Reliable Generation and Honest History (LIVE Beta)
 
 ### Added

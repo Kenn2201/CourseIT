@@ -7,10 +7,10 @@
  * Refer to VERSIONING.md for the full release checklist.
  */
 
-export const CURRENT_VERSION = '1.15.0';
-export const CURRENT_VERSION_LABEL = 'v1.15.0 LIVE Beta';
+export const CURRENT_VERSION = '1.16.0';
+export const CURRENT_VERSION_LABEL = 'v1.16.0 LIVE Beta';
 export const RELEASE_DATE = 'September 19, 2026';
-export const RELEASE_NAME = 'Reliable Generation and Honest History';
+export const RELEASE_NAME = 'Modular LLM Pipeline and Multi-Provider Fallback';
 
 export const APP_NAME = 'CourseIT Ai';
 export const APP_TAGLINE = 'Action-first docs learning paths';

@@ -1,9 +1,25 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.18.0 LIVE Beta',
+    date: 'September 19, 2026',
+    title: 'Interactive Motion Suite & Real-Time QOL',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Interactive CardSwap Pipeline', desc: 'Visual 3D card stack showing the transformation from raw documentation into action curricula and practice.' },
+      { title: 'Real-Time TextType Status', desc: 'Live terminal typewriter animation in generation progress modal for immediate active feedback.' },
+      { title: 'Telemetry CountUp Counters', desc: 'Smooth GSAP counters for real syntheses, credits, and token metrics across profile and dashboard.' }
+    ],
+    notes: [
+      'Added word-by-word SplitText hero animation tailored for ADHD readability without letter-by-letter delay.',
+      'Created dedicated 404 page featuring canvas FuzzyText effect and easy navigation back to studio.',
+      'Integrated GSAP motion primitives while maintaining strict prefers-reduced-motion accessibility.',
+      'Preserved pure client-side theme switching with PixelSwap button transition.'
+    ]
+  },
+  {
     version: 'v1.17.0 LIVE Beta',
     date: 'September 19, 2026',
     title: 'ADHD Action-First Positioning & UI Motion Refresh',
-    badge: 'Latest Release',
     highlights: [
       { title: 'ADHD Action-First Positioning', desc: 'Centered on the i-have-adhd philosophy: direct actions, numbered steps, minimal tangents, and concrete next steps.' },
       { title: 'Polished UI Motion', desc: 'Added accessible RotatingText, FadeContent viewport transitions, and a LogoLoop technology marquee with reduced-motion support.' },

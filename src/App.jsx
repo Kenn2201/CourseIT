@@ -13,6 +13,7 @@ import EmailVerification from './pages/EmailVerification';
 import FeedbackModal from './components/FeedbackModal';
 import LegalConsentModal from './components/LegalConsentModal';
 import Maintenance from './pages/Maintenance';
+import NotFound from './pages/NotFound';
 import CourseTutor from './components/CourseTutor';
 import { STARTER_COURSES } from './data/starterCourses';
 import { getMaintenanceMode } from './lib/appwrite';
@@ -90,7 +91,7 @@ function AppContent() {
           <Route path="/auth/recover" element={<PasswordRecovery />} />
           <Route path="/auth/verify" element={<EmailVerification />} />
           <Route path="/auth" element={<Navigate to="/" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
 

@@ -29,6 +29,7 @@ import { requestPasswordReset, requestEmailVerification } from '../lib/auth';
 import { listCourses } from '../lib/appwrite';
 import { useAuth } from '../context/AuthContext';
 import { AVATAR_PRESETS } from '../constants/presets';
+import CountUp from '../components/reactbits/CountUp';
 import ArchiveAccountModal from '../components/ArchiveAccountModal';
 import AdminModal from '../components/AdminModal';
 
@@ -503,7 +504,11 @@ export default function Profile() {
                 Remaining Course Credits
               </span>
               <span className="font-mono font-bold text-white text-sm">
-                {remainingCredits === null ? 'Unavailable' : `${remainingCredits.toFixed(1)} / ${maxCredits}`}
+                {remainingCredits === null ? 'Unavailable' : (
+                  <>
+                    <CountUp from={0} to={remainingCredits} duration={0.8} decimals={1} /> / {maxCredits}
+                  </>
+                )}
               </span>
             </div>
             <div className="w-full h-3 rounded-full bg-slate-950 border border-slate-800 overflow-hidden p-0.5">
@@ -590,7 +595,9 @@ export default function Profile() {
               <BookOpen className="w-4 h-4 text-indigo-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-white">
-              {loadingMetrics ? '...' : coursesCount}
+              {loadingMetrics ? '...' : (
+                <CountUp from={0} to={coursesCount} duration={0.8} />
+              )}
             </div>
             <p className="text-[11px] text-slate-500">
               User-authored learning paths (excluding starter templates).
@@ -603,7 +610,12 @@ export default function Profile() {
               <Zap className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-white">
-              {remainingCredits === null ? 'Unavailable' : remainingCredits.toFixed(1)} <span className="text-xs font-normal text-slate-400">/ {maxCredits}</span>
+              {remainingCredits === null ? 'Unavailable' : (
+                <>
+                  <CountUp from={0} to={remainingCredits} duration={0.8} decimals={1} />{' '}
+                  <span className="text-xs font-normal text-slate-400">/ {maxCredits}</span>
+                </>
+              )}
             </div>
             <p className="text-[11px] text-slate-500">
               Available balance refreshed upon session renewal.
@@ -616,7 +628,9 @@ export default function Profile() {
               <Cpu className="w-4 h-4 text-violet-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-white">
-              {Number.isFinite(authState?.quota?.tokens_used) ? authState.quota.tokens_used.toLocaleString() : 'Unavailable'}
+              {Number.isFinite(authState?.quota?.tokens_used) ? (
+                <CountUp from={0} to={authState.quota.tokens_used} duration={1} />
+              ) : 'Unavailable'}
             </div>
             <p className="text-[11px] text-slate-500">
               Gemini LLM context tokens ingested across sessions.

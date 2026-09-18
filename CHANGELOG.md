@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-09-19 — Interactive Motion Suite, 404 Experience, and Real-Time QOL (LIVE Beta)
+
+### Added
+- **Interactive CardSwap Component**: Added 3D stacked card transformation pipeline on the landing page demonstrating the concrete transformation from messy documentation to an action-first curriculum and practice tests.
+- **GSAP SplitText Animation**: Implemented word-by-word entrance motion on the hero tagline with graceful `prefers-reduced-motion` fallbacks to ensure instant readability without ADHD-distracting character stutter.
+- **Terminal TextType Generation Status**: Integrated animated typewriter console output in `LoadingPipeline.jsx` dynamically cycling through real extraction and generation stages.
+- **Live Telemetry CountUp**: Added GSAP counter animation to real account metrics (remaining credits, generated courses, processed tokens) in `Profile.jsx` using strictly genuine data without simulated marketing fluff.
+- **Dedicated 404 Not Found Page**: Created full-page route `NotFound.jsx` with an interactive glitch/fuzzy canvas (`FuzzyText.jsx`) and direct actions to return to home or explore the curriculum catalog.
+- **Light/Dark PixelSwap Theme Toggle**: Integrated high-performance diagonal pixel-swap toggle with keyboard accessibility (`Enter`/`Space`) and reduced-motion detection.
+
+### Changed and Hardened
+- Installed core animation foundation `@gsap/react` and `gsap` without bloated 3D or WebGL bundles, keeping runtime footprint minimal.
+- Preserved existing custom motion primitives (`RotatingText.jsx`, `FadeContent.jsx`, `LogoLoop.jsx`, `ShapeGrid.jsx`) without duplicate dependencies.
+- Added catch-all route `path="*"` in `App.jsx` pointing to `NotFound.jsx` for graceful broken-link recovery.
+
 ## [1.17.0] - 2026-09-19 — ADHD Action-First Positioning and UI Motion Refresh (LIVE Beta)
 
 ### Added

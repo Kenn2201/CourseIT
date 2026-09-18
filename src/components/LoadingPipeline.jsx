@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, Clock, LoaderCircle, X } from 'lucide-react';
 import useModalViewport from './useModalViewport';
+import TextType from './reactbits/TextType';
 
 const formatTime = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
@@ -47,7 +48,27 @@ export default function LoadingPipeline({ isOpen, job, error, retryAt, input, on
             </li>)}
             {!job?.events?.length && <li className="text-xs text-slate-400">Preparing request…</li>}
           </ol>
-          {running && <p className="mt-4 text-xs text-indigo-300">{job?.stage || 'Preparing request'}…</p>}
+          {running && (
+            <div className="mt-4 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200">
+              <span className="font-mono text-indigo-400 font-semibold shrink-0">
+                {job?.stage || 'Synthesizing'}
+              </span>
+              <TextType
+                text={[
+                  'Reading documentation…',
+                  'Finding relevant sections…',
+                  'Building action-first steps…',
+                  'Preparing examples and commands…'
+                ]}
+                typingSpeed={35}
+                deletingSpeed={20}
+                pauseDuration={900}
+                cursorCharacter="_"
+                showCursor
+                className="text-[11px] text-slate-300 truncate"
+              />
+            </div>
+          )}
           {error && <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100" role="alert">
             <p>{error.message}</p>
             {rateLimited && <p className="mt-2 font-mono">Retry available in {formatTime(remaining)}</p>}

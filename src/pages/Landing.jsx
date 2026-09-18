@@ -17,8 +17,10 @@ import {
 } from 'lucide-react';
 import ShapeGrid from '../components/reactbits/ShapeGrid';
 import RotatingText from '../components/reactbits/RotatingText';
+import SplitText from '../components/reactbits/SplitText';
 import FadeContent from '../components/reactbits/FadeContent';
 import LogoLoop from '../components/reactbits/LogoLoop';
+import CardSwap from '../components/reactbits/CardSwap';
 import SpotlightCard from '../components/reactbits/SpotlightCard';
 import AntiFluffDiff from '../components/AntiFluffDiff';
 import Footer from '../components/Footer';
@@ -154,6 +156,36 @@ const MODEL_PRICING = [
   }
 ];
 
+const COURSE_TRANSFORMATION_CARDS = [
+  {
+    id: 'card-docs',
+    tabLabel: '1. Raw Documentation',
+    phase: 'Phase 01 • Raw Documentation',
+    badge: 'Exhaustive Reference',
+    title: 'React 19 Server Actions & Mutation Specs',
+    description: '5,000 words of introductory scene-setting, design philosophy, and scattered edge-cases.',
+    codeSnippet: '// 40+ pages of reference documentation, theory, and buried setup...'
+  },
+  {
+    id: 'card-course',
+    tabLabel: '2. Action Curriculum',
+    phase: 'Phase 02 • CourseIT Synthesis',
+    badge: 'Numbered Action Steps',
+    title: 'Action-First Implementation Curriculum',
+    description: 'Distilled into sequential steps with time estimates, imperative verbs, and runnable code.',
+    codeSnippet: '1. Define "use server" action handler (~3m)\n2. Bind via useActionState hook (~4m)\n3. Handle optimistic updates (~5m)'
+  },
+  {
+    id: 'card-practice',
+    tabLabel: '3. Practice & Retention',
+    phase: 'Phase 03 • Active Retention',
+    badge: 'Technical Companion',
+    title: 'Interactive Verification & Gotchas',
+    description: 'Verify syntax with one-click copy blocks, follow checklists, and query the companion tutor.',
+    codeSnippet: '✓ Handled async transition gotcha\n✓ 1-Click copy tested snippet\n✓ Interactive progress tracking'
+  }
+];
+
 export default function Landing({ onLaunchApp }) {
   const navigate = useNavigate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -212,10 +244,16 @@ export default function Landing({ onLaunchApp }) {
             />
           </h1>
 
-          {/* ADHD / Attention Span Positioning */}
+          {/* ADHD / Attention Span Positioning with SplitText */}
           <div className="space-y-3 max-w-2xl mx-auto">
             <p className="text-base sm:text-lg font-medium text-indigo-200">
-              ⚡ ADHD-friendly technical learning from documentation.
+              <SplitText
+                text="⚡ ADHD-friendly technical learning from documentation."
+                delay={0.03}
+                duration={0.65}
+                ease="power3.out"
+                splitType="words"
+              />
             </p>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
               Paste docs or scans, tell CourseIT what you want to learn, and get an action-first learning module with concise explanations, numbered steps, examples, commands, and clear next actions.
@@ -284,6 +322,23 @@ export default function Landing({ onLaunchApp }) {
       {/* Interactive Anti-Fluff Diff Comparison Section */}
       <FadeContent className="relative z-10 px-4 sm:px-6" duration={600}>
         <AntiFluffDiff />
+      </FadeContent>
+
+      {/* Interactive Transformation Visualizer (CardSwap) */}
+      <FadeContent className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-12" duration={600} delay={50}>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-indigo-400 text-xs font-mono mb-2">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Interactive Visual Transformation</span>
+          </div>
+          <h3 className="text-2xl font-bold text-white tracking-tight">
+            How CourseIT Transforms Documentation into Action
+          </h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-lg mx-auto">
+            Click through each phase to see how dense reference manuals convert into numbered, retained skills.
+          </p>
+        </div>
+        <CardSwap cards={COURSE_TRANSFORMATION_CARDS} interval={4500} />
       </FadeContent>
 
       {/* Technology Showcase Marquee (LogoLoop) */}

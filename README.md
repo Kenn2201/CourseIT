@@ -138,6 +138,7 @@ Standard technical documentation is often filled with introductory scene-setting
 | **Email Delivery** | Resend API | Transactional emails dispatched from `CourseIT <hello@courseit.kenncode.me>` |
 | **Hosting & CI/CD** | Netlify | Automated continuous deployment directly connected to GitHub |
 
+
 ---
 
 ## Runtime Architecture (Source-Verified; Deployment Checks Pending)

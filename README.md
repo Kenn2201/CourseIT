@@ -4,8 +4,8 @@
 > Turn dense documentation, manuals, and scanned tutorial images into structured, bite-sized learning courses with zero AI fluff.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.13.0--LIVE--Beta-indigo.svg)
-[![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple)](https://github.com/Kenn2201/CourseIT/commit/master)
+![Version](https://img.shields.io/badge/version-v1.13.1--LIVE--Beta-indigo.svg)
+[![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple&cacheSeconds=60)](https://github.com/Kenn2201/CourseIT/commit/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
 ![React](https://img.shields.io/badge/React-19-61dafb.svg?logo=react)
@@ -21,12 +21,16 @@
 ## 📜 Versioning, Changelog & Audit Trail
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.13.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.13.1 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Comprehensive Historical Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
 * **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT/commit/master)
 
 ### Recent Release Notes
+
+* **v1.13.1 LIVE Beta (September 18, 2026)** — *Application Startup Hotfix*:
+  * Removed the authentication/catalog circular import that crashed production before the app could render.
+  * Added regression tests that execute minified production-style startup code with Appwrite configured and unconfigured.
 
 * **v1.13.0 LIVE Beta (September 18, 2026)** — *Public Course Sharing, Durable Credits & Reliable AI Jobs*:
   * **Public sharing**: Guest courses appear on the community board for 30 minutes; signed-in authors choose visibility and can publish existing private courses.

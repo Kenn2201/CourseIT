@@ -1,5 +1,5 @@
 import { Account, ID, OAuthProvider } from 'appwrite';
-import { client, isAppwriteConfigured } from './appwrite';
+import { client, isAppwriteConfigured } from './appwriteClient';
 
 const AUTH_STORAGE_KEY = 'courseit_auth_session';
 export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || '';

@@ -1,9 +1,7 @@
-import { Client, Databases, Storage, ID, Query } from 'appwrite';
+import { ID } from 'appwrite';
+import { storage } from './appwriteClient';
+export { client, databases, storage, isAppwriteConfigured, isDatabaseConfigured } from './appwriteClient';
 
-const ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1';
-const PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || '';
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '';
-const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_ID || '';
 export const BUCKET_DOCS_ID = 'course_docs';
 
 const LOCAL_STORAGE_KEY = 'courseit_saved_courses';
@@ -42,31 +40,6 @@ const SAMPLE_GODOT_COURSE = {
     }
   ]
 };
-
-// Initialize Appwrite Client if project ID exists
-export let client = null;
-export let databases = null;
-export let storage = null;
-
-export function isAppwriteConfigured() {
-  return Boolean(PROJECT_ID);
-}
-
-export function isDatabaseConfigured() {
-  return Boolean(PROJECT_ID && DATABASE_ID && COLLECTION_ID);
-}
-
-if (PROJECT_ID) {
-  try {
-    client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID);
-    if (DATABASE_ID && COLLECTION_ID) {
-      databases = new Databases(client);
-    }
-    storage = new Storage(client);
-  } catch (err) {
-    console.warn('Appwrite client initialization error:', err);
-  }
-}
 
 /**
  * Uploads a document or image file to Appwrite Storage bucket 'course_docs'

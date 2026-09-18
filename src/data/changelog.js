@@ -1,9 +1,21 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.13.1 LIVE Beta',
+    date: 'September 18, 2026',
+    title: 'Application Startup Hotfix',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Application Startup Restored', desc: 'Separated Appwrite client initialization from authentication and course services to remove the circular import that prevented the app from loading.' }
+    ],
+    notes: [
+      'Existing authentication and course-service exports remain compatible.',
+      'New regression tests execute minified startup code with and without Appwrite configuration.'
+    ]
+  },
+  {
     version: 'v1.13.0 LIVE Beta',
     date: 'September 18, 2026',
     title: 'Public Course Sharing, Durable Credits & Reliable AI Jobs',
-    badge: 'Latest Release',
     highlights: [
       { title: 'Shareable Public Courses', desc: 'Guest courses are available on the community board for 30 minutes. Account holders choose public or private visibility and can publish older private courses.' },
       { title: 'Persistent Accounts & Credit History', desc: 'Credits, approvals, usage history, feedback and maintenance settings now use durable server-side storage. Profile and Admin show credit transactions and token usage.' },

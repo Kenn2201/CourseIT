@@ -1,6 +1,7 @@
 import { Client, Databases, Query } from 'node-appwrite';
 import { readState, writeState, listState, deleteState, updateState } from './state.js';
 import { normalizeCourse, canReadCourse, isExpiredCourse, isSystemCourse, publicCourse } from '../shared/courses.js';
+import { STARTER_COURSES } from '../shared/starterCourses.js';
 
 const PUBLIC_FEED_KEY = 'indexes/public-feed';
 
@@ -83,21 +84,56 @@ export async function listCatalog(session = null, scope = 'catalog') {
   return !session && scope === 'catalog' ? visible.slice(0, 3) : visible;
 }
 
-export async function readCourse(id, session) {
+export async function resolveCourse(id, session = null) {
+  if (!id || typeof id !== 'string') {
+    throw Object.assign(new Error('A valid courseId is required.'), { status: 400 });
+  }
+
   let course = await readState(`courses/${id}`);
   const config = courseDatabase();
   if (!course && config) {
-    try { course = await config.db.getDocument(config.databaseId, config.collectionId, id); }
-    catch (error) { if (error.code !== 404) throw error; }
+    try {
+      course = await config.db.getDocument(config.databaseId, config.collectionId, id);
+    } catch (error) {
+      if (error.code !== 404) throw error;
+    }
   }
-  if (!course || isSystemCourse(course)) throw Object.assign(new Error('Course not found.'), { status: 404 });
+
+  let isStarter = false;
+  if (!course) {
+    const starter = STARTER_COURSES.find(c => c.$id === id);
+    if (starter) {
+      course = starter;
+      isStarter = true;
+    }
+  }
+
+  if (!course || isSystemCourse(course)) {
+    throw Object.assign(new Error('Course not found.'), { status: 404 });
+  }
+
   course = normalizeCourse(course);
-  if (isExpiredCourse(course)) throw Object.assign(new Error('This guest course expired after 30 minutes. Generate a new course to continue.'), { status: 410 });
-  if (!canReadCourse(course, session?.userId, session?.isAdmin)) {
+
+  if (!isStarter && isExpiredCourse(course)) {
+    throw Object.assign(new Error('This guest course expired after 30 minutes. Generate a new course to continue.'), { status: 410 });
+  }
+
+  if (!isStarter && !canReadCourse(course, session?.userId, session?.isAdmin)) {
     throw Object.assign(new Error(session ? 'Access Denied: This course is private to its author.' :
       'Authentication Required: Sign in to view this private course.'), { status: session ? 403 : 401 });
   }
-  return publicCourse(course, session?.userId, session?.isAdmin);
+
+  const cleanCourse = isStarter ? course : publicCourse(course, session?.userId, session?.isAdmin);
+  return {
+    course: cleanCourse,
+    isStarter,
+    sourceType: isStarter ? 'curated_starter' : 'persisted_generated'
+  };
+}
+
+export async function readCourse(id, session) {
+  const { course } = await resolveCourse(id, session);
+  return course;
 }
 
 export async function publishCourse(id, session) {

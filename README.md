@@ -4,7 +4,7 @@
 > Paste docs or scans, tell CourseIT what you want to learn, and get an action-first learning module with concise explanations, numbered steps, examples, commands, and clear next actions.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.19.0--LIVE--Beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.19.1--LIVE--Beta-indigo.svg)
 [![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT-AI%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple&cacheSeconds=60)](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
@@ -22,22 +22,20 @@
 ## 📜 Version & Changelog
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.19.0 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.19.1 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Full Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
 * **License**: [**MIT License**](LICENSE)
 * **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 
-### Latest Release: v1.19.0 LIVE Beta (September 19, 2026) — *Interactive Course Tutor, Zero-Cost Checkpoints, and Adaptive Learning*
+### Latest Release: v1.19.1 LIVE Beta (September 19, 2026) — *Tutor Reliability & Starter Course Fixes*
 
-* **Interactive Course Tutor (`/api/tutor`)**: Step-aware AI tutor with response modes (Quick, Normal, Deep) and an ADHD-friendly "I'm Stuck" error troubleshooting modal.
-* **Zero-Cost Step Checkpoints**: Pre-generated interactive quizzes evaluated 100% locally in the browser with instant feedback and zero token cost.
-* **Course v2 & Source Chunk Retrieval**: Action-first step structure (goal, why, actions, common mistakes), 1,500–3,000 char source chunks, and stable chunk ID references (`sourceRefs`).
-* **Quota Separation**: Separate guest tutor allowance (15 messages/day) independent from the 3 course generations/day quota.
-* **Fine-Grained Credit Pricing**: Proportional tutor credit costs (Quick: 0.1 cr, Normal: 0.25 cr, Deep: 0.5 cr) with zero charges on failed calls.
-* **Adaptive Resume Experience**: Step completion separated from step understanding, plus a dynamic resume banner to jump straight back into active learning.
+* **Starter Course Tutor Resolution**: Full CourseTutor support for curated starter courses (`starter-react-server-components`, `starter-godot-signals`, etc.) using structured step actions and pro-tips without 404s or fabricated source references.
+* **Failure-Safe Credit Charging**: Pre-flight credit checks verify user balance upfront, but deductions only occur upon successful AI completion. 429s, 5xx server errors, and upstream timeouts charge zero credits.
+* **Strict `stepIndex` Validation**: Rejects invalid, negative, fractional, or out-of-range step indexes with HTTP 400 Bad Request instead of silently falling back to Step 1.
+* **Shared Course Normalization**: Unified `resolveCourse()` across both persistent stores and curated templates with strict ACL protection for private courses.
 
-> 📖 **Full Historical Changelog**: To keep this README focused and concise, all historical release notes from v1.17.0 down to v1.0.0 are maintained separately in [**CHANGELOG.md**](CHANGELOG.md).
+> 📖 **Full Historical Changelog**: To keep this README focused and concise, all historical release notes from v1.19.0 down to v1.0.0 are maintained separately in [**CHANGELOG.md**](CHANGELOG.md).
 
 ---
 

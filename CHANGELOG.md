@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.1] - 2026-09-19 — Tutor Reliability & Starter Course Fixes (LIVE Beta)
+
+### Fixed
+- **Curated Starter Course Tutor Support**: CourseTutor now resolves static starter courses (`starter-react-server-components`, `starter-godot-signals`, etc.) seamlessly without throwing 404 Course not found. Starter courses without source chunks rely on structured step content without generating fabricated source references or fake citations.
+- **Credit Charging After Success**: Tutor credits are now verified beforehand but charged only after upstream AI completion succeeds. If providers fail with 429, 5xx, or network timeouts, user credit balances remain untouched.
+- **Strict `stepIndex` Validation**: Out-of-bounds, negative, fractional, or malformed step indexes now reject immediately with HTTP 400 Bad Request instead of silently falling back to Step 1.
+
+### Improved
+- **Shared Course Resolution (`server/catalog.js`)**: Created a unified `resolveCourse(courseId, session)` helper shared between persistent storage and curated templates with strict ownership checks for private courses.
+- **Tutor Prompt Bounding**: Enhanced step context with code snippets and pro-tips for all learning modules.
+
 ## [1.19.0] - 2026-09-19 — Interactive Course Tutor, Zero-Cost Checkpoints, and Adaptive Learning (LIVE Beta)
 
 ### Added

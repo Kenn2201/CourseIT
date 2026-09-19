@@ -236,7 +236,7 @@ export async function handler(event) {
       const { courseId, stepIndex, question, mode, recentMessages, troubleCategory, errorMessage } = body;
       const result = await handleTutorQuery({
         courseId,
-        stepIndex: Number(stepIndex || 0),
+        stepIndex,
         question,
         mode,
         recentMessages,

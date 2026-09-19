@@ -7,10 +7,10 @@
  * Refer to VERSIONING.md for the full release checklist.
  */
 
-export const CURRENT_VERSION = '1.19.0';
-export const CURRENT_VERSION_LABEL = 'v1.19.0 LIVE Beta';
+export const CURRENT_VERSION = '1.19.1';
+export const CURRENT_VERSION_LABEL = 'v1.19.1 LIVE Beta';
 export const RELEASE_DATE = 'September 19, 2026';
-export const RELEASE_NAME = 'Interactive Course Tutor, Zero-Cost Checkpoints, and Adaptive Learning';
+export const RELEASE_NAME = 'Tutor Reliability & Starter Course Fixes';
 
 export const APP_NAME = 'CourseIT Ai';
 export const APP_TAGLINE = 'Action-first docs learning paths';

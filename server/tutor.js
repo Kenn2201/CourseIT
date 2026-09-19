@@ -9,7 +9,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { randomUUID } from 'node:crypto';
 import { readState, updateState } from './state.js';
-import { readCourse } from './catalog.js';
+import { resolveCourse, readCourse } from './catalog.js';
 import { getCourseChunks, retrieveRelevantChunks } from './courseChunks.js';
 import { PROVIDERS } from './llm/manager.js';
 import { isTransientError, LLMError } from './llm/errors.js';
@@ -129,22 +129,51 @@ export async function executeTutorCompletion({
 }
 
 /**
- * Manages guest and user quotas for tutor messages.
+ * Verifies that the user or guest is eligible to make a tutor request.
+ * Throws 402/403/429 BEFORE any LLM provider is invoked.
+ * Does NOT deduct any credits.
  */
-export async function enforceAndDeductTutorQuota({ userId, isAdmin, mode = 'quick', courseId }) {
+export async function checkTutorQuota({ userId, isAdmin, mode = 'quick' }) {
   const cost = TUTOR_CREDIT_COSTS[mode] || 0.1;
 
   if (userId && userId !== 'public_guest') {
-    // Registered account quota
-    const user = await updateState('users/' + userId, current => {
-      if (!current || (!isAdmin && current.status !== 'approved')) {
-        throw Object.assign(new Error('Account approval required to use CourseTutor.'), { status: 403 });
-      }
-      if (!isAdmin && (current.quota_remaining ?? 0) < cost) {
-        throw Object.assign(new Error(`Insufficient credits. Tutor question in ${mode} mode costs ${cost} credits. Please request a top-up.`), { status: 402 });
-      }
+    const user = await readState('users/' + userId);
+    if (!user || (!isAdmin && user.status !== 'approved')) {
+      throw Object.assign(new Error('Account approval required to use CourseTutor.'), { status: 403 });
+    }
+    if (!isAdmin && (user.quota_remaining ?? 0) < cost) {
+      throw Object.assign(new Error(`Insufficient credits. Tutor question in ${mode} mode costs ${cost} credits. Please request a top-up.`), { status: 402 });
+    }
+    return { cost, isGuest: false, currentBalance: user.quota_remaining };
+  }
 
-      const balance = Math.max(0, (current.quota_remaining ?? 0) - cost);
+  // Guest tutor quota verification
+  const current = await readState('settings/guest-tutor-quota');
+  const isWithinDay = current && Date.now() - current.lastReset < 86400000;
+  const state = isWithinDay ? current : { totalMessages: 0, lastReset: Date.now() };
+
+  if (state.totalMessages >= GUEST_TUTOR_DAILY_LIMIT) {
+    throw Object.assign(new Error(`Guest tutor limit reached (${GUEST_TUTOR_DAILY_LIMIT} questions per 24 hours). Sign in to continue asking questions.`), {
+      status: 429,
+      code: 'GUEST_TUTOR_LIMIT'
+    });
+  }
+
+  return { cost: 0, isGuest: true, currentMessages: state.totalMessages };
+}
+
+/**
+ * Deducts tutor credit / increments guest message counter AFTER successful AI completion.
+ */
+export async function deductTutorQuota({ userId, isAdmin, mode = 'quick', courseId }) {
+  const cost = TUTOR_CREDIT_COSTS[mode] || 0.1;
+
+  if (userId && userId !== 'public_guest') {
+    const user = await updateState('users/' + userId, current => {
+      if (!current) return current;
+      // Round to 2 decimal places to avoid floating point imprecision
+      const rawBalance = (current.quota_remaining ?? 0) - cost;
+      const balance = Math.max(0, Math.round(rawBalance * 100) / 100);
       const event = {
         id: randomUUID(),
         timestamp: new Date().toISOString(),
@@ -165,21 +194,13 @@ export async function enforceAndDeductTutorQuota({ userId, isAdmin, mode = 'quic
       };
     });
 
-    return { remaining: user.quota_remaining, cost, deducted: true, isGuest: false };
+    return { remaining: user?.quota_remaining ?? 0, cost, deducted: true, isGuest: false };
   }
 
-  // Guest tutor quota (separate from 3-course generation quota)
+  // Increment guest tutor counter
   const quota = await updateState('settings/guest-tutor-quota', current => {
     const isWithinDay = current && Date.now() - current.lastReset < 86400000;
     const state = isWithinDay ? current : { totalMessages: 0, lastReset: Date.now() };
-
-    if (state.totalMessages >= GUEST_TUTOR_DAILY_LIMIT) {
-      throw Object.assign(new Error(`Guest tutor limit reached (${GUEST_TUTOR_DAILY_LIMIT} questions per 24 hours). Sign in to continue asking questions.`), {
-        status: 429,
-        code: 'GUEST_TUTOR_LIMIT'
-      });
-    }
-
     return {
       ...state,
       totalMessages: state.totalMessages + 1
@@ -187,11 +208,19 @@ export async function enforceAndDeductTutorQuota({ userId, isAdmin, mode = 'quic
   });
 
   return {
-    remaining: Math.max(0, GUEST_TUTOR_DAILY_LIMIT - quota.totalMessages),
+    remaining: Math.max(0, GUEST_TUTOR_DAILY_LIMIT - (quota?.totalMessages || 0)),
     cost: 0,
     deducted: true,
     isGuest: true
   };
+}
+
+/**
+ * Backward-compatible helper that verifies and deducts.
+ */
+export async function enforceAndDeductTutorQuota({ userId, isAdmin, mode = 'quick', courseId }) {
+  await checkTutorQuota({ userId, isAdmin, mode });
+  return deductTutorQuota({ userId, isAdmin, mode, courseId });
 }
 
 /**
@@ -200,7 +229,7 @@ export async function enforceAndDeductTutorQuota({ userId, isAdmin, mode = 'quic
  */
 export async function handleTutorQuery({
   courseId,
-  stepIndex = 0,
+  stepIndex,
   question = '',
   mode = 'quick',
   recentMessages = [],
@@ -219,19 +248,34 @@ export async function handleTutorQuery({
     throw Object.assign(new Error('Question or error message is required.'), { status: 400 });
   }
 
-  // Load course details
-  const course = await readCourse(courseId, session);
+  // Load course details using shared resolver (supports persisted and curated starter courses)
+  const { course, isStarter } = await resolveCourse(courseId, session);
   const steps = course.steps || [];
-  const targetStep = steps[stepIndex] || steps[0] || {};
-  const stepNumber = targetStep.step_number || (stepIndex + 1);
+
+  // Strict stepIndex validation:
+  // missing (undefined / null) -> defaults to 0
+  // explicit but invalid -> HTTP 400
+  let resolvedStepIndex = 0;
+  if (stepIndex !== undefined && stepIndex !== null) {
+    if (typeof stepIndex !== 'number' || !Number.isInteger(stepIndex) || stepIndex < 0) {
+      throw Object.assign(new Error('stepIndex must be a non-negative integer.'), { status: 400 });
+    }
+    if (steps.length > 0 && stepIndex >= steps.length) {
+      throw Object.assign(new Error(`stepIndex ${stepIndex} is out of range. Course has ${steps.length} steps (valid indices 0 to ${steps.length - 1}).`), { status: 400 });
+    }
+    resolvedStepIndex = stepIndex;
+  }
+
+  const targetStep = steps[resolvedStepIndex] || steps[0] || {};
+  const stepNumber = targetStep.step_number || (resolvedStepIndex + 1);
 
   // Guests are restricted to 'quick' mode
   const effectiveMode = !session ? 'quick' : (['quick', 'normal', 'deep'].includes(mode) ? mode : 'quick');
   const maxTokens = MAX_OUTPUT_TOKENS_BY_MODE[effectiveMode] || 350;
 
-  // Retrieve relevant source chunks (max 2 chunks to strictly conserve tokens)
-  const allChunks = await getCourseChunks(courseId);
-  const retrievedChunks = retrieveRelevantChunks({
+  // Retrieve relevant source chunks (starter courses without stored chunks return empty array)
+  const allChunks = isStarter ? [] : await getCourseChunks(courseId);
+  const retrievedChunks = isStarter ? [] : retrieveRelevantChunks({
     chunks: allChunks,
     stepSourceRefs: targetStep.sourceRefs || [],
     stepTitle: targetStep.title || '',
@@ -256,7 +300,7 @@ ${course.overview ? `Overview: ${course.overview}\n` : ''}
 Goal: ${targetStep.goal || targetStep.summary || 'Follow step instructions'}
 Actions:
 ${(targetStep.actions || []).map((a, i) => `  ${i + 1}. ${a}`).join('\n') || targetStep.implementation || 'Follow standard checklist'}
-${targetStep.expectedResult ? `Expected Result: ${targetStep.expectedResult}\n` : ''}${targetStep.commonMistakes?.length ? `Watch Out: ${targetStep.commonMistakes.join('; ')}\n` : ''}`;
+${targetStep.code_snippet ? `Code Example:\n\`\`\`\n${targetStep.code_snippet}\n\`\`\`\n` : ''}${targetStep.pro_tip || targetStep.proTip ? `Pro-Tip: ${targetStep.pro_tip || targetStep.proTip}\n` : ''}${targetStep.expectedResult ? `Expected Result: ${targetStep.expectedResult}\n` : ''}${targetStep.commonMistakes?.length ? `Watch Out: ${targetStep.commonMistakes.join('; ')}\n` : ''}`;
 
   if (retrievedChunks.length > 0) {
     userPrompt += `\n[Relevant Source Excerpt]\n${retrievedChunks.map(c => `### ${c.heading}\n${c.text.slice(0, 1200)}`).join('\n\n')}\n`;
@@ -279,15 +323,14 @@ ${targetStep.expectedResult ? `Expected Result: ${targetStep.expectedResult}\n` 
     userPrompt += `${cleanQuestion || 'Explain this step simply and tell me what to do next.'}`;
   }
 
-  // Quota verification & charge
-  const quotaResult = await enforceAndDeductTutorQuota({
+  // Quota pre-check: verify balance and daily limits BEFORE calling providers
+  await checkTutorQuota({
     userId: session?.userId || 'public_guest',
     isAdmin: Boolean(session?.isAdmin),
-    mode: effectiveMode,
-    courseId
+    mode: effectiveMode
   });
 
-  // Call LLM
+  // Call LLM provider cascade
   const completion = await executeTutorCompletion({
     systemInstruction,
     userPrompt,
@@ -295,7 +338,15 @@ ${targetStep.expectedResult ? `Expected Result: ${targetStep.expectedResult}\n` 
     preferredModel: 'gemini-flash-lite-latest'
   });
 
-  // Build suggested actions
+  // Deduct credits ONLY AFTER successful LLM completion
+  const quotaResult = await deductTutorQuota({
+    userId: session?.userId || 'public_guest',
+    isAdmin: Boolean(session?.isAdmin),
+    mode: effectiveMode,
+    courseId
+  });
+
+  // Build suggested actions (Show Source only if real retrieved chunks exist)
   const suggestedActions = [];
   let sourceExcerpt = null;
   if (retrievedChunks.length > 0) {

@@ -1,9 +1,24 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.19.1 LIVE Beta',
+    date: 'September 19, 2026',
+    title: 'Tutor Reliability & Starter Course Fixes',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Starter Course Tutor Support', desc: 'Curated starter courses now resolve seamlessly in CourseTutor without 404 errors or fake source references.' },
+      { title: 'Failure-Safe Credit Charging', desc: 'Tutor credits are deducted only after AI completion succeeds; failed requests (429, 5xx, timeouts) charge zero.' },
+      { title: 'Strict Step Index Validation', desc: 'Invalid, negative, fractional, or out-of-range step indexes now return HTTP 400 validation errors instead of silently defaulting to Step 1.' }
+    ],
+    notes: [
+      'Shared course resolution: unified resolveCourse helper for persistent and curated learning content.',
+      'Protected credit balances against upstream AI provider outages with atomic post-call deduction.',
+      'Preserved zero-cost local checkpoints and legacy course backward compatibility.'
+    ]
+  },
+  {
     version: 'v1.19.0 LIVE Beta',
     date: 'September 19, 2026',
     title: 'Interactive Course Tutor, Zero-Cost Checkpoints, and Adaptive Learning',
-    badge: 'Latest Release',
     highlights: [
       { title: 'Interactive Course Tutor & "I\'m Stuck" Modal', desc: 'Active-step context-aware AI tutor with response modes (Quick, Normal, Deep) and ADHD-friendly error troubleshooting modal.' },
       { title: 'Zero-Cost Local Checkpoints', desc: 'Pre-generated self-assessment quizzes evaluated locally with instant feedback and zero token consumption.' },

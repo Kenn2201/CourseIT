@@ -15,81 +15,12 @@ export class LLMError extends Error {
   }
 }
 
-export const SYSTEM_INSTRUCTION = `You are CourseIT, an action-first documentation summarizer that turns dense reference docs into structured, step-by-step learning paths for modern developers.
+import { SYSTEM_INSTRUCTION_V2 } from './prompts.js';
+import { parseAndValidateStepsV2 } from '../courseSchema.js';
 
-Rules:
-1. One concept per step, never combine ideas.
-2. Start each step with the concept itself — zero scene-setting. NEVER use conversational filler or passive intros (e.g. "In this section", "Let's explore", "Welcome to", "It is important to understand", "Now we will", "We can see that"). Start directly with the action or technical fact.
-3. Every step title MUST start with an imperative action verb (e.g., Configure, Build, Define, Connect, Export, Run, Install, Deploy, Optimize).
-4. Attach a time estimate to each step (e.g. "~10 min").
-5. No filler language, no motivational cheerleading, and no encouragement padding.
-6. Provide concrete, actionable implementation instructions (exact CLI commands, flags, file paths, editor clicks, or workflow).
-7. If the source documentation contains code, commands, or config, the code_snippet field MUST contain a clean, runnable example. Do NOT omit code in favor of a text description. If purely UI navigation, code_snippet may be null.
-8. If source text is thin on a topic, state so in one direct sentence without speculation.
+export const SYSTEM_INSTRUCTION = SYSTEM_INSTRUCTION_V2;
+export const parseAndValidateSteps = parseAndValidateStepsV2;
 
-Output strictly valid JSON with this exact schema:
-{
-  "title": "Concise, descriptive course title based on the documentation topic",
-  "overview": "1-2 sentences summarizing what this guide achieves and any prerequisites",
-  "recommended_next_step": "Specific recommendation on what documentation topic, tutorial, or game mechanic to build next",
-  "steps": [
-    {
-      "step_number": 1,
-      "title": "Imperative Action Title (e.g., 'Configure Multi-Stage Dockerfile')",
-      "time_estimate": "~10 min",
-      "summary": "Direct technical explanation of the concept and why it matters. Zero fluff.",
-      "implementation": "Concrete step-by-step instructions (e.g., '1. Create Dockerfile, 2. Add build stage with --from=builder, 3. Copy binary to minimal runtime image').",
-      "code_snippet": "Runnable code snippet or CLI command with brief comments, or null if purely editor UI",
-      "pro_tip": "Important gotcha, pitfall to avoid, or performance advice"
-    }
-  ]
-}`;
-
-export function parseAndValidateSteps(rawJsonString, fallbackTitle) {
-  let cleaned = String(rawJsonString || '').trim();
-  if (cleaned.startsWith('```json')) {
-    cleaned = cleaned.slice(7);
-  } else if (cleaned.startsWith('```')) {
-    cleaned = cleaned.slice(3);
-  }
-  if (cleaned.endsWith('```')) {
-    cleaned = cleaned.slice(0, -3);
-  }
-  cleaned = cleaned.trim();
-
-  let parsed;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch (err) {
-    throw new LLMError(`Failed to parse structured JSON from LLM: ${err.message}`, { status: 502, provider: true });
-  }
-
-  const title = parsed.title || fallbackTitle;
-  const overview = parsed.overview || '';
-  const recommendedNextStep = parsed.recommended_next_step || '';
-  const rawSteps = Array.isArray(parsed.steps) ? parsed.steps : (Array.isArray(parsed) ? parsed : []);
-
-  if (!rawSteps.length) {
-    throw new LLMError('LLM did not return any learning steps.', { status: 502, provider: true });
-  }
-
-  const formattedSteps = rawSteps.map((step, idx) => ({
-    step_number: step.step_number || (idx + 1),
-    title: step.title || `Step ${idx + 1}`,
-    time_estimate: step.time_estimate || '~5 min',
-    summary: step.summary || (typeof step === 'string' ? step : ''),
-    implementation: step.implementation || '',
-    code_snippet: step.code_snippet || null,
-    pro_tip: step.pro_tip || ''
-  }));
-
-  return {
-    title,
-    overview,
-    recommended_next_step: recommendedNextStep,
-    steps: formattedSteps
-  };
-}
 
 /**
  * Identifies errors that must NOT trigger fallback:

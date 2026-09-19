@@ -20,6 +20,7 @@ import {
   MODEL_CREDIT_COSTS
 } from './handler.js';
 
+import { handleTutorQuery, TUTOR_CREDIT_COSTS } from './tutor.js';
 import { listCatalog, readCourse, publishCourse, readMaintenance, writeMaintenance } from './catalog.js';
 import { apiError } from './errors.js';
 import { captureUnexpectedError } from './observability.js';
@@ -226,6 +227,24 @@ export async function handler(event) {
           isAdmin: effectiveIsAdmin, userId: effectiveUserId, userEmail: effectiveUserEmail,
           userName: session?.userName || null, visibility: body.visibility, onStage, requestId }) });
       return jsonResponse(result.status, result.body);
+    }
+
+    // 6.5. Interactive Technical Course Tutor
+    if (subpath === '/tutor') {
+      if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
+      const session = await authenticate(headers);
+      const { courseId, stepIndex, question, mode, recentMessages, troubleCategory, errorMessage } = body;
+      const result = await handleTutorQuery({
+        courseId,
+        stepIndex: Number(stepIndex || 0),
+        question,
+        mode,
+        recentMessages,
+        troubleCategory,
+        errorMessage,
+        session
+      });
+      return jsonResponse(200, result);
     }
 
     // 7. Course deletion

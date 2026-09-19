@@ -1,9 +1,26 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.19.0 LIVE Beta',
+    date: 'September 19, 2026',
+    title: 'Interactive Course Tutor, Zero-Cost Checkpoints, and Adaptive Learning',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Interactive Course Tutor & "I\'m Stuck" Modal', desc: 'Active-step context-aware AI tutor with response modes (Quick, Normal, Deep) and ADHD-friendly error troubleshooting modal.' },
+      { title: 'Zero-Cost Local Checkpoints', desc: 'Pre-generated self-assessment quizzes evaluated locally with instant feedback and zero token consumption.' },
+      { title: 'Course v2 & Source Chunk Retrieval', desc: 'Action-first numbered steps with goal/why/actions/mistakes, 1,500–3,000 char source chunks, and stable chunk ID references.' }
+    ],
+    notes: [
+      'Separated guest tutor allowance (15 messages/day) from guest course generation quota (3 courses/day).',
+      'Added fine-grained tutor credit pricing (Quick: 0.1 cr, Normal: 0.25 cr, Deep: 0.5 cr) with zero charges on failed requests.',
+      'Separated step completion (not_started / completed) from step understanding (unknown / understood / needs_review).',
+      'Added dynamic resume banner to continue from the last active step upon returning to a course.',
+      'Full backward compatibility: legacy course objects bridge cleanly without destructive migration or data loss.'
+    ]
+  },
+  {
     version: 'v1.18.0 LIVE Beta',
     date: 'September 19, 2026',
     title: 'Interactive Motion Suite & Real-Time QOL',
-    badge: 'Latest Release',
     highlights: [
       { title: 'Interactive CardSwap Pipeline', desc: 'Visual 3D card stack showing the transformation from raw documentation into action curricula and practice.' },
       { title: 'Real-Time TextType Status', desc: 'Live terminal typewriter animation in generation progress modal for immediate active feedback.' },

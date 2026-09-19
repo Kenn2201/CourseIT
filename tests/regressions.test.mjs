@@ -652,3 +652,72 @@ test('modern Netlify entrypoints preserve routing, responses and auth', async ()
   }));
   assert.equal(response.status, 401);
 });
+
+test('tutor endpoint requires valid courseId and question or error message', async () => {
+  assert.equal((await api('/tutor', 'POST', {})).statusCode, 400);
+  assert.equal((await api('/tutor', 'POST', { courseId: 'missing-course' })).statusCode, 400);
+});
+
+test('tutor endpoint answers contextual question using step context and does not charge course cost', async () => {
+  const courseId = 'course-tutor-fixture-' + randomUUID();
+  await writeState('courses/' + courseId, normalizeCourse({
+    $id: courseId,
+    title: 'Firebase Setup',
+    creator_id: 'author',
+    visibility: 'public',
+    steps: [
+      {
+        step_number: 1,
+        title: 'Install Firebase CLI',
+        summary: 'Install npm package.',
+        actions: ['npm install -g firebase-tools']
+      }
+    ]
+  }));
+
+  const res = await api('/tutor', 'POST', {
+    courseId,
+    stepIndex: 0,
+    question: 'How do I check installation?'
+  }, 'author');
+
+  assert.equal(res.statusCode, 200);
+  const data = JSON.parse(res.body);
+  assert.equal(data.success, true);
+  assert.ok(data.answer);
+  assert.equal(data.usage.cost, 0.1); // Quick mode costs 0.1, not full 0.5-5.0 generation cost
+});
+
+test('guest tutor usage is bounded by separate guest tutor allowance without consuming course generations', async () => {
+  const courseId = 'course-guest-tutor-' + randomUUID();
+  await writeState('courses/' + courseId, normalizeCourse({
+    $id: courseId,
+    $createdAt: new Date().toISOString(),
+    title: 'Guest Demo',
+    creator_id: 'public_guest',
+    is_guest: true,
+    visibility: 'public',
+    steps: [{ step_number: 1, title: 'Step 1', summary: 'Intro' }]
+  }));
+
+  const beforeGenerations = (await readState('settings/guest-quota'))?.totalGenerations || 0;
+
+  const res = await api('/tutor', 'POST', {
+    courseId,
+    stepIndex: 0,
+    question: 'What is this step?'
+  });
+
+  assert.equal(res.statusCode, 200);
+  const data = JSON.parse(res.body);
+  assert.equal(data.usage.isGuest, true);
+  assert.equal(data.usage.cost, 0);
+
+  // Check that guest course generations quota was NOT consumed
+  const guestCourseQuota = await readState('settings/guest-quota');
+  assert.equal(guestCourseQuota?.totalGenerations || 0, beforeGenerations);
+
+  // Check that guest tutor quota WAS tracked separately
+  const guestTutorQuota = await readState('settings/guest-tutor-quota');
+  assert.ok(guestTutorQuota.totalMessages >= 1);
+});

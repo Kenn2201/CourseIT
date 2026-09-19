@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Clock, Layers, Sparkles, CheckCircle2, Share2, Check, Download, Printer, FileText, FileCode, ChevronDown, Lock } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Layers, Sparkles, CheckCircle2, Share2, Check, Download, Printer, FileText, FileCode, ChevronDown, Lock, AlertTriangle, ArrowRight } from 'lucide-react';
 import StepItem from '../components/StepItem';
 import ProgressBar from '../components/ProgressBar';
 import CourseTutor from '../components/CourseTutor';
 import AdminModal from '../components/AdminModal';
 import { getCourse } from '../lib/appwrite';
-import { getCompletedSteps, toggleStep, resetCourseProgress } from '../lib/storage';
+import {
+  getCompletedSteps,
+  toggleStep,
+  resetCourseProgress,
+  getUnderstandingMap,
+  getCourseProgressOverview
+} from '../lib/storage';
 import { useAuth } from '../context/AuthContext';
 import SourceImagePreview from '../components/SourceImagePreview';
 
@@ -17,6 +23,10 @@ export default function CourseDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [completedSteps, setCompletedSteps] = useState([]);
+  const [understandingMap, setUnderstandingMap] = useState({});
+  const [overviewStats, setOverviewStats] = useState(null);
+  const [externalPrompt, setExternalPrompt] = useState(null);
+  const [activeTutorStep, setActiveTutorStep] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -44,6 +54,8 @@ export default function CourseDetail() {
         const data = await getCourse(id, user, isAdmin);
         setCourse(data);
         setCompletedSteps(getCompletedSteps(id));
+        setUnderstandingMap(getUnderstandingMap(id));
+        setOverviewStats(getCourseProgressOverview(id, data.steps || []));
       } catch (err) {
         console.error('Failed to load course:', err);
         setError(err.message || 'Course not found.');
@@ -59,11 +71,27 @@ export default function CourseDetail() {
   const handleToggle = (stepNumber) => {
     const updated = toggleStep(id, stepNumber);
     setCompletedSteps(updated);
+    setOverviewStats(getCourseProgressOverview(id, course?.steps || []));
+  };
+
+  const handleCheckpointChange = (stepNumber, status) => {
+    setUnderstandingMap(getUnderstandingMap(id));
+    setCompletedSteps(getCompletedSteps(id));
+    setOverviewStats(getCourseProgressOverview(id, course?.steps || []));
+  };
+
+  const scrollToStep = (stepNumber) => {
+    const el = document.getElementById(`step-card-${stepNumber}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   };
 
   const handleReset = () => {
     resetCourseProgress(id);
     setCompletedSteps([]);
+    setUnderstandingMap({});
+    setOverviewStats(getCourseProgressOverview(id, course?.steps || []));
   };
 
   const handleShare = () => {
@@ -412,14 +440,61 @@ export default function CourseDetail() {
           </div>
         </div>
 
+        {/* Adaptive Resume Banner */}
+        {completedSteps.length > 0 && !isAllComplete && overviewStats?.resumeStep && (
+          <div className="mb-8 p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-indigo-950/70 to-slate-900 border border-indigo-500/40 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono uppercase tracking-wider text-indigo-400 font-bold">Welcome back</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+              <p className="text-sm font-semibold text-white">
+                Continue: <span className="text-indigo-200 font-bold">STEP {String(overviewStats.resumeStep.step_number).padStart(2, '0')} — {overviewStats.resumeStep.title}</span>
+              </p>
+              {overviewStats.reviewStep && (
+                <p className="text-xs text-amber-300/90 flex items-center gap-1.5 font-sans pt-0.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Review recommended: STEP {String(overviewStats.reviewStep.step_number).padStart(2, '0')} — {overviewStats.reviewStep.title}</span>
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => scrollToStep(overviewStats.resumeStep.step_number)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 transition-all shrink-0 cursor-pointer"
+            >
+              <span>Continue Course</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Progress Tracker */}
-        <div className="mb-8">
+        <div className="mb-4">
           <ProgressBar
             totalSteps={steps.length}
             completedCount={completedSteps.length}
             onReset={handleReset}
           />
         </div>
+
+        {/* Understanding Summary Bar */}
+        {overviewStats && (
+          <div className="mb-8 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+            <div className="flex items-center gap-2 text-slate-400">
+              <span className="font-semibold text-slate-300">Course Progress:</span>
+              <span>{completedSteps.length} / {steps.length} steps</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Understanding:</span>
+              <span className="text-emerald-400 font-semibold">{overviewStats.understoodCount} understood</span>
+              <span className="text-slate-600">&bull;</span>
+              <span className="text-amber-400 font-semibold">{overviewStats.needsReviewCount} needs review</span>
+              <span className="text-slate-600">&bull;</span>
+              <span className="text-slate-400">{overviewStats.notStartedCount} not started</span>
+            </div>
+          </div>
+        )}
 
         {/* Completed Celebration Banner */}
         {isAllComplete && (
@@ -446,13 +521,24 @@ export default function CourseDetail() {
           {steps.map((step) => {
             const stepNum = step.step_number;
             const isCompleted = completedSteps.includes(stepNum);
+            const understandingStatus = understandingMap[stepNum] || 'unknown';
 
             return (
               <StepItem
                 key={stepNum}
                 step={step}
+                courseId={id}
+                totalSteps={steps.length}
                 isCompleted={isCompleted}
+                understandingStatus={understandingStatus}
                 onToggle={() => handleToggle(stepNum)}
+                onCheckpointChange={handleCheckpointChange}
+                onAskTutor={(prompt) => {
+                  setExternalPrompt(prompt);
+                  if (prompt.stepNumber) {
+                    setActiveTutorStep(prompt.stepNumber - 1);
+                  }
+                }}
               />
             );
           })}
@@ -480,8 +566,14 @@ export default function CourseDetail() {
           </div>
         )}
 
-        {/* Scripted Technical Companion Bot */}
-        <CourseTutor course={course} mode="course" />
+        {/* Contextual Technical Tutor */}
+        <CourseTutor
+          course={course}
+          activeStepIndex={activeTutorStep}
+          externalPrompt={externalPrompt}
+          onClearExternalPrompt={() => setExternalPrompt(null)}
+          mode="course"
+        />
       </div>
     </div>
   );

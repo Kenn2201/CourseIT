@@ -10,6 +10,7 @@ import { readState, writeState, listState, updateState, deleteState } from './st
 import { listDocumentsAll, readCourse, courseDatabase, addPublicCourseToFeed, removePublicCourseFromFeed } from './catalog.js';
 import { normalizeCourse } from '../shared/courses.js';
 import { deleteSourceFile } from './sourceStore.js';
+import { chunkDocumentText, saveCourseChunks } from './courseChunks.js';
 
 // In serverless / AWS Lambda / Netlify environments, the root file system is read-only.
 // Use os.tmpdir() for runtime fallback files.
@@ -515,6 +516,7 @@ export async function deleteCourse(courseId, requestingUserId = null, requesting
     catch (error) { if (error.code !== 404) throw error; }
   }
   await deleteState('courses/' + courseId);
+  await deleteState('chunks/' + courseId);
   await removePublicCourseFromFeed(courseId);
   if (course.source_file_id) {
     try { await deleteSourceFile(course.source_file_id); }
@@ -1004,7 +1006,7 @@ export async function processDocumentationUrl(url, customModel = 'gemini-flash-l
     const summarized = await summarizeWithLLM(extracted.content, extracted.title, customModel, options.topic, options.onStage);
     const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation, startedAt,
       source_url: extracted.resolvedUrl || url, input_url: options.inputUrl || url, learning_topic: options.topic || null,
-      creator_name: options.userName || null, source_type: 'url', onStage: options.onStage, requestId: options.requestId });
+      creator_name: options.userName || null, source_type: 'url', sourceContent: extracted.content, onStage: options.onStage, requestId: options.requestId });
     charged = true;
     return result;
   } finally { if (!charged) await releaseGeneration(userId, reservation); }
@@ -1020,13 +1022,13 @@ export async function processDocumentText({ title, text, customModel = 'gemini-f
     await onStage?.('Generating with Gemini');
     const summarized = await summarizeWithLLM(text, title || 'Uploaded Document', customModel, null, onStage);
     const result = await saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, reservation, startedAt,
-      source_url: 'upload://' + encodeURIComponent(title || 'document'), creator_name: userName, source_type: 'document', onStage, requestId });
+      source_url: 'upload://' + encodeURIComponent(title || 'document'), creator_name: userName, source_type: 'document', sourceContent: text, onStage, requestId });
     charged = true;
     return result;
   } finally { if (!charged) await releaseGeneration(userId, reservation); }
 }
 
-async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, input_url = null, learning_topic = null, creator_name = null, source_type, reservation, startedAt, onStage, requestId }) {
+async function saveGeneration({ summarized, customModel, isAdmin, userId, userEmail, visibility, source_url, input_url = null, learning_topic = null, creator_name = null, source_type, sourceContent = null, reservation, startedAt, onStage, requestId }) {
   const actualModel = summarized.actualModel || customModel;
   // A fallback model is recorded accurately, but never charges more than the
   // lowest selectable tier. The original reservation still covers that charge.
@@ -1048,6 +1050,29 @@ async function saveGeneration({ summarized, customModel, isAdmin, userId, userEm
     credits_charged: isGuest ? 0 : getModelCost(billingModel),
     generation_status: 'completed'
   });
+
+  // Chunk source document and assign stable chunk sourceRefs to steps
+  if (sourceContent && typeof sourceContent === 'string') {
+    try {
+      const chunks = chunkDocumentText(sourceContent, course.$id, source_url);
+      if (chunks.length > 0) {
+        for (const step of course.steps) {
+          if (!step.sourceRefs || step.sourceRefs.length === 0) {
+            const titleLower = (step.title || '').toLowerCase();
+            const matched = chunks.find(c =>
+              c.heading.toLowerCase().includes(titleLower) ||
+              c.text.toLowerCase().includes(titleLower)
+            ) || chunks[0];
+            if (matched) step.sourceRefs = [matched.id];
+          }
+        }
+        await saveCourseChunks(course.$id, chunks);
+      }
+    } catch (chunkErr) {
+      console.warn('[CourseIT] Source chunking notice:', chunkErr.message);
+    }
+  }
+
   // Every run gets its own ID; a URL cache must never return another author's private course.
   await onStage?.('Saving course');
   await writeState('courses/' + course.$id, course);

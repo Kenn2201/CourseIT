@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-09-19 — Interactive Course Tutor, Zero-Cost Checkpoints, and Adaptive Learning (LIVE Beta)
+
+### Added
+- **Interactive Context-Aware Course Tutor (`/api/tutor`)**:
+  - Bound to the learner's active step with bounded context prompt construction (system instructions, step context, and 2–4 targeted source chunks).
+  - Three response modes: **Quick** (concise 2–3 sentences, ~150 tokens), **Normal** (balanced explanation with code snippets, ~400 tokens), and **Deep** (in-depth mental models and edge cases, ~800 tokens).
+  - ADHD-friendly **"I'm Stuck" Modal**: specialized error troubleshooting flow allowing users to paste error stack traces and select stuck categories ("I got an error", "I don't understand", "The code didn't work", "I need an example").
+  - `[Show source]` inline viewer for grounded answers referencing stored documentation chunks.
+- **Zero-Cost Local Checkpoints**:
+  - Pre-generated step checkpoints (`question`, `options`, `correctIndex`, `explanation`) evaluated 100% locally in the browser with immediate "Correct!" or "Not quite" feedback without spending AI tokens.
+  - "Quiz me" button immediately serves the pre-generated checkpoint at zero token cost; AI is only queried if the user explicitly requests an additional quiz.
+- **Course v2 Schema & Source Chunking (`server/courseChunks.js`, `server/courseSchema.js`)**:
+  - Rich step structure: `goal`, `why`, `actions`, `expectedResult`, `commonMistakes`, `checkpoint`, `suggestedQuestions`, and stable `sourceRefs`.
+  - Content chunker segmenting documentation into 1,500–3,000 character chunks with 200–400 character overlap while strictly preserving code blocks and heading boundaries.
+  - 4-tier chunk retrieval: Step `sourceRefs` → Heading/title matching → Keyword scoring → Course fallback.
+- **Independent Quota & Fine-Grained Pricing**:
+  - Separate guest tutor quota (15 messages/day) stored under `settings/guest-tutor-quota`, completely independent of the 3 course generation/day limit.
+  - Granular tutor credit deductions: Quick (0.1 cr), Normal (0.25 cr), Deep (0.5 cr). Zero charges on failed upstream provider requests.
+- **Adaptive Understanding & Resume Experience**:
+  - Clean separation between step completion (`not_started` / `completed`) and step comprehension (`unknown` / `understood` / `needs_review`).
+  - Welcome back banner upon reopening courses with direct 1-click continuation to the last active step.
+
+### Changed and Hardened
+- Preserved 100% backward compatibility with legacy courses: legacy steps (`summary`, `implementation`) automatically bridge to Course v2 format at read/render time without destructive database migrations.
+- Modularized schemas and prompt logic cleanly into `server/courseSchema.js` and `server/llm/prompts.js`.
+- Preserved existing multi-provider fallback cascade for tutor queries (`Gemini → Cerebras → Groq → Mistral → OpenRouter`).
+
 ## [1.18.0] - 2026-09-19 — Interactive Motion Suite, 404 Experience, and Real-Time QOL (LIVE Beta)
 
 ### Added

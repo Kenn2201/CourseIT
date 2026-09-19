@@ -1,7 +1,20 @@
-export const GUEST_COURSE_TTL_MS = 30 * 60 * 1000;
+/**
+ * CourseIT Course v2 Schema & Normalization Module
+ *
+ * Provides single source of truth for Course v2 structured learning steps,
+ * defensive parsing, and backward-compatible bridges for legacy v1 course data.
+ */
+
+export function slugifyTitle(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 50);
+}
 
 /**
- * Extracts numeric minutes from time estimate string (e.g. "~10 min" -> 10).
+ * Extracts numeric minutes from time string (e.g. "~10 min" -> 10).
  */
 export function extractMinutes(timeEstimate, defaultMin = 10) {
   if (typeof timeEstimate === 'number' && Number.isFinite(timeEstimate)) return timeEstimate;
@@ -33,7 +46,7 @@ export function parseActionsFromText(text) {
 
 /**
  * Validates and bridges a single step object into the full Course v2 shape.
- * Never throws on missing legacy fields.
+ * Never mutates or throws on legacy missing fields.
  */
 export function normalizeCourseStepV2(step, idx = 0) {
   if (!step || typeof step !== 'object') {
@@ -44,8 +57,7 @@ export function normalizeCourseStepV2(step, idx = 0) {
   const title = String(step.title || `Step ${stepNumber}`).trim();
   const timeEstimate = String(step.time_estimate || step.timeEstimate || '~10 min').trim();
   const estimatedMinutes = extractMinutes(step.estimatedMinutes || timeEstimate, 10);
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 50);
-  const id = String(step.id || `step-${stepNumber}-${slug || 'action'}`);
+  const id = String(step.id || `step-${stepNumber}-${slugifyTitle(title)}`);
 
   // Goal & Why
   const goal = String(step.goal || step.summary || title).trim();
@@ -64,7 +76,7 @@ export function normalizeCourseStepV2(step, idx = 0) {
     actions = [`Complete ${title}`];
   }
 
-  // Expected Result & Common Mistakes
+  // Expected Result & Mistakes
   const expectedResult = step.expectedResult || step.expected_result
     ? String(step.expectedResult || step.expected_result).trim()
     : null;
@@ -103,13 +115,13 @@ export function normalizeCourseStepV2(step, idx = 0) {
     }
   }
 
-  // Suggested questions
+  // Suggested questions (generated upfront, zero runtime AI cost)
   const rawQuestions = step.suggestedQuestions || step.suggested_questions;
   const suggestedQuestions = Array.isArray(rawQuestions)
     ? rawQuestions.map(q => String(q).trim()).filter(Boolean)
     : [];
 
-  // Source refs
+  // Source refs (stable chunk IDs)
   const rawRefs = step.sourceRefs || step.source_refs;
   const sourceRefs = Array.isArray(rawRefs)
     ? rawRefs.map(r => String(r).trim()).filter(Boolean)
@@ -125,7 +137,7 @@ export function normalizeCourseStepV2(step, idx = 0) {
     codeExamples = [{ language: 'code', code: codeSnippet }];
   }
 
-  // Backward compatibility bridges
+  // Backward compatibility bridge fields for legacy consumers / exports
   const summaryBridge = step.summary || goal;
   const implementationBridge = step.implementation || actions.map((a, i) => `${i + 1}. ${a}`).join('\n');
 
@@ -152,63 +164,49 @@ export function normalizeCourseStepV2(step, idx = 0) {
   };
 }
 
-export function normalizeCourse(doc) {
-  if (!doc || typeof doc !== 'object') return doc;
-  let metadata = {};
-  let rawSteps = doc.steps;
-  if (typeof rawSteps === 'string') {
-    try { rawSteps = JSON.parse(rawSteps); } catch { rawSteps = []; }
+/**
+ * Parses raw JSON string returned by LLM into Course v2 data structure.
+ */
+export function parseAndValidateStepsV2(rawJsonString, fallbackTitle = 'Technical Course') {
+  let cleaned = String(rawJsonString || '').trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.slice(7);
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.slice(3);
   }
-  if (rawSteps && !Array.isArray(rawSteps) && typeof rawSteps === 'object') {
-    metadata = rawSteps;
-    rawSteps = metadata.items || metadata.steps || [];
+  if (cleaned.endsWith('```')) {
+    cleaned = cleaned.slice(0, -3);
   }
-  const stepsList = Array.isArray(rawSteps) ? rawSteps : [];
-  const normalizedSteps = stepsList.map((step, idx) => normalizeCourseStepV2(step, idx));
+  cleaned = cleaned.trim();
 
-  const course = { ...doc, ...metadata, steps: normalizedSteps };
-  course.creator_id ||= null;
-  course.is_guest = Boolean(course.is_guest || course.creator_id === 'public_guest');
-  // Old account courses remain private until their owner explicitly publishes them.
-  course.visibility ||= course.is_guest || course.is_curated ? 'public' : 'private';
-  if (course.is_guest) {
-    const created = Date.parse(course.$createdAt || course.createdAt);
-    course.expires_at = Number.isFinite(created)
-      ? new Date(created + GUEST_COURSE_TTL_MS).toISOString() : new Date(0).toISOString();
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    throw Object.assign(new Error(`Failed to parse structured JSON from LLM: ${err.message}`), {
+      status: 502,
+      provider: true
+    });
   }
-  return course;
-}
 
+  const title = parsed.title || fallbackTitle;
+  const overview = parsed.overview || '';
+  const recommendedNextStep = parsed.recommended_next_step || parsed.recommendedNextStep || '';
+  const rawSteps = Array.isArray(parsed.steps) ? parsed.steps : (Array.isArray(parsed) ? parsed : []);
 
-export function isExpiredCourse(course, now = Date.now()) {
-  return course.is_guest && (!course.expires_at || Date.parse(course.expires_at) <= now);
-}
-
-export function canReadCourse(course, userId = null, isAdmin = false) {
-  if (isExpiredCourse(course)) return false;
-  return course.is_curated || course.visibility === 'public' ||
-    (course.visibility === 'community' && Boolean(userId)) || isAdmin ||
-    Boolean(userId && course.creator_id === userId && userId !== 'public_guest');
-}
-
-export function isSystemCourse(doc) {
-  return doc.$id?.startsWith('system_') || doc.source_url?.startsWith('system://') ||
-    doc.creator_id === 'system';
-}
-
-export function publicCourse(course, userId, isAdmin) {
-  if (isAdmin || (userId && userId === course.creator_id)) return course;
-  const { creator_email, creator_id, generation_request_id,
-    source_file_id, source_filename, source_mime_type, source_file_bytes, source_saved_at, ...safe } = course;
-  for (const field of ['source_url', 'input_url']) {
-    if (typeof safe[field] === 'string' && /^https?:\/\//i.test(safe[field])) {
-      try {
-        const url = new URL(safe[field]);
-        url.search = '';
-        url.hash = '';
-        safe[field] = url.href;
-      } catch { delete safe[field]; }
-    }
+  if (!rawSteps.length) {
+    throw Object.assign(new Error('LLM did not return any learning steps.'), {
+      status: 502,
+      provider: true
+    });
   }
-  return { ...safe, creator_name: course.creator_name || (course.is_guest ? 'Guest' : 'Community member') };
+
+  const steps = rawSteps.map((step, idx) => normalizeCourseStepV2(step, idx));
+
+  return {
+    title,
+    overview,
+    recommended_next_step: recommendedNextStep,
+    steps
+  };
 }

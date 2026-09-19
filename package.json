@@ -1,14 +1,14 @@
 {
   "name": "courseit",
   "private": true,
-  "version": "1.18.0",
+  "version": "1.19.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:doppler": "doppler run -- vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/regressions.test.mjs tests/blobs.test.mjs tests/startup.test.mjs tests/safe-fetch.test.mjs"
+    "test": "node --test tests/tutor.test.mjs tests/regressions.test.mjs tests/blobs.test.mjs tests/startup.test.mjs tests/safe-fetch.test.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
